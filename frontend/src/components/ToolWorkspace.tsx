@@ -27,7 +27,9 @@ import {
   Smartphone,
   ChevronRight,
   Check,
-  Crown
+  Crown,
+  PlusCircle,
+  Plus
 } from "lucide-react";
 
 interface ToolWorkspaceProps {
@@ -71,11 +73,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
   const handleFilesSelect = (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) return;
-    if (tool.multiple) {
-      setFiles((prev) => [...prev, ...selectedFiles]);
-    } else {
-      setFiles(selectedFiles.slice(0, 1));
-    }
+    setFiles((prev) => [...prev, ...selectedFiles]);
     setError(null);
     setResult(null);
   };
@@ -83,6 +81,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       handleFilesSelect(Array.from(e.target.files));
+      // Reset input value so same files can be re-added if desired
+      e.target.value = "";
     }
   };
 
@@ -113,6 +113,12 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     setResult(null);
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const openFilePicker = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -191,6 +197,16 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
   return (
     <div className="max-w-4xl mx-auto py-6 sm:py-10 px-4 sm:px-6">
+      {/* Hidden File Input for Triggering Browsers */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={tool.accept}
+        multiple={true}
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       {/* 1. Breadcrumbs */}
       <nav className="flex items-center gap-1.5 text-xs text-slate-400 font-medium mb-6">
         <Link href="/" className="hover:text-indigo-600 transition">Home</Link>
@@ -303,28 +319,19 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Upload Area (Shown when no files are chosen or when in multi-file mode) */}
+          {/* Upload Area (Shown when no files are chosen) */}
           {files.length === 0 ? (
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={openFilePicker}
               className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center transition-all cursor-pointer group ${
                 isDragging
                   ? "border-indigo-600 bg-indigo-50/60 shadow-lg shadow-indigo-500/10"
                   : "border-slate-200 hover:border-indigo-500/80 bg-slate-50/40 hover:bg-indigo-50/20"
               }`}
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={tool.accept}
-                multiple={tool.multiple}
-                onChange={handleFileChange}
-                className="hidden"
-              />
-
               {/* Upload Icon */}
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-4 group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-md shadow-indigo-500/10">
                 <UploadCloud className="w-8 h-8 sm:w-10 sm:h-10" />
@@ -348,20 +355,31 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               </div>
             </div>
           ) : (
-            /* File Selected State: Premium File Queue Card */
+            /* File Selected State: File Queue Card with Add More Files Action */
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-                  {tool.multiple ? `Selected Files (${files.length})` : "Selected File"}
+                  Selected Files ({files.length})
                 </h4>
-                <button
-                  type="button"
-                  onClick={resetAll}
-                  className="text-xs font-bold text-slate-400 hover:text-red-600 flex items-center gap-1 transition"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Clear All
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={openFilePicker}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add More Files
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    className="text-xs font-bold text-slate-400 hover:text-red-600 flex items-center gap-1 transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Clear All
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2.5">
@@ -371,15 +389,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     className="flex items-center justify-between p-4 bg-slate-50/80 hover:bg-slate-50 rounded-2xl border border-slate-200/80 transition"
                   >
                     <div className="flex items-center gap-3 overflow-hidden">
-                      {tool.multiple ? (
-                        <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                      ) : (
-                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                      )}
+                      <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
                       <div className="overflow-hidden">
                         <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
                           {f.name}
@@ -406,24 +418,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 ))}
               </div>
 
-              {/* Add More Files Button (for multi-file tools) */}
-              {tool.multiple && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 transition flex items-center justify-center gap-1.5"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={tool.accept}
-                    multiple={tool.multiple}
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <span>+ Add another file</span>
-                </button>
-              )}
+              {/* Prominent Add More Files Banner */}
+              <button
+                type="button"
+                onClick={openFilePicker}
+                className="w-full py-3.5 border-2 border-dashed border-indigo-200 hover:border-indigo-500 bg-indigo-50/30 hover:bg-indigo-50/60 rounded-2xl text-xs sm:text-sm font-bold text-indigo-700 hover:text-indigo-800 transition flex items-center justify-center gap-2 shadow-xs group"
+              >
+                <PlusCircle className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+                <span>Add More Files</span>
+              </button>
             </div>
           )}
 
