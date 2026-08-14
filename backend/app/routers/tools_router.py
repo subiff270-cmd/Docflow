@@ -2,6 +2,7 @@ import io
 import os
 import json
 import zipfile
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -743,12 +744,13 @@ async def api_voice_to_document(
     text = transcript_text or ""
     
     if not text.strip():
-        # Check if audio transcription is configured
-        raise HTTPException(status_code=400, detail="Voice transcription is not configured yet. Please enter or record speech transcript.")
+        raise HTTPException(status_code=400, detail="Please record or enter some text first.")
 
     try:
-        doc_bytes, mime = voice_service.generate_voice_document(text, doc_type, output_format)
-        out_name = f"voice_{doc_type.lower().replace(' ', '_')}.{output_format}"
+        clean_format = output_format.lower().replace(".", "").strip()
+        doc_bytes, mime = voice_service.generate_voice_document(text, doc_type, clean_format)
+        clean_title = doc_type.replace(" ", "_").replace("→", "to")
+        out_name = f"DocFlow_{clean_title}_{datetime.now().strftime('%Y%m%d')}.{clean_format}"
         item = save_generated_bytes(db, doc_bytes, out_name, mime, uid)
         record_conversion_success(db, uid, out_name, "Voice to Document", len(text.encode('utf-8')), len(doc_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
