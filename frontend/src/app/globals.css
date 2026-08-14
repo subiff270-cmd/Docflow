@@ -1,0 +1,622 @@
+@import "tailwindcss";
+
+/* ============================================
+   DOCFLOW PREMIUM GLOW DESIGN SYSTEM
+   ============================================ */
+
+:root {
+  /* Glow color tokens */
+  --glow-primary: rgba(99, 102, 241, 0.15);
+  --glow-violet: rgba(139, 92, 246, 0.12);
+  --glow-blue: rgba(59, 130, 246, 0.10);
+  --glow-ai: rgba(139, 92, 246, 0.20);
+  --glow-soft: rgba(99, 102, 241, 0.08);
+  --glow-strong: rgba(99, 102, 241, 0.25);
+
+  /* Ambient gradient colors */
+  --ambient-violet: rgba(139, 92, 246, 0.08);
+  --ambient-blue: rgba(99, 149, 255, 0.06);
+  --ambient-indigo: rgba(99, 102, 241, 0.07);
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+  }
+}
+
+/* Prevent horizontal overflow on mobile */
+html, body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Touch-friendly tap targets */
+@media (max-width: 768px) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+  .sticky {
+    position: -webkit-sticky;
+    position: sticky;
+  }
+}
+
+/* ============================================
+   SCROLLBAR STYLES
+   ============================================ */
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ============================================
+   BASE ANIMATIONS
+   ============================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Button shimmer effect */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ============================================
+   HERO AMBIENT GLOW BACKGROUND
+   ============================================ */
+
+.hero-ambient {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-ambient::before,
+.hero-ambient::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Large violet glow — top center */
+.hero-ambient::before {
+  width: 700px;
+  height: 500px;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, var(--ambient-violet) 0%, transparent 70%);
+  animation: ambientDrift1 12s ease-in-out infinite;
+}
+
+/* Blue glow — bottom right */
+.hero-ambient::after {
+  width: 500px;
+  height: 400px;
+  bottom: -80px;
+  right: -60px;
+  background: radial-gradient(ellipse, var(--ambient-blue) 0%, transparent 70%);
+  animation: ambientDrift2 10s ease-in-out infinite;
+}
+
+/* Third glow via inner element */
+.hero-glow-extra {
+  position: absolute;
+  width: 450px;
+  height: 350px;
+  top: 30%;
+  left: -100px;
+  border-radius: 50%;
+  filter: blur(90px);
+  background: radial-gradient(ellipse, var(--ambient-indigo) 0%, transparent 70%);
+  pointer-events: none;
+  animation: ambientDrift3 14s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes ambientDrift1 {
+  0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+  50% { transform: translateX(-48%) translateY(15px) scale(1.05); }
+}
+
+@keyframes ambientDrift2 {
+  0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+  50% { transform: translateY(-20px) translateX(-15px) scale(1.08); }
+}
+
+@keyframes ambientDrift3 {
+  0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+  50% { transform: translateY(10px) translateX(20px) scale(1.04); }
+}
+
+/* ============================================
+   HERO LIGHT BEAM
+   ============================================ */
+
+.hero-light-beam {
+  position: absolute;
+  top: 20%;
+  left: -10%;
+  width: 120%;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(139, 92, 246, 0.06) 20%,
+    rgba(99, 102, 241, 0.10) 50%,
+    rgba(59, 130, 246, 0.06) 80%,
+    transparent 100%
+  );
+  filter: blur(8px);
+  pointer-events: none;
+  animation: beamShimmer 8s ease-in-out infinite;
+}
+
+@keyframes beamShimmer {
+  0%, 100% { opacity: 0.5; transform: translateY(0) scaleX(1); }
+  50% { opacity: 0.8; transform: translateY(-5px) scaleX(1.02); }
+}
+
+/* ============================================
+   FLOATING DOCUMENT OUTLINES
+   ============================================ */
+
+.floating-doc {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid rgba(99, 102, 241, 0.06);
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.02);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.03);
+}
+
+.floating-doc-1 {
+  width: 60px;
+  height: 80px;
+  top: 15%;
+  left: 8%;
+  opacity: 0.4;
+  animation: floatDoc 15s ease-in-out infinite;
+  transform: rotate(-8deg);
+}
+
+.floating-doc-2 {
+  width: 45px;
+  height: 60px;
+  top: 60%;
+  right: 10%;
+  opacity: 0.3;
+  animation: floatDoc 18s ease-in-out infinite reverse;
+  transform: rotate(5deg);
+}
+
+.floating-doc-3 {
+  width: 35px;
+  height: 48px;
+  bottom: 20%;
+  left: 15%;
+  opacity: 0.25;
+  animation: floatDoc 20s ease-in-out infinite;
+  transform: rotate(12deg);
+}
+
+.floating-doc-4 {
+  width: 50px;
+  height: 65px;
+  top: 35%;
+  right: 6%;
+  opacity: 0.2;
+  animation: floatDoc 13s ease-in-out infinite reverse;
+  transform: rotate(-3deg);
+}
+
+/* Document inner "lines" */
+.floating-doc::before {
+  content: '';
+  position: absolute;
+  top: 25%;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 1px;
+  box-shadow:
+    0 6px 0 rgba(99, 102, 241, 0.06),
+    0 12px 0 rgba(99, 102, 241, 0.04);
+}
+
+@keyframes floatDoc {
+  0%, 100% { transform: translateY(0) rotate(var(--float-rotate, 0deg)); }
+  25% { transform: translateY(-8px) rotate(calc(var(--float-rotate, 0deg) + 1deg)); }
+  75% { transform: translateY(5px) rotate(calc(var(--float-rotate, 0deg) - 1deg)); }
+}
+
+/* ============================================
+   FLOATING PARTICLES
+   ============================================ */
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.particle-purple {
+  background: rgba(139, 92, 246, 0.25);
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.15);
+}
+
+.particle-blue {
+  background: rgba(59, 130, 246, 0.20);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.12);
+}
+
+.particle-white {
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 4px rgba(99, 102, 241, 0.10);
+}
+
+@keyframes particleFloat {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.6; }
+  25% { transform: translateY(-12px) translateX(5px); opacity: 0.9; }
+  50% { transform: translateY(-6px) translateX(-3px); opacity: 0.5; }
+  75% { transform: translateY(-15px) translateX(8px); opacity: 0.8; }
+}
+
+/* ============================================
+   HERO ENTRANCE ANIMATIONS
+   ============================================ */
+
+@keyframes heroFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-heading-anim {
+  animation: heroFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.hero-desc-anim {
+  animation: heroFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+  opacity: 0;
+}
+
+.hero-search-anim {
+  animation: heroFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+  opacity: 0;
+}
+
+/* ============================================
+   PREMIUM SEARCH BAR GLOW
+   ============================================ */
+
+.search-premium {
+  position: relative;
+  background: white;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 1rem;
+  box-shadow:
+    0 4px 24px rgba(99, 102, 241, 0.06),
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    inset 0 1px 2px rgba(99, 102, 241, 0.03);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.search-premium:hover {
+  border-color: rgba(165, 180, 252, 0.5);
+  box-shadow:
+    0 8px 32px rgba(99, 102, 241, 0.10),
+    0 2px 6px rgba(0, 0, 0, 0.04),
+    inset 0 1px 2px rgba(99, 102, 241, 0.04);
+}
+
+.search-premium:focus-within {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow:
+    0 0 0 4px rgba(99, 102, 241, 0.08),
+    0 8px 32px rgba(99, 102, 241, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.04),
+    inset 0 1px 2px rgba(99, 102, 241, 0.05);
+}
+
+/* ============================================
+   PREMIUM SEARCH DROPDOWN
+   ============================================ */
+
+.search-dropdown-premium {
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(99, 102, 241, 0.08);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(99, 102, 241, 0.06);
+  border-radius: 1rem;
+}
+
+/* ============================================
+   PREMIUM HEADING GRADIENT + GLOW
+   ============================================ */
+
+.heading-gradient-glow {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed, #6366f1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 40px rgba(99, 102, 241, 0.15);
+  /* text-shadow won't show on clipped text, so we use filter on a pseudo */
+}
+
+/* ============================================
+   SCROLL REVEAL ANIMATIONS
+   ============================================ */
+
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================
+   PREMIUM TOOL CARD HOVER
+   ============================================ */
+
+.tool-card-premium {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tool-card-premium:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 40px rgba(99, 102, 241, 0.10),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Special AI card subtle glow */
+.tool-card-ai:hover {
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow:
+    0 12px 40px rgba(139, 92, 246, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Special voice card blue glow */
+.tool-card-voice:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 12px 40px rgba(59, 130, 246, 0.10),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* ============================================
+   FEATURED TOOL CARD
+   ============================================ */
+
+.featured-card {
+  background: white;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.featured-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow:
+    0 16px 48px rgba(99, 102, 241, 0.10),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.featured-card .featured-icon {
+  transition: all 0.3s ease;
+}
+
+.featured-card:hover .featured-icon {
+  box-shadow: 0 0 16px var(--glow-soft);
+}
+
+/* ============================================
+   LANGUAGE CHIPS
+   ============================================ */
+
+.lang-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.06);
+  color: #4338ca;
+  border: 1px solid rgba(99, 102, 241, 0.10);
+  transition: all 0.25s ease;
+}
+
+.lang-chip:hover {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.20);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.10);
+}
+
+/* ============================================
+   CATEGORY PILL GLOW
+   ============================================ */
+
+.category-pill {
+  position: relative;
+  overflow: hidden;
+}
+
+.category-pill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  box-shadow: 0 0 12px var(--glow-primary);
+}
+
+.category-pill:hover::after {
+  opacity: 1;
+}
+
+/* ============================================
+   ACCESSIBILITY: REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-ambient::before,
+  .hero-ambient::after,
+  .hero-glow-extra,
+  .hero-light-beam,
+  .floating-doc,
+  .particle {
+    animation: none !important;
+  }
+
+  .hero-heading-anim,
+  .hero-desc-anim,
+  .hero-search-anim {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .tool-card-premium:hover,
+  .featured-card:hover {
+    transform: none;
+  }
+}
+
+/* ============================================
+   MOBILE RESPONSIVE GLOW ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 768px) {
+  .hero-ambient::before {
+    width: 350px;
+    height: 250px;
+    filter: blur(60px);
+  }
+
+  .hero-ambient::after {
+    width: 250px;
+    height: 200px;
+    filter: blur(50px);
+  }
+
+  .hero-glow-extra {
+    width: 200px;
+    height: 180px;
+    filter: blur(50px);
+  }
+
+  .hero-light-beam {
+    filter: blur(12px);
+    height: 1px;
+  }
+
+  .floating-doc {
+    display: none;
+  }
+
+  .particle {
+    display: none;
+  }
+
+  .search-premium:focus-within {
+    box-shadow:
+      0 0 0 3px rgba(99, 102, 241, 0.08),
+      0 4px 16px rgba(99, 102, 241, 0.08);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .hero-ambient::before {
+    width: 500px;
+    height: 350px;
+    filter: blur(80px);
+  }
+
+  .hero-ambient::after {
+    width: 350px;
+    height: 300px;
+    filter: blur(70px);
+  }
+
+  .floating-doc-3,
+  .floating-doc-4 {
+    display: none;
+  }
+}
+
+/* ============================================
+   SAFE AREA INSETS FOR NOTCHED PHONES
+   ============================================ */
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  footer {
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+  }
+  header {
+    padding-top: env(safe-area-inset-top);
+  }
+}
