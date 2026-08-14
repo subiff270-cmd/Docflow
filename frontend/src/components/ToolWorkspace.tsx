@@ -29,7 +29,8 @@ import {
   Check,
   Crown,
   PlusCircle,
-  Plus
+  Plus,
+  FileCheck2
 } from "lucide-react";
 
 interface ToolWorkspaceProps {
@@ -694,6 +695,23 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               </div>
             </div>
 
+            {/* Ready Output File Card */}
+            <div className="p-4 bg-white rounded-2xl border border-emerald-200/80 flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <FileCheck2 className="w-5 h-5" />
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 truncate" title={result.filename}>
+                    {result.filename || "Converted Document"}
+                  </p>
+                  <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Ready to download
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Reduction indicator for compress */}
             {result.reduction_percentage !== undefined && (
               <div className="p-3.5 bg-white rounded-2xl border border-emerald-200/80 text-xs font-semibold text-slate-700 flex justify-around">
@@ -713,8 +731,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               </div>
             )}
 
-            {/* Download and Reset Actions */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            {/* Balanced Action Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               {result.download_key && (
                 <a
                   href={getDownloadUrl(result.download_key)}
@@ -722,15 +740,16 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                   className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5"
                 >
                   <Download className="w-5 h-5" />
-                  Download {result.filename || "Output File"}
+                  <span>Download File</span>
                 </a>
               )}
               <button
                 type="button"
                 onClick={resetAll}
-                className="w-full sm:w-auto px-6 py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-2xl text-sm transition"
+                className="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-2xl text-sm transition flex items-center justify-center gap-2"
               >
-                Process Another File
+                <RefreshCw className="w-4 h-4 text-slate-400" />
+                <span>Convert Another File</span>
               </button>
             </div>
           </div>
