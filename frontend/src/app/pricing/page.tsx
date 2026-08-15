@@ -133,7 +133,7 @@ export default function PricingPage() {
             <ul className="space-y-3 pt-4 text-xs font-medium text-slate-700">
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-500" />
-                10 successful conversions / 30 days
+                10 free conversions per day (Resets daily)
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-500" />

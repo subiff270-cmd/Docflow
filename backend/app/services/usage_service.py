@@ -29,9 +29,9 @@ def get_or_create_user(db: Session, firebase_uid: str, email: str = None, displa
         db.commit()
         db.refresh(user)
     
-    # Check 30-day period reset
+    # Check daily period reset (resets every 24 hours / new calendar day)
     now = datetime.datetime.utcnow()
-    if (now - user.period_start).days >= 30:
+    if user.period_start.date() < now.date() or (now - user.period_start).total_seconds() >= 86400:
         user.period_start = now
         user.period_usage = 0
         db.commit()
@@ -50,7 +50,7 @@ def check_user_quota(db: Session, firebase_uid: str, file_size_mb: float):
         return True, "OK"
     
     if user.period_usage >= FREE_LIMIT:
-        return False, "You've reached your free conversion limit of 10 conversions per 30-day period. Please upgrade to Pro for unlimited conversions."
+        return False, "You've reached your free daily limit of 10 conversions today. Please upgrade to Pro for unlimited conversions or wait for tomorrow's reset."
     
     return True, "OK"
 

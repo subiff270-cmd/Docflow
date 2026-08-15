@@ -285,7 +285,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             <p className="text-slate-500 text-[11px]">
               {isPro
                 ? "Unlimited conversions • Up to 500 MB per file"
-                : `${usedCount} / ${maxQuota} free conversions used • 25 MB max file size`}
+                : `${usedCount} / ${maxQuota} free conversions used today • 25 MB max file size (Resets daily)`}
             </p>
           </div>
         </div>
@@ -315,7 +315,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-            <span>You&apos;ve reached your free monthly conversion limit ({maxQuota} files). Upgrade to DocFlow Pro for unlimited high-speed access.</span>
+            <span>You&apos;ve reached your free daily conversion limit ({maxQuota} conversions today). Upgrade to DocFlow Pro for unlimited access or wait for tomorrow&apos;s reset.</span>
           </div>
           <Link
             href="/pricing"
