@@ -85,6 +85,7 @@ export default function VoiceWorkspace() {
 
   // Processing state
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
 
@@ -301,6 +302,36 @@ export default function VoiceWorkspace() {
       setError(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadFile = async () => {
+    if (!result?.download_key) return;
+    setDownloading(true);
+    try {
+      const url = getDownloadUrl(result.download_key);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = result.filename || "voice_document";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+
+      if (refreshProfile) {
+        await refreshProfile();
+      }
+    } catch (err) {
+      window.open(getDownloadUrl(result.download_key), "_blank");
+      if (refreshProfile) {
+        setTimeout(refreshProfile, 1000);
+      }
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -643,19 +674,24 @@ export default function VoiceWorkspace() {
             {/* Action Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               {result.download_key && (
-                <a
-                  href={getDownloadUrl(result.download_key)}
-                  download={result.filename}
-                  onClick={() => {
-                    setTimeout(() => {
-                      if (refreshProfile) refreshProfile();
-                    }, 800);
-                  }}
-                  className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5"
+                <button
+                  type="button"
+                  onClick={handleDownloadFile}
+                  disabled={downloading}
+                  className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-80"
                 >
-                  <Download className="w-5 h-5" />
-                  <span>Download Document</span>
-                </a>
+                  {downloading ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      <span>Downloading Document...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-5 h-5" />
+                      <span>Download Document</span>
+                    </>
+                  )}
+                </button>
               )}
               <button
                 type="button"
