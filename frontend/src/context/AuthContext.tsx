@@ -59,6 +59,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason && (
+        String(event.reason).includes("Database is closing") ||
+        String(event.reason).includes("closing/hidden") ||
+        String(event.reason).includes("IndexedDB")
+      )) {
+        event.preventDefault();
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    }
+
     try {
       const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         setUser(currentUser);
@@ -74,7 +88,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         setLoading(false);
       });
-      return () => unsubscribe();
+      return () => {
+        if (typeof window !== "undefined") {
+          window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+        }
+        unsubscribe();
+      };
     } catch (e) {
       setLoading(false);
     }
