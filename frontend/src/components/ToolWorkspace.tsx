@@ -41,6 +41,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const { user, profile, openAuthModal, refreshProfile } = useAuth();
 
   const [files, setFiles] = useState<File[]>([]);
+  const [proModalFile, setProModalFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,8 +73,24 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const isPro = profile?.plan === "PRO" || profile?.plan === "PRO_MONTHLY" || profile?.plan === "PRO_YEARLY";
+
   const handleFilesSelect = (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) return;
+
+    // Instant popup if any file exceeds 25 MB on free plan
+    if (!isPro) {
+      const oversized = selectedFiles.find((f) => f.size > 25 * 1024 * 1024);
+      if (oversized) {
+        setProModalFile(oversized);
+        const valid = selectedFiles.filter((f) => f.size <= 25 * 1024 * 1024);
+        if (valid.length > 0) {
+          setFiles((prev) => [...prev, ...valid]);
+        }
+        return;
+      }
+    }
+
     setFiles((prev) => [...prev, ...selectedFiles]);
     setError(null);
     setResult(null);
@@ -191,7 +208,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     return tool.accept.replace(/\./g, "").toUpperCase();
   };
 
-  const isPro = profile?.plan === "PRO" || profile?.plan === "PRO_MONTHLY" || profile?.plan === "PRO_YEARLY";
   const usedCount = profile?.period_usage ?? 0;
   const maxQuota = profile?.max_quota ?? 10;
   const isLimitReached = !isPro && usedCount >= maxQuota;
@@ -844,6 +860,82 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           <span>Cross-Device Ready</span>
         </div>
       </div>
+
+      {/* 12. Instant Pro Upgrade Modal when a file > 25 MB is dropped or selected */}
+      {proModalFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-6 relative overflow-hidden animate-in zoom-in-95">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setProModalFile(null)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header with Crown Icon */}
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
+                <Crown className="w-8 h-8" />
+              </div>
+              <span className="inline-block bg-amber-100 text-amber-900 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                25 MB LIMIT REACHED
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
+                Upgrade to DocFlow Pro
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                The file <strong className="text-slate-900 break-all">{proModalFile.name}</strong> is <strong>{formatFileSize(proModalFile.size)}</strong>, which exceeds the <strong>25 MB Free plan limit</strong>.
+              </p>
+            </div>
+
+            {/* Plan Comparison Card */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-slate-500">
+                <span>Free Plan Limit:</span>
+                <span className="font-bold text-slate-700">25 MB per file</span>
+              </div>
+              <div className="flex items-center justify-between font-bold text-indigo-950">
+                <span className="flex items-center gap-1.5">
+                  <Crown className="w-4 h-4 text-amber-500" />
+                  DocFlow Pro:
+                </span>
+                <span className="text-emerald-600 font-extrabold text-sm">Up to 500 MB</span>
+              </div>
+              <div className="text-[11px] text-slate-500 space-y-1 pt-1 border-t border-slate-200/60">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Unlimited conversions with zero wait time</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Priority high-speed cloud processing</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2.5 pt-1">
+              <Link
+                href="/pricing"
+                className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all hover:-translate-y-0.5"
+              >
+                <Crown className="w-4 h-4" />
+                <span>Upgrade to Pro — ₹99/month</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setProModalFile(null)}
+                className="w-full py-3 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-bold rounded-2xl text-xs transition"
+              >
+                Choose a smaller file (&lt; 25 MB)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
