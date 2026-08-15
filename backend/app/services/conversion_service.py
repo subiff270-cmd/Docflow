@@ -190,15 +190,34 @@ def pdf_to_word(pdf_bytes: bytes) -> bytes:
 def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     prs = Presentation()
+    # Standard 16:9 widescreen
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
     blank_layout = prs.slide_layouts[6]
 
     for page in doc:
         slide = prs.slides.add_slide(blank_layout)
+        
+        # High resolution page rendering
         pix = page.get_pixmap(dpi=150)
         img_bytes = pix.tobytes("png")
         image_stream = io.BytesIO(img_bytes)
         
-        slide.shapes.add_picture(image_stream, Inches(0), Inches(0), width=Inches(10), height=Inches(7.5))
+        page_w = page.rect.width
+        page_h = page.rect.height
+        
+        # Fit nicely into slide
+        slide_w = 13.333
+        slide_h = 7.5
+        
+        # Calculate aspect ratio scaling
+        scale = min(slide_w / (page_w / 72.0), slide_h / (page_h / 72.0))
+        target_w = (page_w / 72.0) * scale
+        target_h = (page_h / 72.0) * scale
+        left = (slide_w - target_w) / 2
+        top = (slide_h - target_h) / 2
+        
+        slide.shapes.add_picture(image_stream, Inches(left), Inches(top), width=Inches(target_w), height=Inches(target_h))
 
     buffer = io.BytesIO()
     prs.save(buffer)
@@ -208,26 +227,63 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
 def pdf_to_excel(pdf_bytes: bytes) -> bytes:
     wb = Workbook()
     ws = wb.active
-    ws.title = "Extracted PDF Data"
+    ws.title = "Sheet1"
     
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        row_idx = 1
-        for page in pdf.pages:
-            tables = page.extract_tables()
-            for table in tables:
-                for row in table:
-                    for col_idx, cell in enumerate(row, start=1):
-                        ws.cell(row=row_idx, column=col_idx, value=cell)
-                    row_idx += 1
-                row_idx += 1
-            
-            # If no tables found, extract plain text lines into rows
-            if not tables:
-                text = page.extract_text()
+    def clean_val(val):
+        if val is None:
+            return ""
+        # Remove ASCII control characters that crash openpyxl
+        import re
+        from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+        s = str(val)
+        s = ILLEGAL_CHARACTERS_RE.sub("", s)
+        return s.strip()
+
+    row_idx = 1
+    extracted_any = False
+
+    # 1. Primary: Try pdfplumber table extraction
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                tables = page.extract_tables()
+                if tables:
+                    for table in tables:
+                        for row in table:
+                            for col_idx, cell in enumerate(row, start=1):
+                                ws.cell(row=row_idx, column=col_idx, value=clean_val(cell))
+                            row_idx += 1
+                        row_idx += 1
+                        extracted_any = True
+                else:
+                    text = page.extract_text()
+                    if text:
+                        for line in text.splitlines():
+                            # If line contains tabs or commas, split across columns
+                            parts = [clean_val(p) for p in (line.split("\t") if "\t" in line else line.split(","))]
+                            for col_idx, p in enumerate(parts, start=1):
+                                ws.cell(row=row_idx, column=col_idx, value=p)
+                            row_idx += 1
+                            extracted_any = True
+    except Exception as e:
+        print(f"[pdf_to_excel pdfplumber]: {e}")
+
+    # 2. Secondary fallback: PyMuPDF line-by-line block extraction
+    if not extracted_any:
+        try:
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            for page in doc:
+                text = page.get_text("text")
                 if text:
                     for line in text.splitlines():
-                        ws.cell(row=row_idx, column=1, value=line)
-                        row_idx += 1
+                        if line.strip():
+                            parts = [clean_val(p) for p in (line.split("\t") if "\t" in line else line.split(","))]
+                            for col_idx, p in enumerate(parts, start=1):
+                                ws.cell(row=row_idx, column=col_idx, value=p)
+                            row_idx += 1
+            doc.close()
+        except Exception as e:
+            print(f"[pdf_to_excel fitz]: {e}")
 
     buffer = io.BytesIO()
     wb.save(buffer)
