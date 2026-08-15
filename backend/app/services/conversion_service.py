@@ -225,65 +225,178 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 def pdf_to_excel(pdf_bytes: bytes) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Sheet1"
+    default_sheet = wb.active
+
+    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     
-    def clean_val(val):
+    sub_header_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+    sub_header_font = Font(name="Calibri", size=10, bold=True, color="1E293B")
+    
+    regular_font = Font(name="Calibri", size=10, color="1E293B")
+    
+    thin_border = Border(
+        left=Side(style="thin", color="CBD5E1"),
+        right=Side(style="thin", color="CBD5E1"),
+        top=Side(style="thin", color="CBD5E1"),
+        bottom=Side(style="thin", color="CBD5E1")
+    )
+
+    def parse_value(val):
         if val is None:
             return ""
-        # Remove ASCII control characters that crash openpyxl
-        import re
-        from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
-        s = str(val)
-        s = ILLEGAL_CHARACTERS_RE.sub("", s)
-        return s.strip()
+        s = ILLEGAL_CHARACTERS_RE.sub("", str(val)).strip()
+        if not s:
+            return ""
+        
+        # Try integer
+        if s.isdigit() and len(s) < 12 and not s.startswith("0"):
+            try:
+                return int(s)
+            except ValueError:
+                pass
+        
+        # Try float / number
+        clean_num = s.replace(",", "")
+        try:
+            if "." in clean_num:
+                return float(clean_num)
+        except ValueError:
+            pass
+            
+        return s
 
-    row_idx = 1
-    extracted_any = False
+    def auto_fit_sheet(ws):
+        ws.views.sheetView[0].showGridLines = True
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                if cell.value is not None:
+                    val_str = str(cell.value)
+                    max_len = max(max_len, len(val_str))
+            ws.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 65)
 
-    # 1. Primary: Try pdfplumber table extraction
+    sheets_created = 0
+
+    # 1. Primary Strategy: pdfplumber with multiple line & text tolerances
     try:
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            for page in pdf.pages:
-                tables = page.extract_tables()
-                if tables:
-                    for table in tables:
-                        for row in table:
-                            for col_idx, cell in enumerate(row, start=1):
-                                ws.cell(row=row_idx, column=col_idx, value=clean_val(cell))
-                            row_idx += 1
-                        row_idx += 1
-                        extracted_any = True
-                else:
-                    text = page.extract_text()
-                    if text:
-                        for line in text.splitlines():
-                            # If line contains tabs or commas, split across columns
-                            parts = [clean_val(p) for p in (line.split("\t") if "\t" in line else line.split(","))]
-                            for col_idx, p in enumerate(parts, start=1):
-                                ws.cell(row=row_idx, column=col_idx, value=p)
-                            row_idx += 1
-                            extracted_any = True
-    except Exception as e:
-        print(f"[pdf_to_excel pdfplumber]: {e}")
+            for page_idx, page in enumerate(pdf.pages, start=1):
+                tables = page.extract_tables({
+                    "vertical_strategy": "lines",
+                    "horizontal_strategy": "lines",
+                    "snap_tolerance": 4,
+                    "join_tolerance": 4,
+                })
+                
+                if not tables:
+                    tables = page.extract_tables({
+                        "vertical_strategy": "text",
+                        "horizontal_strategy": "text",
+                        "snap_tolerance": 3,
+                    })
 
-    # 2. Secondary fallback: PyMuPDF line-by-line block extraction
-    if not extracted_any:
+                if tables:
+                    ws = wb.create_sheet(title=f"Page {page_idx}" if len(pdf.pages) > 1 else "Sheet1")
+                    sheets_created += 1
+                    current_row = 1
+
+                    for t_idx, table in enumerate(tables):
+                        if not table:
+                            continue
+                        
+                        is_first_row = True
+                        for row in table:
+                            cleaned_row = [parse_value(c) for c in row]
+                            if not any(bool(str(c).strip()) for c in cleaned_row):
+                                continue
+
+                            for col_idx, cell_val in enumerate(cleaned_row, start=1):
+                                cell = ws.cell(row=current_row, column=col_idx, value=cell_val)
+                                cell.border = thin_border
+                                
+                                if is_first_row:
+                                    cell.fill = header_fill if t_idx == 0 and current_row == 1 else sub_header_fill
+                                    cell.font = header_font if t_idx == 0 and current_row == 1 else sub_header_font
+                                    cell.alignment = Alignment(horizontal="center" if isinstance(cell_val, (int, float)) else "left", vertical="center")
+                                else:
+                                    cell.font = regular_font
+                                    if isinstance(cell_val, (int, float)):
+                                        cell.alignment = Alignment(horizontal="right", vertical="center")
+                                    else:
+                                        cell.alignment = Alignment(horizontal="left", vertical="center")
+                            
+                            is_first_row = False
+                            current_row += 1
+
+                        current_row += 2
+
+                    auto_fit_sheet(ws)
+    except Exception as e:
+        print(f"[pdf_to_excel pdfplumber error]: {e}")
+
+    # 2. Secondary Strategy: PyMuPDF table finder and block parsing
+    if sheets_created == 0:
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            for page in doc:
-                text = page.get_text("text")
-                if text:
-                    for line in text.splitlines():
-                        if line.strip():
-                            parts = [clean_val(p) for p in (line.split("\t") if "\t" in line else line.split(","))]
-                            for col_idx, p in enumerate(parts, start=1):
-                                ws.cell(row=row_idx, column=col_idx, value=p)
-                            row_idx += 1
+            for page_idx, page in enumerate(doc, start=1):
+                ws = wb.create_sheet(title=f"Page {page_idx}" if len(doc) > 1 else "Sheet1")
+                sheets_created += 1
+
+                # Check if PyMuPDF table finder is available
+                tabs = None
+                try:
+                    tabs = page.find_tables()
+                except Exception:
+                    pass
+
+                if tabs and len(tabs.tables) > 0:
+                    current_row = 1
+                    for tab in tabs:
+                        df_data = tab.extract()
+                        is_header = True
+                        for row in df_data:
+                            for col_idx, val in enumerate(row, start=1):
+                                c = ws.cell(row=current_row, column=col_idx, value=parse_value(val))
+                                c.border = thin_border
+                                if is_header:
+                                    c.fill = header_fill
+                                    c.font = header_font
+                                else:
+                                    c.font = regular_font
+                            is_header = False
+                            current_row += 1
+                        current_row += 2
+                else:
+                    lines = page.get_text("text").splitlines()
+                    current_row = 1
+                    for line in lines:
+                        if not line.strip():
+                            continue
+                        parts = line.split("\t") if "\t" in line else (line.split("   ") if "   " in line else [line])
+                        for col_idx, p in enumerate(parts, start=1):
+                            c = ws.cell(row=current_row, column=col_idx, value=parse_value(p))
+                            c.font = regular_font
+                        current_row += 1
+
+                auto_fit_sheet(ws)
             doc.close()
         except Exception as e:
-            print(f"[pdf_to_excel fitz]: {e}")
+            print(f"[pdf_to_excel fitz error]: {e}")
+
+    # Remove blank default sheet if we added pages
+    if len(wb.sheetnames) > 1 and default_sheet in wb.worksheets:
+        wb.remove(default_sheet)
+
+    if not wb.sheetnames:
+        wb.create_sheet(title="Sheet1")
 
     buffer = io.BytesIO()
     wb.save(buffer)
