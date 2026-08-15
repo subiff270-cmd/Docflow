@@ -185,7 +185,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     try {
       const data = await processToolApi(tool.endpoint, formData, user?.uid);
       setResult(data);
-      if (refreshProfile) refreshProfile();
     } catch (err: any) {
       let msg = typeof err === "string" ? err : err.message || "Unable to process this file. Please check file format and try again.";
       setError(msg);
@@ -822,6 +821,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 <a
                   href={getDownloadUrl(result.download_key)}
                   download={result.filename}
+                  onClick={() => {
+                    setTimeout(() => {
+                      if (refreshProfile) refreshProfile();
+                    }, 800);
+                  }}
                   className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5"
                 >
                   <Download className="w-5 h-5" />

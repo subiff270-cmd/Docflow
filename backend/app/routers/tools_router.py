@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from ..database import get_db
+from ..models import ConversionHistory
 from ..services.usage_service import check_user_quota, record_conversion_success
 from ..services.storage_service import save_generated_bytes, get_file_by_key
 from ..services import pdf_service, conversion_service, ocr_service, voice_service
@@ -43,7 +44,6 @@ async def api_merge_pdf(
     try:
         merged_bytes = pdf_service.merge_pdfs(file_bytes_list)
         item = save_generated_bytes(db, merged_bytes, "merged_document.pdf", "application/pdf", uid)
-        record_conversion_success(db, uid, "merged_document.pdf", "Merge PDF", total_bytes, len(merged_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": item.original_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to merge PDFs: {str(e)}")
@@ -68,7 +68,6 @@ async def api_split_pdf(
         if len(results) == 1:
             name, b = results[0]
             item = save_generated_bytes(db, b, name, "application/pdf", uid)
-            record_conversion_success(db, uid, name, "Split PDF", len(content), len(b), item.file_key)
             return {"success": True, "download_key": item.file_key, "filename": name, "size": item.file_size}
         else:
             # Package ZIP
@@ -79,7 +78,6 @@ async def api_split_pdf(
             zip_bytes = zip_buffer.getvalue()
             zip_name = f"split_{os.path.splitext(file.filename)[0]}.zip"
             item = save_generated_bytes(db, zip_bytes, zip_name, "application/zip", uid)
-            record_conversion_success(db, uid, zip_name, "Split PDF", len(content), len(zip_bytes), item.file_key)
             return {"success": True, "download_key": item.file_key, "filename": zip_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to split PDF: {str(e)}")
@@ -102,7 +100,6 @@ async def api_remove_pages(
         out_bytes = pdf_service.remove_pages(content, page_nums)
         out_name = f"removed_{file.filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Remove Pages", len(content), len(out_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove pages: {str(e)}")
@@ -124,7 +121,6 @@ async def api_extract_pages(
         out_bytes = pdf_service.extract_pages(content, ranges)
         out_name = f"extracted_{file.filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Extract Pages", len(content), len(out_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to extract pages: {str(e)}")
@@ -147,7 +143,6 @@ async def api_organize_pdf(
         out_bytes = pdf_service.organize_pdf(content, page_orders)
         out_name = f"organized_{file.filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Organize PDF", len(content), len(out_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to organize PDF: {str(e)}")
@@ -173,7 +168,6 @@ async def api_scan_to_pdf(
     try:
         pdf_bytes = conversion_service.jpg_to_pdf(image_bytes_list)
         item = save_generated_bytes(db, pdf_bytes, "scanned_document.pdf", "application/pdf", uid)
-        record_conversion_success(db, uid, "scanned_document.pdf", "Scan to PDF", total_len, len(pdf_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": item.original_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to convert scan images to PDF: {str(e)}")
@@ -195,7 +189,6 @@ async def api_compress_pdf(
         out_bytes, orig_sz, comp_sz = pdf_service.compress_pdf(content, level)
         out_name = f"compressed_{file.filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Compress PDF", orig_sz, comp_sz, item.file_key)
         reduction_pct = max(0, int(((orig_sz - comp_sz) / orig_sz) * 100)) if orig_sz > 0 else 0
         return {
             "success": True,
@@ -224,7 +217,6 @@ async def api_repair_pdf(
         repaired_bytes = pdf_service.repair_pdf(content)
         out_name = f"repaired_{file.filename}"
         item = save_generated_bytes(db, repaired_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Repair PDF", len(content), len(repaired_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -246,7 +238,6 @@ async def api_ocr_pdf(
         searchable_pdf, text = ocr_service.ocr_pdf(content, language)
         out_name = f"ocr_{file.filename}"
         item = save_generated_bytes(db, searchable_pdf, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "OCR PDF", len(content), len(searchable_pdf), item.file_key)
         return {
             "success": True,
             "download_key": item.file_key,
@@ -278,7 +269,6 @@ async def api_jpg_to_pdf(
     try:
         pdf_bytes = conversion_service.jpg_to_pdf(imgs)
         item = save_generated_bytes(db, pdf_bytes, "images.pdf", "application/pdf", uid)
-        record_conversion_success(db, uid, "images.pdf", "JPG to PDF", total_len, len(pdf_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": "images.pdf", "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to convert JPG to PDF: {str(e)}")
@@ -299,7 +289,6 @@ async def api_word_to_pdf(
         pdf_bytes = conversion_service.word_to_pdf(content)
         out_name = f"{os.path.splitext(file.filename)[0]}.pdf"
         item = save_generated_bytes(db, pdf_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Word to PDF", len(content), len(pdf_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Word to PDF conversion failed: {str(e)}")
@@ -320,7 +309,6 @@ async def api_ppt_to_pdf(
         pdf_bytes = conversion_service.ppt_to_pdf(content)
         out_name = f"{os.path.splitext(file.filename)[0]}.pdf"
         item = save_generated_bytes(db, pdf_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "PowerPoint to PDF", len(content), len(pdf_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PowerPoint to PDF conversion failed: {str(e)}")
@@ -341,7 +329,6 @@ async def api_excel_to_pdf(
         pdf_bytes = conversion_service.excel_to_pdf(content)
         out_name = f"{os.path.splitext(file.filename)[0]}.pdf"
         item = save_generated_bytes(db, pdf_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Excel to PDF", len(content), len(pdf_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Excel to PDF conversion failed: {str(e)}")
@@ -371,7 +358,6 @@ async def api_html_to_pdf(
     try:
         pdf_bytes = conversion_service.html_to_pdf(content_str)
         item = save_generated_bytes(db, pdf_bytes, "html_converted.pdf", "application/pdf", uid)
-        record_conversion_success(db, uid, "html_converted.pdf", "HTML to PDF", len(content_str), len(pdf_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": "html_converted.pdf", "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"HTML to PDF failed: {str(e)}")
@@ -394,7 +380,6 @@ async def api_pdf_to_jpg(
         if len(pages) == 1:
             name, b = pages[0]
             item = save_generated_bytes(db, b, name, "image/jpeg", uid)
-            record_conversion_success(db, uid, name, "PDF to JPG", len(content), len(b), item.file_key)
             return {"success": True, "download_key": item.file_key, "filename": name, "size": item.file_size}
         else:
             zip_buffer = io.BytesIO()
@@ -404,7 +389,6 @@ async def api_pdf_to_jpg(
             zip_bytes = zip_buffer.getvalue()
             zip_name = f"{os.path.splitext(file.filename)[0]}_images.zip"
             item = save_generated_bytes(db, zip_bytes, zip_name, "application/zip", uid)
-            record_conversion_success(db, uid, zip_name, "PDF to JPG", len(content), len(zip_bytes), item.file_key)
             return {"success": True, "download_key": item.file_key, "filename": zip_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to JPG failed: {str(e)}")
@@ -425,7 +409,6 @@ async def api_pdf_to_word(
         docx_bytes = conversion_service.pdf_to_word(content)
         out_name = f"{os.path.splitext(file.filename)[0]}.docx"
         item = save_generated_bytes(db, docx_bytes, out_name, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", uid)
-        record_conversion_success(db, uid, out_name, "PDF to Word", len(content), len(docx_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to Word failed: {str(e)}")
@@ -446,7 +429,6 @@ async def api_pdf_to_ppt(
         pptx_bytes = conversion_service.pdf_to_pptx(content)
         out_name = f"{os.path.splitext(file.filename)[0]}.pptx"
         item = save_generated_bytes(db, pptx_bytes, out_name, "application/vnd.openxmlformats-officedocument.presentationml.presentation", uid)
-        record_conversion_success(db, uid, out_name, "PDF to PowerPoint", len(content), len(pptx_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to PowerPoint failed: {str(e)}")
@@ -467,7 +449,6 @@ async def api_pdf_to_excel(
         xlsx_bytes = conversion_service.pdf_to_excel(content)
         out_name = f"{os.path.splitext(file.filename)[0]}.xlsx"
         item = save_generated_bytes(db, xlsx_bytes, out_name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", uid)
-        record_conversion_success(db, uid, out_name, "PDF to Excel", len(content), len(xlsx_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to Excel failed: {str(e)}")
@@ -488,7 +469,6 @@ async def api_pdf_to_pdfa(
         pdfa_bytes = conversion_service.pdf_to_pdfa(content)
         out_name = f"{os.path.splitext(file.filename)[0]}_pdfa.pdf"
         item = save_generated_bytes(db, pdfa_bytes, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "PDF to PDF/A", len(content), len(pdfa_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to PDF/A failed: {str(e)}")
@@ -509,7 +489,6 @@ async def api_pdf_to_markdown(
         md_text = conversion_service.pdf_to_markdown(content)
         out_name = f"{os.path.splitext(file.filename)[0]}.md"
         item = save_generated_bytes(db, md_text.encode("utf-8"), out_name, "text/markdown", uid)
-        record_conversion_success(db, uid, out_name, "PDF to Markdown", len(content), len(md_text.encode("utf-8")), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "markdown": md_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to Markdown failed: {str(e)}")
@@ -533,7 +512,6 @@ async def api_rotate_pdf(
         rotated = pdf_service.rotate_pdf(content, angle, pages)
         out_name = f"rotated_{file.filename}"
         item = save_generated_bytes(db, rotated, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Rotate PDF", len(content), len(rotated), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Rotate PDF failed: {str(e)}")
@@ -556,7 +534,6 @@ async def api_add_page_numbers(
         numbered = pdf_service.add_page_numbers(content, position, start_number)
         out_name = f"numbered_{file.filename}"
         item = save_generated_bytes(db, numbered, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Add Page Numbers", len(content), len(numbered), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Add Page Numbers failed: {str(e)}")
@@ -580,7 +557,6 @@ async def api_add_watermark(
         watermarked = pdf_service.add_watermark(content, text, opacity, rotation)
         out_name = f"watermarked_{file.filename}"
         item = save_generated_bytes(db, watermarked, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Add Watermark", len(content), len(watermarked), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Add Watermark failed: {str(e)}")
@@ -605,7 +581,6 @@ async def api_crop_pdf(
         cropped = pdf_service.crop_pdf(content, crop_x, crop_y, crop_w, crop_h)
         out_name = f"cropped_{file.filename}"
         item = save_generated_bytes(db, cropped, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Crop PDF", len(content), len(cropped), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Crop PDF failed: {str(e)}")
@@ -627,7 +602,6 @@ async def api_unlock_pdf(
         unlocked = pdf_service.unlock_pdf(content, password)
         out_name = f"unlocked_{file.filename}"
         item = save_generated_bytes(db, unlocked, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Unlock PDF", len(content), len(unlocked), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -651,7 +625,6 @@ async def api_protect_pdf(
         protected = pdf_service.protect_pdf(content, password)
         out_name = f"protected_{file.filename}"
         item = save_generated_bytes(db, protected, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Protect PDF", len(content), len(protected), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Protect PDF failed: {str(e)}")
@@ -680,7 +653,6 @@ async def api_sign_pdf(
         signed = pdf_service.sign_pdf(pdf_b, sig_b, page, x, y, w, h)
         out_name = f"signed_{file.filename}"
         item = save_generated_bytes(db, signed, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Sign PDF", len(pdf_b), len(signed), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Sign PDF failed: {str(e)}")
@@ -704,7 +676,6 @@ async def api_redact_pdf(
         redacted = pdf_service.redact_pdf(content, search_text, rects)
         out_name = f"redacted_{file.filename}"
         item = save_generated_bytes(db, redacted, out_name, "application/pdf", uid)
-        record_conversion_success(db, uid, out_name, "Redact PDF", len(content), len(redacted), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Redact PDF failed: {str(e)}")
@@ -752,7 +723,6 @@ async def api_voice_to_document(
         clean_title = doc_type.replace(" ", "_").replace("→", "to")
         out_name = f"DocFlow_{clean_title}_{datetime.now().strftime('%Y%m%d')}.{clean_format}"
         item = save_generated_bytes(db, doc_bytes, out_name, mime, uid)
-        record_conversion_success(db, uid, out_name, "Voice to Document", len(text.encode('utf-8')), len(doc_bytes), item.file_key)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Voice document generation failed: {str(e)}")
@@ -773,6 +743,20 @@ def download_file(file_key: str, db: Session = Depends(get_db)):
     doc_item = get_file_by_key(db, file_key)
     if not doc_item or not os.path.exists(doc_item.stored_path):
         raise HTTPException(status_code=404, detail="Requested file not found or has expired.")
+
+    # Increment conversion quota ONLY when the user actually downloads the file
+    if doc_item.firebase_uid:
+        already_counted = db.query(ConversionHistory).filter(ConversionHistory.download_key == file_key).first()
+        if not already_counted:
+            record_conversion_success(
+                db=db,
+                firebase_uid=doc_item.firebase_uid,
+                filename=doc_item.original_name,
+                tool="Document Download",
+                orig_size=doc_item.file_size,
+                result_size=doc_item.file_size,
+                download_key=doc_item.file_key
+            )
 
     return FileResponse(
         path=doc_item.stored_path,
