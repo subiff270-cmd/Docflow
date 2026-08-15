@@ -124,8 +124,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (files.length === 0 && tool.endpoint !== "html-to-pdf") {
-      setError("Please select at least one file to process.");
+    if (hasOversized) {
+      setError("One or more selected files exceed the 25 MB Free limit. Please upgrade to Pro for files up to 500 MB.");
       return;
     }
 
@@ -191,10 +191,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     return tool.accept.replace(/\./g, "").toUpperCase();
   };
 
-  const isPro = profile?.plan === "PRO";
+  const isPro = profile?.plan === "PRO" || profile?.plan === "PRO_MONTHLY" || profile?.plan === "PRO_YEARLY";
   const usedCount = profile?.period_usage ?? 0;
   const maxQuota = profile?.max_quota ?? 10;
   const isLimitReached = !isPro && usedCount >= maxQuota;
+  const oversizedFiles = !isPro ? files.filter((f) => f.size > 25 * 1024 * 1024) : [];
+  const hasOversized = oversizedFiles.length > 0;
+  const removeOversizedFiles = () => setFiles((prev) => prev.filter((f) => f.size <= 25 * 1024 * 1024));
 
   return (
     <div className="max-w-4xl mx-auto py-6 sm:py-10 px-4 sm:px-6">
@@ -384,39 +387,60 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               </div>
 
               <div className="space-y-2.5">
-                {files.map((f, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 bg-slate-50/80 hover:bg-slate-50 rounded-2xl border border-slate-200/80 transition"
-                  >
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div className="overflow-hidden">
-                        <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                          {f.name}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                          <span>{formatFileSize(f.size)}</span>
-                          <span>•</span>
-                          <span className="text-emerald-600 font-bold flex items-center gap-0.5">
-                            <Check className="w-3 h-3" /> Ready to process
-                          </span>
+                {files.map((f, i) => {
+                  const isFileOversized = !isPro && f.size > 25 * 1024 * 1024;
+                  return (
+                    <div
+                      key={i}
+                      className={`flex items-center justify-between p-4 rounded-2xl border transition ${
+                        isFileOversized
+                          ? "bg-amber-50/60 border-amber-300"
+                          : "bg-slate-50/80 hover:bg-slate-50 border-slate-200/80"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <span
+                          className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center shrink-0 ${
+                            isFileOversized
+                              ? "bg-amber-200 text-amber-900"
+                              : "bg-indigo-100 text-indigo-700"
+                          }`}
+                        >
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <div className="overflow-hidden">
+                          <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                            {f.name}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
+                            <span className={isFileOversized ? "text-amber-800 font-bold" : ""}>
+                              {formatFileSize(f.size)}
+                            </span>
+                            <span>•</span>
+                            {isFileOversized ? (
+                              <span className="text-amber-700 font-extrabold flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Exceeds 25 MB Free limit
+                              </span>
+                            ) : (
+                              <span className="text-emerald-600 font-bold flex items-center gap-0.5">
+                                <Check className="w-3 h-3" /> Ready to process
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Remove file"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                        title="Remove file"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Prominent Add More Files Banner */}
@@ -621,6 +645,40 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             </div>
           )}
 
+          {/* Large File Detected (> 25 MB) Pro Upgrade Card */}
+          {hasOversized && (
+            <div className="p-5 bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-violet-500/10 border border-amber-300 rounded-3xl space-y-3 animate-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-amber-950 font-extrabold text-sm">
+                  <Crown className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span>Large File Detected ({formatFileSize(oversizedFiles[0]?.size)})</span>
+                </div>
+                <span className="bg-amber-100 text-amber-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full uppercase border border-amber-200">
+                  PRO FEATURE
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Free accounts can process files up to <strong>25 MB</strong>. Upgrade to <strong>DocFlow Pro</strong> to process large files up to <strong>500 MB</strong> with priority cloud conversion speed.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+                <Link
+                  href="/pricing"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/25 transition"
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>Upgrade to Pro — ₹99/mo</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={removeOversizedFiles}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-700 hover:underline"
+                >
+                  Remove large file
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 7. Error Banner */}
           {error && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs flex items-center justify-between">
@@ -638,28 +696,39 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             </div>
           )}
 
-          {/* 8. Process Button & Real Loading State */}
-          <button
-            type="submit"
-            disabled={loading || files.length === 0}
-            className={`w-full py-4 text-white font-bold rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all duration-300 ${
-              loading || files.length === 0
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed shadow-none"
-                : "bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5"
-            }`}
-          >
-            {loading ? (
-              <div className="flex items-center gap-2.5">
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                <span>Processing {tool.name}...</span>
-              </div>
-            ) : (
-              <>
-                <span>Process {tool.name}</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
-          </button>
+          {/* 8. Process Button & Real Loading State / Upgrade Action */}
+          {hasOversized ? (
+            <Link
+              href="/pricing"
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all hover:-translate-y-0.5"
+            >
+              <Crown className="w-5 h-5" />
+              <span>Upgrade to Pro to Process Files Over 25 MB</span>
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          ) : (
+            <button
+              type="submit"
+              disabled={loading || files.length === 0}
+              className={`w-full py-4 text-white font-bold rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all duration-300 ${
+                loading || files.length === 0
+                  ? "bg-slate-300 text-slate-500 cursor-not-allowed shadow-none"
+                  : "bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5"
+              }`}
+            >
+              {loading ? (
+                <div className="flex items-center gap-2.5">
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Processing {tool.name}...</span>
+                </div>
+              ) : (
+                <>
+                  <span>Process {tool.name}</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          )}
         </form>
 
         {/* 9. Processing State Visual Indicator */}

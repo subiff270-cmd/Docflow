@@ -44,7 +44,7 @@ def check_user_quota(db: Session, firebase_uid: str, file_size_mb: float):
     
     max_size = PRO_MAX_SIZE if user.plan in ["PRO_MONTHLY", "PRO_YEARLY"] else FREE_MAX_SIZE
     if file_size_mb > max_size:
-        return False, f"File size ({file_size_mb:.1f} MB) exceeds your {user.plan} plan limit of {max_size} MB."
+        return False, f"File size ({file_size_mb:.1f} MB) exceeds the Free limit of {max_size} MB. Please upgrade to DocFlow Pro for files up to 500 MB."
     
     if user.plan in ["PRO_MONTHLY", "PRO_YEARLY"]:
         return True, "OK"
