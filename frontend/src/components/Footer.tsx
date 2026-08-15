@@ -75,7 +75,10 @@ export default function Footer() {
             <span>•</span>
             <Link href="/robots.txt" className="hover:text-slate-400 transition">Robots.txt</Link>
             <span>•</span>
-            <span>Production FastAPI & Next.js</span>
+            <span className="text-emerald-400 font-medium flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              100% Private & Secure
+            </span>
           </div>
         </div>
       </div>
