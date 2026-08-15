@@ -190,29 +190,30 @@ def add_page_numbers(file_bytes: bytes, position: str = "bottom-center", start_n
         
         # Position logic
         x, y = rect.width / 2, rect.height - 30
-        align = 1 # Center
+        align_mode = fitz.TEXT_ALIGN_CENTER
         
         if "top" in position:
             y = 30
         if "left" in position:
-            x = 40
-            align = 0
+            x = 50
+            align_mode = fitz.TEXT_ALIGN_LEFT
         elif "right" in position:
-            x = rect.width - 40
-            align = 2
+            x = rect.width - 50
+            align_mode = fitz.TEXT_ALIGN_RIGHT
 
-        page.insert_text(fitz.Point(x, y), page_num_str, fontsize=10, fontname="helv", color=(0.2, 0.2, 0.2), align=align)
+        box_rect = fitz.Rect(x - 60, y - 12, x + 60, y + 12)
+        page.insert_textbox(box_rect, page_num_str, fontsize=10, fontname="helv", color=(0.2, 0.2, 0.2), align=align_mode)
 
     out = doc.tobytes()
     doc.close()
     return out
 
-def add_watermark(file_bytes: bytes, text: str = "CONFIDENTIAL", opacity: float = 0.3, rotation: int = 45, font_size: float = 40) -> bytes:
+def add_watermark(file_bytes: bytes, text: str = "CONFIDENTIAL", opacity: float = 0.3, rotation: float = 45, font_size: float = 40) -> bytes:
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     
     for page in doc:
         rect = page.rect
-        center = fitz.Point(rect.width / 2, rect.height / 2)
+        center = fitz.Point(rect.width / 4, rect.height / 2)
         
         page.insert_text(
             center,
@@ -221,8 +222,7 @@ def add_watermark(file_bytes: bytes, text: str = "CONFIDENTIAL", opacity: float 
             fontname="helv",
             color=(0.5, 0.5, 0.5),
             fill_opacity=opacity,
-            rotate=rotation,
-            morph=(center, fitz.Matrix(rotation))
+            morph=(center, fitz.Matrix(float(rotation)))
         )
 
     out = doc.tobytes()
@@ -344,3 +344,55 @@ def compare_pdfs(pdf_a_bytes: bytes, pdf_b_bytes: bytes) -> dict:
         "removed_lines": removed_count,
         "diff_summary": diff[:100]
     }
+
+def edit_pdf(file_bytes: bytes, text_inserts: list[dict] = None, annotations: list[dict] = None) -> bytes:
+    """Add annotations, text layers, and markings into real PDF."""
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    
+    if text_inserts:
+        for item in text_inserts:
+            page_num = item.get("page", 1) - 1
+            if 0 <= page_num < len(doc):
+                page = doc[page_num]
+                text = item.get("text", "")
+                x = item.get("x", 50)
+                y = item.get("y", 50)
+                size = item.get("size", 12)
+                page.insert_text(fitz.Point(x, y), text, fontsize=size, color=(0, 0, 0))
+
+    if annotations:
+        for ann in annotations:
+            page_num = ann.get("page", 1) - 1
+            if 0 <= page_num < len(doc):
+                page = doc[page_num]
+                rect = fitz.Rect(ann.get("x0", 50), ann.get("y0", 50), ann.get("x1", 200), ann.get("y1", 100))
+                ann_type = ann.get("type", "highlight")
+                if ann_type == "highlight":
+                    page.add_highlight_annot(rect)
+                elif ann_type == "rect":
+                    page.add_rect_annot(rect)
+
+    out = doc.tobytes()
+    doc.close()
+    return out
+
+def fill_pdf_forms(file_bytes: bytes, form_data: dict = None) -> tuple[bytes, list[dict]]:
+    """Detect and complete interactive PDF form fields."""
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    fields = []
+
+    for page in doc:
+        for widget in page.widgets():
+            fields.append({
+                "name": widget.field_name,
+                "type": widget.field_type_string,
+                "value": widget.field_value
+            })
+            if form_data and widget.field_name in form_data:
+                widget.field_value = str(form_data[widget.field_name])
+                widget.update()
+
+    out = doc.tobytes()
+    doc.close()
+    return out, fields
+

@@ -12,7 +12,7 @@ from ..database import get_db
 from ..models import ConversionHistory
 from ..services.usage_service import check_user_quota, record_conversion_success
 from ..services.storage_service import save_generated_bytes, get_file_by_key
-from ..services import pdf_service, conversion_service, ocr_service, voice_service
+from ..services import pdf_service, conversion_service, ocr_service, voice_service, image_service, validation_service
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
@@ -487,9 +487,10 @@ async def api_pdf_to_markdown(
 
     try:
         md_text = conversion_service.pdf_to_markdown(content)
+        out_bytes = md_text if isinstance(md_text, bytes) else md_text.encode("utf-8")
         out_name = f"{os.path.splitext(file.filename)[0]}.md"
-        item = save_generated_bytes(db, md_text.encode("utf-8"), out_name, "text/markdown", uid)
-        return {"success": True, "download_key": item.file_key, "filename": out_name, "markdown": md_text}
+        item = save_generated_bytes(db, out_bytes, out_name, "text/markdown", uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "markdown": out_bytes.decode('utf-8', errors='ignore')}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to Markdown failed: {str(e)}")
 
@@ -727,14 +728,167 @@ async def api_voice_to_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Voice document generation failed: {str(e)}")
 
+@router.post("/compress-image")
+async def api_compress_image(
+    file: UploadFile = File(...),
+    quality: int = Form(70),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        compressed_bytes, orig_sz, comp_sz = image_service.compress_image(content, quality)
+        out_name = f"compressed_{file.filename}"
+        item = save_generated_bytes(db, compressed_bytes, out_name, file.content_type or "image/jpeg", uid)
+        saved_pct = round(max(0, (orig_sz - comp_sz) / orig_sz * 100), 1) if orig_sz > 0 else 0
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": comp_sz, "saved_pct": saved_pct}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image compression failed: {str(e)}")
+
+@router.post("/resize-image")
+async def api_resize_image(
+    file: UploadFile = File(...),
+    width: Optional[int] = Form(None),
+    height: Optional[int] = Form(None),
+    percentage: Optional[int] = Form(None),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        resized_bytes = image_service.resize_image(content, width, height, percentage)
+        out_name = f"resized_{file.filename}"
+        item = save_generated_bytes(db, resized_bytes, out_name, file.content_type or "image/png", uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(resized_bytes)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image resize failed: {str(e)}")
+
+@router.post("/convert-image")
+async def api_convert_image(
+    file: UploadFile = File(...),
+    target_format: str = Form("png"),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        converted_bytes, ext, mime = image_service.convert_image_format(content, target_format)
+        base_name = os.path.splitext(file.filename)[0]
+        out_name = f"{base_name}.{ext}"
+        item = save_generated_bytes(db, converted_bytes, out_name, mime, uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(converted_bytes)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image conversion failed: {str(e)}")
+
+@router.post("/image-to-text")
+async def api_image_to_text(
+    file: UploadFile = File(...),
+    language: str = Form("English"),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        extracted = ocr_service.ocr_image(content, language)
+        out_name = f"{os.path.splitext(file.filename)[0]}_extracted_text.txt"
+        item = save_generated_bytes(db, extracted.encode("utf-8"), out_name, "text/plain", uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(extracted), "extracted_text": extracted}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image to Text failed: {str(e)}")
+
+@router.post("/indian-language-documents")
+async def api_indian_language_documents(
+    file: UploadFile = File(...),
+    language: str = Form("Hindi"),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        searchable_pdf, extracted = ocr_service.ocr_pdf(content, language)
+        out_name = f"ocr_{language}_{file.filename}"
+        item = save_generated_bytes(db, searchable_pdf, out_name, "application/pdf", uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(searchable_pdf), "extracted_text": extracted}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Indian language OCR failed: {str(e)}")
+
+@router.post("/edit-pdf")
+async def api_edit_pdf(
+    file: UploadFile = File(...),
+    text_inserts_json: str = Form("[]"),
+    annotations_json: str = Form("[]"),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        text_inserts = json.loads(text_inserts_json)
+        annotations = json.loads(annotations_json)
+        edited_bytes = pdf_service.edit_pdf(content, text_inserts, annotations)
+        out_name = f"edited_{file.filename}"
+        item = save_generated_bytes(db, edited_bytes, out_name, "application/pdf", uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(edited_bytes)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Edit PDF failed: {str(e)}")
+
+@router.post("/pdf-forms")
+async def api_pdf_forms(
+    file: UploadFile = File(...),
+    form_data_json: str = Form("{}"),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        form_data = json.loads(form_data_json)
+        filled_bytes, fields = pdf_service.fill_pdf_forms(content, form_data)
+        out_name = f"completed_{file.filename}"
+        item = save_generated_bytes(db, filled_bytes, out_name, "application/pdf", uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(filled_bytes), "fields": fields}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF Forms handling failed: {str(e)}")
+
 @router.post("/ai-pdf-summarizer")
 async def api_ai_pdf_summarizer():
-    # Modular requirement: AI is not connected in this build as requested
     raise HTTPException(status_code=503, detail="AI PDF Summarizer service is coming soon and not configured in this build.")
 
 @router.post("/translate-pdf")
 async def api_translate_pdf():
-    # Modular requirement: Translation engine notice
     raise HTTPException(status_code=503, detail="Translation service is not configured yet.")
 
 # Download Stream Endpoint
