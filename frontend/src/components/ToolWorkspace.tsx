@@ -1004,12 +1004,12 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
             {/* Balanced Action Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              {result.download_key && (
+              {(result.download_key || result.blobUrl) && (
                 <button
                   type="button"
                   onClick={handleDownloadFile}
                   disabled={downloading}
-                  className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-80"
+                  className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-80 cursor-pointer"
                 >
                   {downloading ? (
                     <>
@@ -1027,7 +1027,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               <button
                 type="button"
                 onClick={resetAll}
-                className="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-2xl text-sm transition flex items-center justify-center gap-2"
+                className="w-full py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold rounded-2xl text-sm transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4 text-slate-400" />
                 <span>Convert Another File</span>
