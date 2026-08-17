@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .database import engine, Base, SessionLocal
-from .routers import auth_router, user_router, payment_router, contact_router, tools_router
+from .routers import auth_router, user_router, payment_router, contact_router, tools_router, system_router
 from .services.storage_service import purge_expired_files
 
 # Create DB tables
@@ -45,6 +45,7 @@ app.include_router(user_router.router)
 app.include_router(payment_router.router)
 app.include_router(contact_router.router)
 app.include_router(tools_router.router)
+app.include_router(system_router.router)
 
 @app.get("/")
 def read_root():

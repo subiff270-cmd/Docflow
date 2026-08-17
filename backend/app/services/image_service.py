@@ -88,3 +88,33 @@ def convert_image_format(image_bytes: bytes, target_format: str = "png") -> tupl
     out = io.BytesIO()
     img.save(out, format=target_fmt)
     return out.getvalue(), ext, mime
+
+def crop_image(image_bytes: bytes, crop_x: float, crop_y: float, crop_w: float, crop_h: float) -> bytes:
+    """Crop image with coordinates provided either in normalized percentages (0-100) or pixels."""
+    img = Image.open(io.BytesIO(image_bytes))
+    width, height = img.size
+
+    # If coordinates are percentages (<= 100)
+    if crop_x <= 100 and crop_y <= 100 and crop_w <= 100 and crop_h <= 100:
+        left = int((crop_x / 100.0) * width)
+        top = int((crop_y / 100.0) * height)
+        right = min(width, left + int((crop_w / 100.0) * width))
+        bottom = min(height, top + int((crop_h / 100.0) * height))
+    else:
+        left = int(crop_x)
+        top = int(crop_y)
+        right = min(width, int(crop_x + crop_w))
+        bottom = min(height, int(crop_y + crop_h))
+
+    # Ensure valid box
+    if right <= left or bottom <= top:
+        left, top, right, bottom = 0, 0, width, height
+
+    cropped = img.crop((left, top, right, bottom))
+    out = io.BytesIO()
+    fmt = img.format or "PNG"
+    if fmt.upper() in ("JPEG", "JPG") and cropped.mode in ("RGBA", "P"):
+        cropped = cropped.convert("RGB")
+    cropped.save(out, format=fmt)
+    return out.getvalue()
+

@@ -773,6 +773,30 @@ async def api_resize_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image resize failed: {str(e)}")
 
+@router.post("/crop-image")
+async def api_crop_image(
+    file: UploadFile = File(...),
+    crop_x: float = Form(10),
+    crop_y: float = Form(10),
+    crop_w: float = Form(80),
+    crop_h: float = Form(80),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        cropped_bytes = image_service.crop_image(content, crop_x, crop_y, crop_w, crop_h)
+        out_name = f"cropped_{file.filename}"
+        item = save_generated_bytes(db, cropped_bytes, out_name, file.content_type or "image/png", uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(cropped_bytes)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Crop image failed: {str(e)}")
+
 @router.post("/convert-image")
 async def api_convert_image(
     file: UploadFile = File(...),

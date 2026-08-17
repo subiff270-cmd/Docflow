@@ -32,44 +32,89 @@ def jpg_to_pdf(images_bytes_list: list[bytes]) -> bytes:
     return output.getvalue()
 
 def word_to_pdf(docx_bytes: bytes) -> bytes:
+    import html
+    import subprocess
+    import shutil
+    import tempfile
+
+    # 1. Primary: If LibreOffice / soffice is installed, use native headless rendering
+    soffice_cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    if soffice_cmd:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                in_path = os.path.join(tmpdir, "document.docx")
+                with open(in_path, "wb") as f:
+                    f.write(docx_bytes)
+                subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf", in_path, "--outdir", tmpdir], check=True, timeout=20)
+                out_pdf = os.path.join(tmpdir, "document.pdf")
+                if os.path.exists(out_pdf):
+                    with open(out_pdf, "rb") as f:
+                        return f.read()
+        except Exception as e:
+            print(f"[word_to_pdf LibreOffice]: {e}")
+
+    # 2. High-precision python-docx + ReportLab document builder
     doc = Document(io.BytesIO(docx_bytes))
     buffer = io.BytesIO()
-    pdf_doc = SimpleDocTemplate(buffer, pagesize=letter)
+    pdf_doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
     styles = getSampleStyleSheet()
     story = []
 
     for p in doc.paragraphs:
-        text = p.text.strip()
-        if text:
+        raw_text = p.text.strip()
+        if raw_text:
+            safe_text = html.escape(raw_text)
             style = styles['Heading1'] if p.style.name.startswith('Heading') else styles['Normal']
-            story.append(Paragraph(text, style))
+            story.append(Paragraph(safe_text, style))
             story.append(Spacer(1, 8))
 
     for table in doc.tables:
         table_data = []
         for row in table.rows:
-            row_data = [cell.text.strip() for cell in row.cells]
+            row_data = [Paragraph(html.escape(cell.text.strip()), styles['Normal']) for cell in row.cells]
             table_data.append(row_data)
         if table_data:
             t = Table(table_data)
             t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0F172A')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1'))
             ]))
             story.append(t)
             story.append(Spacer(1, 12))
+
+    if not story:
+        story.append(Paragraph("Empty Word Document", styles['Normal']))
 
     pdf_doc.build(story)
     return buffer.getvalue()
 
 def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
+    import html
+    import subprocess
+    import shutil
+    import tempfile
+
+    soffice_cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    if soffice_cmd:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                in_path = os.path.join(tmpdir, "presentation.pptx")
+                with open(in_path, "wb") as f:
+                    f.write(pptx_bytes)
+                subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf", in_path, "--outdir", tmpdir], check=True, timeout=20)
+                out_pdf = os.path.join(tmpdir, "presentation.pdf")
+                if os.path.exists(out_pdf):
+                    with open(out_pdf, "rb") as f:
+                        return f.read()
+        except Exception as e:
+            print(f"[ppt_to_pdf LibreOffice]: {e}")
+
     prs = Presentation(io.BytesIO(pptx_bytes))
     buffer = io.BytesIO()
-    pdf_doc = SimpleDocTemplate(buffer, pagesize=letter)
+    pdf_doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
     styles = getSampleStyleSheet()
     story = []
 
@@ -80,19 +125,43 @@ def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
         for shape in slide.shapes:
             if shape.has_text_frame:
                 for paragraph in shape.text_frame.paragraphs:
-                    if paragraph.text.strip():
-                        story.append(Paragraph(paragraph.text.strip(), styles['Normal']))
+                    raw_text = paragraph.text.strip()
+                    if raw_text:
+                        story.append(Paragraph(html.escape(raw_text), styles['Normal']))
                         story.append(Spacer(1, 4))
         story.append(Spacer(1, 15))
         slide_num += 1
+
+    if not story:
+        story.append(Paragraph("Empty Presentation", styles['Normal']))
 
     pdf_doc.build(story)
     return buffer.getvalue()
 
 def excel_to_pdf(xlsx_bytes: bytes) -> bytes:
+    import html
+    import subprocess
+    import shutil
+    import tempfile
+
+    soffice_cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    if soffice_cmd:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                in_path = os.path.join(tmpdir, "sheet.xlsx")
+                with open(in_path, "wb") as f:
+                    f.write(xlsx_bytes)
+                subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf", in_path, "--outdir", tmpdir], check=True, timeout=20)
+                out_pdf = os.path.join(tmpdir, "sheet.pdf")
+                if os.path.exists(out_pdf):
+                    with open(out_pdf, "rb") as f:
+                        return f.read()
+        except Exception as e:
+            print(f"[excel_to_pdf LibreOffice]: {e}")
+
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
     buffer = io.BytesIO()
-    pdf_doc = SimpleDocTemplate(buffer, pagesize=A4)
+    pdf_doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     styles = getSampleStyleSheet()
     story = []
 

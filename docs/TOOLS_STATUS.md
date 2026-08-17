@@ -28,7 +28,7 @@ Every document tool in DocFlow is backed by genuine document processing engines 
 | 15 | **PDF to JPG** | `/api/tools/pdf-to-jpg` | PyMuPDF Pixmap (150 DPI) | Real Document/Image | test_images.zip | Verified JPG/ZIP (32,901 bytes downloaded) | **✅ WORKING** |
 | 16 | **PDF to Word** | `/api/tools/pdf-to-word` | pdf2docx / python-docx Engine | Real Document/Image | test.docx | Verified DOCX (35,611 bytes downloaded) | **✅ WORKING** |
 | 17 | **PDF to PowerPoint** | `/api/tools/pdf-to-ppt` | python-pptx 16:9 Widescreen Engine | Real Document/Image | test.pptx | Verified PPTX (55,717 bytes downloaded) | **✅ WORKING** |
-| 18 | **PDF to Excel** | `/api/tools/pdf-to-excel` | openpyxl Multi-Sheet Tabular Engine | Real Document/Image | test.xlsx | Verified XLSX (5,104 bytes downloaded) | **✅ WORKING** |
+| 18 | **PDF to Excel** | `/api/tools/pdf-to-excel` | openpyxl Multi-Sheet Tabular Engine | Real Document/Image | test.xlsx | Verified XLSX (5,105 bytes downloaded) | **✅ WORKING** |
 | 19 | **PDF to PDF/A** | `/api/tools/pdf-to-pdfa` | PyMuPDF PDF/A Stream Formatter | Real Document/Image | test_pdfa.pdf | Verified PDF/A (1,483 bytes downloaded) | **✅ WORKING** |
 | 20 | **PDF to Markdown** | `/api/tools/pdf-to-markdown` | PyMuPDF Text Structure Extractor | Real Document/Image | test.md | Verified MD (206 bytes downloaded) | **✅ WORKING** |
 | 21 | **Rotate PDF** | `/api/tools/rotate-pdf` | PyMuPDF Page Matrix Rotation | Real Document/Image | rotated_test.pdf | Verified PDF (1,759 bytes downloaded) | **✅ WORKING** |
@@ -37,7 +37,7 @@ Every document tool in DocFlow is backed by genuine document processing engines 
 | 24 | **Crop PDF** | `/api/tools/crop-pdf` | PyMuPDF CropBox Geometry Mod | Real Document/Image | cropped_test.pdf | Verified PDF (1,851 bytes downloaded) | **✅ WORKING** |
 | 25 | **Edit PDF** | `/api/tools/edit-pdf` | PyMuPDF Direct Text & Annotations | Real Document/Image | edited_test.pdf | Verified PDF (2,239 bytes downloaded) | **✅ WORKING** |
 | 26 | **PDF Forms** | `/api/tools/pdf-forms` | PyMuPDF Interactive Form Widget Engine | Real Document/Image | completed_test.pdf | Verified PDF (1,757 bytes downloaded) | **✅ WORKING** |
-| 27 | **Protect PDF** | `/api/tools/protect-pdf` | PyMuPDF AES-256 Encryption Engine | Real Document/Image | protected_test.pdf | Verified PDF (2,782 bytes downloaded) | **✅ WORKING** |
+| 27 | **Protect PDF** | `/api/tools/protect-pdf` | PyMuPDF AES-256 Encryption Engine | Real Document/Image | protected_test.pdf | Verified PDF (2,784 bytes downloaded) | **✅ WORKING** |
 | 28 | **Unlock PDF** | `/api/tools/unlock-pdf` | PyMuPDF Cryptographic Decryption Engine | Real Document/Image | unlocked_protected.pdf | Verified PDF (1,757 bytes downloaded) | **✅ WORKING** |
 | 29 | **Sign PDF** | `/api/tools/sign-pdf` | PyMuPDF Image Signature Stamp | Real Document/Image | signed_test.pdf | Verified PDF (124,987 bytes downloaded) | **✅ WORKING** |
 | 30 | **Redact PDF** | `/api/tools/redact-pdf` | PyMuPDF Native Content Stream Redaction | Real Document/Image | redacted_test.pdf | Verified PDF (4,109 bytes downloaded) | **✅ WORKING** |
@@ -46,7 +46,7 @@ Every document tool in DocFlow is backed by genuine document processing engines 
 | 33 | **Resize Image** | `/api/tools/resize-image` | Pillow Lanczos Resampling Engine | Real Document/Image | resized_image.png | Verified PNG (292 bytes downloaded) | **✅ WORKING** |
 | 34 | **Image Format Converter** | `/api/tools/convert-image` | Pillow Multi-Format Transcoder | Real Document/Image | image.webp | Verified WEBP (160 bytes downloaded) | **✅ WORKING** |
 | 35 | **Image to Text** | `/api/tools/image-to-text` | Tesseract OCR Image Extraction | Real Document/Image | image_extracted_text.txt | Verified TXT (36 bytes downloaded) | **✅ WORKING** |
-| 36 | **Voice to Document** | `/api/tools/voice-to-document` | python-docx / ReportLab Voice Studio | Real Document/Image | DocFlow_Report_20260815.docx | Verified DOCX (35,785 bytes downloaded) | **✅ WORKING** |
+| 36 | **Voice to Document** | `/api/tools/voice-to-document` | python-docx / ReportLab Voice Studio | Real Document/Image | DocFlow_Report_20260817.docx | Verified DOCX (35,785 bytes downloaded) | **✅ WORKING** |
 | 37 | **Indian Language Document Tools** | `/api/tools/indian-language-documents` | Tesseract OCR Multi-Lingual Pipeline | Real Document/Image | ocr_Hindi_test.pdf | Verified PDF (1,757 bytes downloaded) | **✅ WORKING** |
 
 ---
