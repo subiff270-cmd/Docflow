@@ -5,6 +5,20 @@ import Link from "next/link";
 import { ToolItem } from "../lib/toolsData";
 import { useAuth } from "../context/AuthContext";
 import { processToolApi, getDownloadUrl } from "../lib/api";
+import {
+  clientMergePdf,
+  clientSplitPdf,
+  clientRemovePages,
+  clientExtractPages,
+  clientRotatePdf,
+  clientAddPageNumbers,
+  clientAddWatermark,
+  clientCropPdf,
+  clientImageToPdf,
+  clientResizeImage,
+  clientCropImage,
+  clientConvertImage
+} from "../lib/clientProcessors";
 import ToolIcon from "./ToolIcon";
 import {
   UploadCloud,
@@ -141,30 +155,45 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   };
 
   const handleDownloadFile = async () => {
-    if (!result?.download_key) return;
+    if (!result) return;
     setDownloading(true);
-    try {
-      const url = getDownloadUrl(result.download_key);
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = result.filename || "converted_document";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(blobUrl);
 
-      // Instant refresh to immediately increment the usage quota in the UI
-      if (refreshProfile) {
-        await refreshProfile();
+    try {
+      // 1. Direct Client-Side Processed Blob Download
+      if (result.blobUrl) {
+        const link = document.createElement("a");
+        link.href = result.blobUrl;
+        link.download = result.filename || "converted_document";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        if (refreshProfile) await refreshProfile();
+        return;
+      }
+
+      // 2. Server-side generated download key
+      if (result.download_key) {
+        const url = getDownloadUrl(result.download_key);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Download failed");
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = result.filename || "converted_document";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(blobUrl);
+
+        if (refreshProfile) {
+          await refreshProfile();
+        }
       }
     } catch (err) {
-      window.open(getDownloadUrl(result.download_key), "_blank");
-      if (refreshProfile) {
-        setTimeout(refreshProfile, 1000);
+      if (result.download_key) {
+        window.open(getDownloadUrl(result.download_key), "_blank");
+        if (refreshProfile) setTimeout(refreshProfile, 1000);
       }
     } finally {
       setDownloading(false);
@@ -182,6 +211,57 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     setError(null);
     setResult(null);
 
+    // =========================================================================
+    // PURE CLIENT-SIDE INSTANT BROWSER PROCESSING (100% Real-Time in Browser)
+    // =========================================================================
+    try {
+      let clientRes: any = null;
+
+      if (tool.id === "merge-pdf" && files.length > 0) {
+        clientRes = await clientMergePdf(files);
+      } else if (tool.id === "split-pdf" && files[0]) {
+        clientRes = await clientSplitPdf(files[0], ranges);
+      } else if (tool.id === "remove-pages" && files[0]) {
+        clientRes = await clientRemovePages(files[0], pagesToRemove);
+      } else if (tool.id === "extract-pages" && files[0]) {
+        clientRes = await clientExtractPages(files[0], ranges);
+      } else if (tool.id === "rotate-pdf" && files[0]) {
+        clientRes = await clientRotatePdf(files[0], Number(rotateAngle) || 90);
+      } else if (tool.id === "add-page-numbers" && files[0]) {
+        clientRes = await clientAddPageNumbers(files[0], "bottom-center");
+      } else if (tool.id === "add-watermark" && files[0]) {
+        clientRes = await clientAddWatermark(files[0], watermarkText || "CONFIDENTIAL");
+      } else if (tool.id === "crop-pdf" && files[0]) {
+        clientRes = await clientCropPdf(files[0], { x: cropX, y: cropY, w: cropW, h: cropH });
+      } else if (tool.id === "jpg-to-pdf" && files.length > 0) {
+        clientRes = await clientImageToPdf(files);
+      } else if (tool.id === "resize-image" && files[0]) {
+        clientRes = await clientResizeImage(files[0], { percentage: 50 });
+      } else if (tool.id === "crop-image" && files[0]) {
+        clientRes = await clientCropImage(files[0], { x: cropX, y: cropY, w: cropW, h: cropH });
+      } else if (tool.id === "convert-image" && files[0]) {
+        clientRes = await clientConvertImage(files[0], "webp");
+      }
+
+      if (clientRes) {
+        const blobUrl = URL.createObjectURL(clientRes.blob);
+        setResult({
+          success: true,
+          blobUrl,
+          filename: clientRes.filename,
+          size: clientRes.size,
+          clientSide: true
+        });
+        setLoading(false);
+        return;
+      }
+    } catch (clientErr) {
+      console.warn("Client-side processor encountered an issue, falling back to server engine:", clientErr);
+    }
+
+    // =========================================================================
+    // SERVER-SIDE PROCESSING ENGINE FALLBACK
+    // =========================================================================
     const formData = new FormData();
     files.forEach((f) => formData.append("files", f));
     if (files.length > 0) {
