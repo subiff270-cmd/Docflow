@@ -125,23 +125,55 @@ def organize_pdf(file_bytes: bytes, page_orders: list[dict]) -> bytes:
     return out
 
 def compress_pdf(file_bytes: bytes, level: str = "medium") -> tuple[bytes, int, int]:
+    import subprocess
+    import tempfile
+    from .conversion_service import get_ghostscript_cmd
+
     orig_size = len(file_bytes)
+
+    # 1. Primary Ghostscript Engine if available
+    gs_cmd = get_ghostscript_cmd()
+    if gs_cmd:
+        try:
+            pdf_settings = "/screen" if level == "high" else "/ebook" if level == "medium" else "/printer"
+            with tempfile.TemporaryDirectory() as tmpdir:
+                in_pdf = os.path.join(tmpdir, "input.pdf")
+                out_pdf = os.path.join(tmpdir, "output.pdf")
+                with open(in_pdf, "wb") as f:
+                    f.write(file_bytes)
+                cmd = [
+                    gs_cmd,
+                    "-sDEVICE=pdfwrite",
+                    "-dCompatibilityLevel=1.4",
+                    f"-dPDFSETTINGS={pdf_settings}",
+                    "-dNOPAUSE",
+                    "-dQUIET",
+                    "-dBATCH",
+                    f"-sOutputFile={out_pdf}",
+                    in_pdf
+                ]
+                subprocess.run(cmd, check=True, timeout=25)
+                if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
+                    with open(out_pdf, "rb") as f:
+                        comp_bytes = f.read()
+                        return comp_bytes, orig_size, len(comp_bytes)
+        except Exception as e:
+            print(f"[compress_pdf Ghostscript]: {e}")
+
+    # 2. Native High-Precision PyMuPDF Deflate Engine
     doc = fitz.open(stream=file_bytes, filetype="pdf")
-    
     deflate = True
     garbage = 4 # maximum garbage collection
     
     if level == "high":
-        # Downsample images if high compression requested
         for page in doc:
             img_list = page.get_images()
             for img_info in img_list:
                 xref = img_info[0]
                 try:
                     pix = fitz.Pixmap(doc, xref)
-                    if pix.n > 4: # convert CMYK to RGB
+                    if pix.n > 4:
                         pix = fitz.Pixmap(fitz.csRGB, pix)
-                    # Downsample large pixmaps
                     if pix.width > 1200 or pix.height > 1200:
                         pix_small = fitz.Pixmap(pix, int(pix.width * 0.6), int(pix.height * 0.6), 0)
                         doc.update_stream(xref, pix_small.tobytes("jpeg"))
@@ -154,6 +186,53 @@ def compress_pdf(file_bytes: bytes, level: str = "medium") -> tuple[bytes, int, 
     return out_bytes, orig_size, comp_size
 
 def repair_pdf(file_bytes: bytes) -> bytes:
+    import subprocess
+    import tempfile
+    import shutil
+    from .conversion_service import get_ghostscript_cmd
+
+    # 1. Primary Ghostscript / pdftocairo Repair
+    gs_cmd = get_ghostscript_cmd()
+    if gs_cmd:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                in_pdf = os.path.join(tmpdir, "corrupt.pdf")
+                out_pdf = os.path.join(tmpdir, "repaired.pdf")
+                with open(in_pdf, "wb") as f:
+                    f.write(file_bytes)
+                cmd = [
+                    gs_cmd,
+                    "-sDEVICE=pdfwrite",
+                    "-dNOPAUSE",
+                    "-dQUIET",
+                    "-dBATCH",
+                    f"-sOutputFile={out_pdf}",
+                    in_pdf
+                ]
+                subprocess.run(cmd, check=True, timeout=25)
+                if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
+                    with open(out_pdf, "rb") as f:
+                        return f.read()
+        except Exception as e:
+            print(f"[repair_pdf Ghostscript]: {e}")
+
+    # pdftocairo check
+    cairo_cmd = shutil.which("pdftocairo")
+    if cairo_cmd:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                in_pdf = os.path.join(tmpdir, "corrupt.pdf")
+                out_pdf = os.path.join(tmpdir, "repaired.pdf")
+                with open(in_pdf, "wb") as f:
+                    f.write(file_bytes)
+                subprocess.run([cairo_cmd, "-pdf", in_pdf, out_pdf], check=True, timeout=25)
+                if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
+                    with open(out_pdf, "rb") as f:
+                        return f.read()
+        except Exception as e:
+            print(f"[repair_pdf pdftocairo]: {e}")
+
+    # 2. Native PyMuPDF Xref Stream Reconstruction
     try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         if doc.is_encrypted:
