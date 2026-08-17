@@ -18,6 +18,43 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
+import shutil
+import glob
+
+def get_soffice_cmd() -> str | None:
+    """Find LibreOffice binary across PATH and default Windows/Linux install directories."""
+    cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    if cmd:
+        return cmd
+    
+    # Common Windows directories
+    win_paths = [
+        r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        r"C:\Program Files\LibreOffice*\program\soffice.exe",
+    ]
+    for p in win_paths:
+        matches = glob.glob(p)
+        if matches and os.path.exists(matches[0]):
+            return matches[0]
+    return None
+
+def get_ghostscript_cmd() -> str | None:
+    """Find Ghostscript binary across PATH and default Windows/Linux install directories."""
+    cmd = shutil.which("gswin64c") or shutil.which("gswin32c") or shutil.which("gs")
+    if cmd:
+        return cmd
+    
+    win_paths = [
+        r"C:\Program Files\gs\gs*\bin\gswin64c.exe",
+        r"C:\Program Files (x86)\gs\gs*\bin\gswin32c.exe",
+    ]
+    for p in win_paths:
+        matches = glob.glob(p)
+        if matches and os.path.exists(matches[0]):
+            return matches[0]
+    return None
+
 def jpg_to_pdf(images_bytes_list: list[bytes]) -> bytes:
     pil_images = []
     for b in images_bytes_list:
@@ -34,11 +71,10 @@ def jpg_to_pdf(images_bytes_list: list[bytes]) -> bytes:
 def word_to_pdf(docx_bytes: bytes) -> bytes:
     import html
     import subprocess
-    import shutil
     import tempfile
 
     # 1. Primary: If LibreOffice / soffice is installed, use native headless rendering
-    soffice_cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    soffice_cmd = get_soffice_cmd()
     if soffice_cmd:
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -94,10 +130,9 @@ def word_to_pdf(docx_bytes: bytes) -> bytes:
 def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
     import html
     import subprocess
-    import shutil
     import tempfile
 
-    soffice_cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    soffice_cmd = get_soffice_cmd()
     if soffice_cmd:
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -141,10 +176,9 @@ def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
 def excel_to_pdf(xlsx_bytes: bytes) -> bytes:
     import html
     import subprocess
-    import shutil
     import tempfile
 
-    soffice_cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    soffice_cmd = get_soffice_cmd()
     if soffice_cmd:
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
