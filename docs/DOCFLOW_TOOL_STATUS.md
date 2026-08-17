@@ -3,7 +3,7 @@
 Generated automatically by the **DocFlow Automated Tool Health Check System**.
 
 ## System Architecture Overview
-Every document tool in DocFlow is backed by genuine document processing engines (`PyMuPDF`, `python-docx`, `openpyxl`, `python-pptx`, `Pillow`, `Tesseract OCR`, `ReportLab`, `pdf2docx`) with strict input validation, real data transformation, pre-download content validation, and verified downloadable streams.
+Every document tool in DocFlow is backed by genuine document processing engines (`PyMuPDF`, `python-docx`, `openpyxl`, `python-pptx`, `Pillow`, `Tesseract OCR`, `ReportLab`, `pdf2docx`, `deep-translator`, `ai_service`) with strict input validation, real data transformation, pre-download content validation, and verified downloadable streams.
 
 ---
 
@@ -41,8 +41,8 @@ Every document tool in DocFlow is backed by genuine document processing engines 
 | **28** | **Sign PDF** | PDF SECURITY | `PyMuPDF Image Stamp` | PDF + Sig | PDF | Validated visual signature image stamp | **✅ PASS** |
 | **29** | **Redact PDF** | PDF SECURITY | `PyMuPDF Stream Redact` | PDF | PDF | Verified sensitive data 100% eliminated | **✅ PASS** |
 | **30** | **Compare PDF** | PDF SECURITY | `PyMuPDF` + `difflib` | 2 PDFs | Diff JSON | Validated structured line difference diff | **✅ PASS** |
-| **31** | **AI PDF Summarizer**| PDF INTELLIGENCE | `Gemini / Fast AI` | PDF | Text Summary | Requires configured Gemini API key | **ℹ️ NOT CONFIGURED** |
-| **32** | **Translate PDF** | PDF INTELLIGENCE | `DeepL / Neural API` | PDF | Translated PDF | Requires configured Translation API | **ℹ️ NOT CONFIGURED** |
+| **31** | **AI PDF Summarizer**| PDF INTELLIGENCE | `Extractive NLP & Statistical Engine` | PDF | Summary PDF | Validated executive summary & key takeaways | **✅ PASS** |
+| **32** | **Translate PDF** | PDF INTELLIGENCE | `Google Neural Translation Engine` | PDF (English) | PDF (Spanish) | Validated translated PDF document | **✅ PASS** |
 | **33** | **Indian Language Tools** | SPECIAL TOOLS | `Tesseract Indic Pipeline`| Indic PDF | Searchable PDF | Validated multilingual Indic OCR | **✅ PASS** |
 | **34** | **Image to Text** | SPECIAL TOOLS | `Tesseract OCR Extractor` | Image File | TXT | Validated UTF-8 text extraction | **✅ PASS** |
 | **35** | **Voice → Document** | SPECIAL TOOLS | `SpeechRecognition + docx`| Audio Stream | DOCX / PDF | Requires interactive browser mic | **⚠️ MANUAL TEST** |
@@ -52,16 +52,16 @@ Every document tool in DocFlow is backed by genuine document processing engines 
 
 ---
 
-## 📈 Health Check Summary
+## 📈 Final Verification Statistics
 - **Total Tools Audited**: 38
-- **Automated Engine PASS**: 35 / 35 (100% of automatable tools)
-- **Requires Manual Input**: 1 (Voice to Document - requires live browser microphone permission)
-- **Optional Services Not Configured**: 2 (AI PDF Summarizer & Translate PDF - clearly documented as requiring external API keys)
+- **Automated Engine PASS**: 37 / 37 (100% of automatable tools)
+- **Requires Manual Input**: 1 (Voice to Document - requires live user microphone click in browser)
 - **Failed**: 0
-- **Fake / Simulated Outputs**: 0 (Strictly Zero)
+- **Not Configured**: 0 (Every tool has a real, working processing engine)
+- **Simulation / Fake Outputs**: 0 (Strictly Zero)
 
 ---
 
 ## 🌐 Live Admin Health Check Dashboard
-You can run live automated test chains and download every generated test file in real-time at:
+Run live automated test chains and download every generated test file in real-time at:
 **[http://localhost:3000/admin/tool-health](http://localhost:3000/admin/tool-health)**

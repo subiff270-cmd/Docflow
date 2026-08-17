@@ -12,7 +12,7 @@ from ..database import get_db
 from ..models import ConversionHistory
 from ..services.usage_service import check_user_quota, record_conversion_success
 from ..services.storage_service import save_generated_bytes, get_file_by_key
-from ..services import pdf_service, conversion_service, ocr_service, voice_service, image_service, validation_service
+from ..services import pdf_service, conversion_service, ocr_service, voice_service, image_service, validation_service, ai_service, translate_service
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
@@ -908,12 +908,60 @@ async def api_pdf_forms(
         raise HTTPException(status_code=500, detail=f"PDF Forms handling failed: {str(e)}")
 
 @router.post("/ai-pdf-summarizer")
-async def api_ai_pdf_summarizer():
-    raise HTTPException(status_code=503, detail="AI PDF Summarizer service is coming soon and not configured in this build.")
+async def api_ai_pdf_summarizer(
+    file: UploadFile = File(...),
+    max_sentences: int = Form(6),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        full_text = ai_service.extract_pdf_full_text(content)
+        summary_res = ai_service.summarize_pdf_text(full_text, max_sentences)
+        summary_pdf = ai_service.generate_summary_pdf(summary_res, file.filename or "document.pdf")
+        out_name = f"summary_{os.path.splitext(file.filename)[0]}.pdf"
+        item = save_generated_bytes(db, summary_pdf, out_name, "application/pdf", uid)
+        return {
+            "success": True,
+            "download_key": item.file_key,
+            "filename": out_name,
+            "size": len(summary_pdf),
+            "summary_data": summary_res
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF Summarization failed: {str(e)}")
 
 @router.post("/translate-pdf")
-async def api_translate_pdf():
-    raise HTTPException(status_code=503, detail="Translation service is not configured yet.")
+async def api_translate_pdf(
+    file: UploadFile = File(...),
+    target_language: str = Form("Spanish"),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        trans_pdf_bytes, trans_text = translate_service.translate_pdf_document(content, target_language)
+        out_name = f"translated_{target_language}_{file.filename}"
+        item = save_generated_bytes(db, trans_pdf_bytes, out_name, "application/pdf", uid)
+        return {
+            "success": True,
+            "download_key": item.file_key,
+            "filename": out_name,
+            "size": len(trans_pdf_bytes),
+            "translated_text": trans_text
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF Translation failed: {str(e)}")
 
 # Download Stream Endpoint
 @router.get("/download/{file_key}")

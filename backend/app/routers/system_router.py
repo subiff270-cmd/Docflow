@@ -14,7 +14,7 @@ import fitz
 
 from ..database import get_db
 from ..services.pdf_analysis_service import analyze_pdf
-from ..services import pdf_service, conversion_service, ocr_service, image_service, voice_service, validation_service
+from ..services import pdf_service, conversion_service, ocr_service, image_service, voice_service, validation_service, ai_service, translate_service
 from ..services.storage_service import save_generated_bytes
 
 router = APIRouter(prefix="/api/system", tags=["system"])
@@ -508,10 +508,27 @@ async def run_tool_health_check(
     # 31-32: PDF INTELLIGENCE
     # =========================================================================
     # 31. AI PDF Summarizer
-    record("AI PDF Summarizer", "PDF INTELLIGENCE", "Gemini / Fast AI Summarizer", "PDF", "Summary Text", "NOT CONFIGURED", "AI Summarizer engine is optional and requires Gemini API key configured in backend/.env.")
+    try:
+        full_text = ai_service.extract_pdf_full_text(pdf_bytes)
+        summary_res = ai_service.summarize_pdf_text(full_text, max_sentences=6)
+        summary_pdf = ai_service.generate_summary_pdf(summary_res, "test_document.pdf")
+        if validation_service.validate_pdf_bytes(summary_pdf):
+            record("AI PDF Summarizer", "PDF INTELLIGENCE", "Extractive NLP & Statistical Engine", "PDF", "Summary PDF", "PASS", f"Generated executive summary ({summary_res['word_count']} words analyzed, {len(summary_res['key_takeaways'])} key takeaways).", summary_pdf, "executive_summary.pdf", "application/pdf")
+        else:
+            record("AI PDF Summarizer", "PDF INTELLIGENCE", "Extractive NLP Engine", "PDF", "Summary PDF", "FAIL", "Summary PDF failed validation.")
+    except Exception as e:
+        record("AI PDF Summarizer", "PDF INTELLIGENCE", "Extractive NLP Engine", "PDF", "Summary PDF", "FAIL", str(e))
 
     # 32. Translate PDF
-    record("Translate PDF", "PDF INTELLIGENCE", "DeepL / Google Neural Translate", "PDF", "Translated PDF", "NOT CONFIGURED", "Document Translation pipeline requires Neural Translation API key configured.")
+    try:
+        trans_pdf_bytes, trans_text = translate_service.translate_pdf_document(pdf_bytes, "Spanish")
+        if validation_service.validate_pdf_bytes(trans_pdf_bytes):
+            record("Translate PDF", "PDF INTELLIGENCE", "Google Neural Translation Engine", "PDF (English)", "PDF (Spanish)", "PASS", f"Translated document into Spanish ({len(trans_pdf_bytes):,} bytes).", trans_pdf_bytes, "translated_spanish.pdf", "application/pdf")
+        else:
+            record("Translate PDF", "PDF INTELLIGENCE", "Translation Engine", "PDF", "PDF", "FAIL", "Translated document failed PDF validation.")
+    except Exception as e:
+        record("Translate PDF", "PDF INTELLIGENCE", "Translation Engine", "PDF", "PDF", "FAIL", str(e))
+
 
     # =========================================================================
     # 33-38: SPECIAL & IMAGE TOOLS
