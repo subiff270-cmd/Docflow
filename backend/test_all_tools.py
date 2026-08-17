@@ -184,17 +184,24 @@ run_test("Sign PDF", "sign-pdf", {"file": ("test.pdf", pdf_bytes, "application/p
 run_test("Redact PDF", "redact-pdf", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {"search_text": "DocFlow"}, "PDF", "PyMuPDF Native Content Stream Redaction")
 run_test("Compare PDF", "compare-pdf", {"file_a": ("a.pdf", pdf_bytes, "application/pdf"), "file_b": ("b.pdf", pdf_bytes, "application/pdf")}, {}, "JSON", "PyMuPDF + difflib Unified Line Diff")
 
-# 32-35 IMAGE TOOLS
+# 32-36 IMAGE TOOLS
 run_test("Compress Image", "compress-image", {"file": ("image.png", img_bytes, "image/png")}, {"quality": "70"}, "PNG", "Pillow Compression Engine")
 run_test("Resize Image", "resize-image", {"file": ("image.png", img_bytes, "image/png")}, {"percentage": "50"}, "PNG", "Pillow Lanczos Resampling Engine")
+run_test("Crop Image", "crop-image", {"file": ("image.png", img_bytes, "image/png")}, {"crop_x": "10", "crop_y": "10", "crop_w": "80", "crop_h": "80"}, "PNG", "Pillow Box Cropper")
 run_test("Image Format Converter", "convert-image", {"file": ("image.png", img_bytes, "image/png")}, {"target_format": "webp"}, "WEBP", "Pillow Multi-Format Transcoder")
 run_test("Image to Text", "image-to-text", {"file": ("image.png", img_bytes, "image/png")}, {"language": "English"}, "TXT", "Tesseract OCR Image Extraction")
 
-# 36 VOICE TO DOCUMENT
+# 37 VOICE TO DOCUMENT
 run_test("Voice to Document", "voice-to-document", {}, {"transcript_text": "DocFlow is a production SaaS platform.", "doc_type": "Report", "output_format": "docx"}, "DOCX", "python-docx / ReportLab Voice Studio")
 
-# 37 INDIAN LANGUAGE DOCUMENTS
+# 38 INDIAN LANGUAGE DOCUMENTS
 run_test("Indian Language Document Tools", "indian-language-documents", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {"language": "Hindi"}, "PDF", "Tesseract OCR Multi-Lingual Pipeline")
+
+# 39 AI PDF SUMMARIZER
+run_test("AI PDF Summarizer", "ai-pdf-summarizer", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {"max_sentences": "4"}, "PDF", "Extractive NLP & Statistical Summarizer")
+
+# 40 TRANSLATE PDF
+run_test("Translate PDF", "translate-pdf", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {"target_language": "Spanish"}, "PDF", "Google Neural Translation Engine (deep-translator)")
 
 print("\n======================================================================")
 print("                   GENERATING docs/TOOLS_STATUS.md")
