@@ -506,7 +506,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           {files.length > 0 && [
             "split-pdf", "remove-pages", "extract-pages", "compress-pdf",
             "rotate-pdf", "unlock-pdf", "protect-pdf", "add-watermark",
-            "ocr-pdf", "indian-language-documents", "image-to-text", "crop-pdf"
+            "ocr-pdf", "indian-language-documents", "image-to-text", "crop-pdf",
+            "translate-pdf", "ai-pdf-summarizer", "resize-image", "crop-image",
+            "convert-image", "add-page-numbers", "redact-pdf"
           ].includes(tool.id) && (
             <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -669,6 +671,62 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
+              {/* Add Page Numbers */}
+              {tool.id === "add-page-numbers" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Page Number Position</label>
+                  <select
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+                    defaultValue="bottom-center"
+                  >
+                    <option value="bottom-center">Bottom Center (Recommended)</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="top-right">Top Right</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Redact PDF */}
+              {tool.id === "redact-pdf" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Text to Permanently Redact</label>
+                  <input
+                    type="text"
+                    placeholder="Enter sensitive word or phrase (e.g. Confidential, SSN, Account Number)"
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                    defaultValue="CONFIDENTIAL"
+                  />
+                </div>
+              )}
+
+              {/* Translate PDF */}
+              {tool.id === "translate-pdf" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                    Target Language
+                  </label>
+                  <select
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+                    defaultValue="Spanish"
+                  >
+                    <option value="Spanish">Spanish (Español)</option>
+                    <option value="French">French (Français)</option>
+                    <option value="German">German (Deutsch)</option>
+                    <option value="Hindi">Hindi (हिन्दी)</option>
+                    <option value="Tamil">Tamil (தமிழ்)</option>
+                    <option value="Telugu">Telugu (తెలుగు)</option>
+                    <option value="Italian">Italian (Italiano)</option>
+                    <option value="Portuguese">Portuguese (Português)</option>
+                    <option value="Russian">Russian (Русский)</option>
+                    <option value="Chinese">Chinese (中文)</option>
+                    <option value="Japanese">Japanese (日本語)</option>
+                    <option value="Arabic">Arabic (العربية)</option>
+                  </select>
+                </div>
+              )}
+
               {/* OCR & Indian Languages */}
               {(tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") && (
                 <div>
@@ -686,6 +744,23 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         {lang}
                       </option>
                     ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Convert Image Format */}
+              {tool.id === "convert-image" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Target Format</label>
+                  <select
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+                    defaultValue="png"
+                  >
+                    <option value="png">PNG (Lossless with Alpha)</option>
+                    <option value="jpg">JPG / JPEG (Compact Web Image)</option>
+                    <option value="webp">WEBP (Next-Gen High Compression)</option>
+                    <option value="bmp">BMP (Bitmap)</option>
+                    <option value="tiff">TIFF (High Resolution)</option>
                   </select>
                 </div>
               )}
