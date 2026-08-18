@@ -473,6 +473,26 @@ async def api_pdf_to_pdfa(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF to PDF/A failed: {str(e)}")
 
+@router.post("/pdf-to-html")
+async def api_pdf_to_html(
+    file: UploadFile = File(...),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        html_bytes = conversion_service.pdf_to_html(content)
+        out_name = f"{os.path.splitext(file.filename)[0]}.html"
+        item = save_generated_bytes(db, html_bytes, out_name, "text/html", uid)
+        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF to HTML failed: {str(e)}")
+
 @router.post("/pdf-to-markdown")
 async def api_pdf_to_markdown(
     file: UploadFile = File(...),
