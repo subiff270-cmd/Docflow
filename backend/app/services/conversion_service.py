@@ -297,39 +297,44 @@ def pdf_to_word(pdf_bytes: bytes) -> bytes:
 def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     prs = Presentation()
-    # Standard 16:9 widescreen
+    # Standard 16:9 widescreen presentation
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
-    blank_layout = prs.slide_layouts[6]
+    
+    # Use blank slide layout (index 6 in default template, fallback to 0)
+    layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
 
-    for page in doc:
-        slide = prs.slides.add_slide(blank_layout)
-        
-        # High resolution page rendering
-        pix = page.get_pixmap(dpi=150)
-        img_bytes = pix.tobytes("png")
-        image_stream = io.BytesIO(img_bytes)
-        
-        page_w = page.rect.width
-        page_h = page.rect.height
-        
-        # Fit nicely into slide
-        slide_w = 13.333
-        slide_h = 7.5
-        
-        # Calculate aspect ratio scaling
-        scale = min(slide_w / (page_w / 72.0), slide_h / (page_h / 72.0))
-        target_w = (page_w / 72.0) * scale
-        target_h = (page_h / 72.0) * scale
-        left = (slide_w - target_w) / 2
-        top = (slide_h - target_h) / 2
-        
-        slide.shapes.add_picture(image_stream, Inches(left), Inches(top), width=Inches(target_w), height=Inches(target_h))
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for page_idx, page in enumerate(doc):
+            slide = prs.slides.add_slide(layout)
+            
+            # High-resolution 200 DPI rendering for crisp presentation
+            pix = page.get_pixmap(dpi=200)
+            img_path = os.path.join(tmpdir, f"page_{page_idx}.png")
+            pix.save(img_path)
+            
+            page_w = page.rect.width
+            page_h = page.rect.height
+            
+            slide_w = 13.333
+            slide_h = 7.5
+            
+            # Calculate aspect ratio scaling
+            scale = min(slide_w / (page_w / 72.0), slide_h / (page_h / 72.0))
+            target_w = (page_w / 72.0) * scale
+            target_h = (page_h / 72.0) * scale
+            left = (slide_w - target_w) / 2.0
+            top = (slide_h - target_h) / 2.0
+            
+            slide.shapes.add_picture(img_path, Inches(left), Inches(top), width=Inches(target_w), height=Inches(target_h))
 
-    buffer = io.BytesIO()
-    prs.save(buffer)
+        out_pptx = os.path.join(tmpdir, "presentation.pptx")
+        prs.save(out_pptx)
+        with open(out_pptx, "rb") as f:
+            out_bytes = f.read()
+
     doc.close()
-    return buffer.getvalue()
+    return out_bytes
 
 def pdf_to_excel(pdf_bytes: bytes) -> bytes:
     from openpyxl import Workbook
@@ -380,7 +385,10 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
         return s
 
     def auto_fit_sheet(ws):
-        ws.views.sheetView[0].showGridLines = True
+        try:
+            ws.sheet_view.showGridLines = True
+        except Exception:
+            pass
         for col in ws.columns:
             max_len = 0
             col_letter = get_column_letter(col[0].column)
