@@ -23,14 +23,18 @@ import glob
 
 def get_soffice_cmd() -> str | None:
     """Find LibreOffice binary across PATH and default Windows/Linux install directories."""
-    cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    # 1. Check CLI wrapper soffice.com first (Windows)
+    cmd = shutil.which("soffice.com") or shutil.which("soffice") or shutil.which("libreoffice")
     if cmd:
         return cmd
     
-    # Common Windows directories
+    # 2. Common Windows directories
     win_paths = [
+        r"C:\Program Files\LibreOffice\program\soffice.com",
         r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.com",
         r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        r"C:\Program Files\LibreOffice*\program\soffice.com",
         r"C:\Program Files\LibreOffice*\program\soffice.exe",
     ]
     for p in win_paths:
