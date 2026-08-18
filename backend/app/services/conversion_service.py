@@ -347,14 +347,22 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Table 1"
+    ws.title = "Sheet1"
 
     # Styling definitions
-    title_font = Font(name="Calibri", size=11, bold=True, color="000000")
+    title_font = Font(name="Calibri", size=12, bold=True, color="000000")
     header_font = Font(name="Calibri", size=11, bold=True, color="000000")
+    table_header_font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+    table_header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
     regular_font = Font(name="Calibri", size=10, color="000000")
     code_font = Font(name="Consolas", size=9.5, color="1E293B")
     
+    thin_border = Border(
+        left=Side(style="thin", color="CBD5E1"),
+        right=Side(style="thin", color="CBD5E1"),
+        top=Side(style="thin", color="CBD5E1"),
+        bottom=Side(style="thin", color="CBD5E1")
+    )
     box_border = Border(
         left=Side(style="thin", color="000000"),
         right=Side(style="thin", color="000000"),
@@ -383,44 +391,78 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
 
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     current_row = 1
+    max_cols_used = 1
 
     with tempfile.TemporaryDirectory() as tmpdir:
         for page_idx, page in enumerate(doc):
-            # Check for drawn/vector tables on the page
+            # 1. Check for real structured tables on this page
             tabs = None
             try:
                 tabs = page.find_tables()
             except Exception:
                 pass
 
-            has_explicit_tables = tabs and len(tabs.tables) > 0
+            table_bboxes = []
+            if tabs and len(tabs.tables) > 0:
+                for tab in tabs:
+                    table_bboxes.append(tab.bbox)
+                    df_data = tab.extract()
+                    if not df_data:
+                        continue
+                    
+                    is_header_row = True
+                    for row in df_data:
+                        cleaned_row = [parse_value(c) for c in row]
+                        if not any(bool(str(c).strip()) for c in cleaned_row):
+                            continue
+                        
+                        max_cols_used = max(max_cols_used, len(cleaned_row))
+                        for col_idx, cell_val in enumerate(cleaned_row, start=1):
+                            cell = ws.cell(row=current_row, column=col_idx, value=cell_val)
+                            cell.border = thin_border
+                            if is_header_row:
+                                cell.fill = table_header_fill
+                                cell.font = table_header_font
+                                cell.alignment = Alignment(horizontal="center", vertical="center")
+                            else:
+                                cell.font = regular_font
+                                cell.alignment = Alignment(
+                                    horizontal="right" if isinstance(cell_val, (int, float)) else "left",
+                                    vertical="center"
+                                )
+                        is_header_row = False
+                        current_row += 1
+                    current_row += 1
 
-            # 1. Process Page Text Blocks
+            # 2. Process non-table text blocks
             text_blocks = page.get_text("blocks")
-            # Sort blocks top-to-bottom
             text_blocks.sort(key=lambda b: b[1])
 
             for block in text_blocks:
-                block_text = block[4].strip()
+                bx0, by0, bx1, by1, block_text = block[0], block[1], block[2], block[3], block[4].strip()
                 if not block_text:
                     continue
 
+                # Skip block if it falls entirely inside an already extracted table
+                inside_table = False
+                for tbbox in table_bboxes:
+                    if by0 >= tbbox[1] - 5 and by1 <= tbbox[3] + 5:
+                        inside_table = True
+                        break
+                if inside_table:
+                    continue
+
                 lines = block_text.splitlines()
-                
-                # Check for Document Title Box (e.g. Page 1 heading)
-                if page_idx == 0 and ("MACHINE LEARNING" in block_text or "LAB MANUAL" in block_text) and current_row == 1:
-                    cell_a = ws.cell(row=current_row, column=1, value=lines[0] if len(lines) > 0 else block_text)
+
+                # Dynamic Title Box Detection (Page 1 top header)
+                if page_idx == 0 and current_row == 1 and by0 < 150 and len(lines) <= 3:
+                    full_title = "\n".join(lines)
+                    cell_a = ws.cell(row=current_row, column=1, value=full_title)
                     cell_a.font = title_font
-                    cell_a.alignment = Alignment(horizontal="center", vertical="center")
-                    if len(lines) > 1:
-                        cell_a.value = f"{lines[0]}\n{lines[1]}"
-                        cell_a.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                    
-                    # Merge across columns A:F with border
+                    cell_a.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
                     ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=6)
                     for col_i in range(1, 7):
-                        c = ws.cell(row=current_row, column=col_i)
-                        c.border = box_border
+                        ws.cell(row=current_row, column=col_i).border = box_border
                     current_row += 2
                     continue
 
@@ -429,9 +471,9 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
                     if not line_str:
                         continue
 
-                    # Check for List numbers (e.g. "1. Download a dataset", "i. Initialize")
-                    list_match = re.match(r"^(\d+\.|\b[ivx]+\.|\b[a-zA-Z]\.)\s*(.*)$", line_str)
-                    if list_match:
+                    # Numbered list alignment (e.g. "1. Step description", "i. Feature")
+                    list_match = re.match(r"^(\d+\.|\b[ivx]+\.|\b[a-zA-Z]\.|\*|-|•)\s*(.*)$", line_str)
+                    if list_match and len(list_match.group(1)) <= 4:
                         marker = list_match.group(1).strip()
                         body = list_match.group(2).strip()
                         
@@ -442,13 +484,27 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
                         c_body = ws.cell(row=current_row, column=2, value=parse_value(body))
                         c_body.font = regular_font
                         c_body.alignment = Alignment(horizontal="left", vertical="top")
+                        max_cols_used = max(max_cols_used, 2)
                         current_row += 1
                         continue
 
-                    # Check for Headings
-                    is_heading = any(line_str.startswith(h) for h in [
-                        "PROGRAM", "AIM:", "AIM :", "ALGORITHM:", "ALGORITHM :",
-                        "OUTPUT:", "OUTPUTS:", "RESULT:", "RESULT :"
+                    # Multi-column line detection (tabs or multi-spaces)
+                    parts = [p.strip() for p in re.split(r"\t| {3,}", line_str) if p.strip()]
+                    if len(parts) > 1:
+                        max_cols_used = max(max_cols_used, len(parts))
+                        for col_i, part in enumerate(parts, start=1):
+                            c = ws.cell(row=current_row, column=col_i, value=parse_value(part))
+                            c.font = regular_font
+                            c.alignment = Alignment(horizontal="left", vertical="top")
+                        current_row += 1
+                        continue
+
+                    # Dynamic Heading detection (uppercase words, bold indicators, key section terms)
+                    is_heading = (
+                        line_str.isupper() and len(line_str) < 60
+                    ) or any(line_str.upper().startswith(h) for h in [
+                        "PROGRAM", "AIM", "ALGORITHM", "OUTPUT", "RESULT", "SECTION",
+                        "CHAPTER", "TABLE", "INVOICE", "TOTAL", "SUMMARY", "NOTE"
                     ])
 
                     c = ws.cell(row=current_row, column=1, value=parse_value(line_str))
@@ -463,7 +519,7 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
 
                 current_row += 1
 
-            # 2. Extract Embedded Images / Plots on the Page (e.g. charts, screenshots)
+            # 3. Extract Embedded Images & Charts on the page
             image_list = page.get_images(full=True)
             for img_idx, img_info in enumerate(image_list):
                 xref = img_info[0]
@@ -472,14 +528,12 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
                     if pix.n > 4:
                         pix = fitz.Pixmap(fitz.csRGB, pix)
                     
-                    # Only insert meaningful chart/figure images (> 100px)
                     if pix.width >= 100 and pix.height >= 80:
                         img_filename = f"img_p{page_idx}_{img_idx}_{xref}.png"
                         img_path = os.path.join(tmpdir, img_filename)
                         pix.save(img_path)
                         
                         xl_img = OpenPyXLImage(img_path)
-                        # Scale image to fit neatly within Excel sheet
                         max_w = 480
                         if xl_img.width > max_w:
                             ratio = max_w / xl_img.width
@@ -488,8 +542,6 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
                         
                         anchor_cell = f"A{current_row}"
                         ws.add_image(xl_img, anchor_cell)
-                        
-                        # Advance rows according to image height (~20px per row)
                         rows_spanned = max(6, int(xl_img.height / 20) + 2)
                         current_row += rows_spanned
                 except Exception as e:
@@ -497,17 +549,18 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
 
             current_row += 1
 
-        # Set clean column widths
-        ws.column_dimensions['A'].width = 16
-        ws.column_dimensions['B'].width = 80
-        ws.column_dimensions['C'].width = 25
-        ws.column_dimensions['D'].width = 25
-        ws.column_dimensions['E'].width = 25
-        ws.column_dimensions['F'].width = 25
+        # Dynamic Auto-Fit Column Widths for all columns used
+        for col_i in range(1, max(max_cols_used + 1, 7)):
+            col_letter = get_column_letter(col_i)
+            if col_i == 1:
+                ws.column_dimensions[col_letter].width = 16
+            elif col_i == 2:
+                ws.column_dimensions[col_letter].width = 75
+            else:
+                ws.column_dimensions[col_letter].width = 22
 
         doc.close()
 
-        # Save to memory
         buffer = io.BytesIO()
         wb.save(buffer)
         return buffer.getvalue()
