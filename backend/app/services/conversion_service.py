@@ -43,6 +43,19 @@ def get_soffice_cmd() -> str | None:
             return matches[0]
     return None
 
+def get_cloudmersive_convert_api():
+    api_key = os.getenv("CLOUDMERSIVE_API_KEY", "").strip()
+    if not api_key:
+        return None
+    try:
+        import cloudmersive_convert_api_client
+        configuration = cloudmersive_convert_api_client.Configuration()
+        configuration.api_key['Apikey'] = api_key
+        return cloudmersive_convert_api_client.ConvertDocumentApi(cloudmersive_convert_api_client.ApiClient(configuration))
+    except Exception as e:
+        print(f"[Cloudmersive Init Error]: {e}")
+        return None
+
 def get_ghostscript_cmd() -> str | None:
     """Find Ghostscript binary across PATH and default Windows/Linux install directories."""
     cmd = shutil.which("gswin64c") or shutil.which("gswin32c") or shutil.which("gs")
@@ -255,7 +268,24 @@ def pdf_to_jpg(pdf_bytes: bytes) -> list[tuple[str, bytes]]:
     return pages
 
 def pdf_to_word(pdf_bytes: bytes) -> bytes:
-    # 1. Try high-precision pdf2docx conversion
+    # 0. Cloudmersive Enterprise Engine
+    cm_api = get_cloudmersive_convert_api()
+    if cm_api:
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_in:
+                tmp_in.write(pdf_bytes)
+                tmp_in_path = tmp_in.name
+            try:
+                res = cm_api.convert_document_pdf_to_docx(tmp_in_path)
+                if res and len(res) > 100:
+                    return res
+            finally:
+                if os.path.exists(tmp_in_path):
+                    os.remove(tmp_in_path)
+        except Exception as e:
+            print(f"[pdf_to_word Cloudmersive]: {e}")
+
+    # 1. High-precision pdf2docx conversion
     try:
         from pdf2docx import Converter
         pdf_file = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
@@ -295,6 +325,23 @@ def pdf_to_word(pdf_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
+    # 0. Cloudmersive Enterprise Engine
+    cm_api = get_cloudmersive_convert_api()
+    if cm_api:
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_in:
+                tmp_in.write(pdf_bytes)
+                tmp_in_path = tmp_in.name
+            try:
+                res = cm_api.convert_document_pdf_to_pptx(tmp_in_path)
+                if res and len(res) > 100:
+                    return res
+            finally:
+                if os.path.exists(tmp_in_path):
+                    os.remove(tmp_in_path)
+        except Exception as e:
+            print(f"[pdf_to_pptx Cloudmersive]: {e}")
+
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     prs = Presentation()
     # Standard 16:9 widescreen presentation
@@ -337,13 +384,29 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
     return out_bytes
 
 def pdf_to_excel(pdf_bytes: bytes) -> bytes:
+    # 0. Cloudmersive Enterprise Engine
+    cm_api = get_cloudmersive_convert_api()
+    if cm_api:
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_in:
+                tmp_in.write(pdf_bytes)
+                tmp_in_path = tmp_in.name
+            try:
+                res = cm_api.convert_document_pdf_to_xlsx(tmp_in_path)
+                if res and len(res) > 100:
+                    return res
+            finally:
+                if os.path.exists(tmp_in_path):
+                    os.remove(tmp_in_path)
+        except Exception as e:
+            print(f"[pdf_to_excel Cloudmersive]: {e}")
+
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
     from openpyxl.drawing.image import Image as OpenPyXLImage
     import re
-    import tempfile
 
     wb = Workbook()
     ws = wb.active
