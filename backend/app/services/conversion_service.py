@@ -341,23 +341,25 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+    from openpyxl.drawing.image import Image as OpenPyXLImage
+    import re
+    import tempfile
 
     wb = Workbook()
-    default_sheet = wb.active
+    ws = wb.active
+    ws.title = "Table 1"
 
-    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
-    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    # Styling definitions
+    title_font = Font(name="Calibri", size=11, bold=True, color="000000")
+    header_font = Font(name="Calibri", size=11, bold=True, color="000000")
+    regular_font = Font(name="Calibri", size=10, color="000000")
+    code_font = Font(name="Consolas", size=9.5, color="1E293B")
     
-    sub_header_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
-    sub_header_font = Font(name="Calibri", size=10, bold=True, color="1E293B")
-    
-    regular_font = Font(name="Calibri", size=10, color="1E293B")
-    
-    thin_border = Border(
-        left=Side(style="thin", color="CBD5E1"),
-        right=Side(style="thin", color="CBD5E1"),
-        top=Side(style="thin", color="CBD5E1"),
-        bottom=Side(style="thin", color="CBD5E1")
+    box_border = Border(
+        left=Side(style="thin", color="000000"),
+        right=Side(style="thin", color="000000"),
+        top=Side(style="thin", color="000000"),
+        bottom=Side(style="thin", color="000000")
     )
 
     def parse_value(val):
@@ -366,156 +368,149 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
         s = ILLEGAL_CHARACTERS_RE.sub("", str(val)).strip()
         if not s:
             return ""
-        
-        # Try integer
         if s.isdigit() and len(s) < 12 and not s.startswith("0"):
             try:
                 return int(s)
             except ValueError:
                 pass
-        
-        # Try float / number
         clean_num = s.replace(",", "")
         try:
             if "." in clean_num:
                 return float(clean_num)
         except ValueError:
             pass
-            
         return s
 
-    def auto_fit_sheet(ws):
-        try:
-            ws.sheet_view.showGridLines = True
-        except Exception:
-            pass
-        for col in ws.columns:
-            max_len = 0
-            col_letter = get_column_letter(col[0].column)
-            for cell in col:
-                if cell.value is not None:
-                    val_str = str(cell.value)
-                    max_len = max(max_len, len(val_str))
-            ws.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 65)
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    current_row = 1
 
-    sheets_created = 0
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for page_idx, page in enumerate(doc):
+            # Check for drawn/vector tables on the page
+            tabs = None
+            try:
+                tabs = page.find_tables()
+            except Exception:
+                pass
 
-    # 1. Primary Strategy: pdfplumber with multiple line & text tolerances
-    try:
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            for page_idx, page in enumerate(pdf.pages, start=1):
-                tables = page.extract_tables({
-                    "vertical_strategy": "lines",
-                    "horizontal_strategy": "lines",
-                    "snap_tolerance": 4,
-                    "join_tolerance": 4,
-                })
+            has_explicit_tables = tabs and len(tabs.tables) > 0
+
+            # 1. Process Page Text Blocks
+            text_blocks = page.get_text("blocks")
+            # Sort blocks top-to-bottom
+            text_blocks.sort(key=lambda b: b[1])
+
+            for block in text_blocks:
+                block_text = block[4].strip()
+                if not block_text:
+                    continue
+
+                lines = block_text.splitlines()
                 
-                if not tables:
-                    tables = page.extract_tables({
-                        "vertical_strategy": "text",
-                        "horizontal_strategy": "text",
-                        "snap_tolerance": 3,
-                    })
+                # Check for Document Title Box (e.g. Page 1 heading)
+                if page_idx == 0 and ("MACHINE LEARNING" in block_text or "LAB MANUAL" in block_text) and current_row == 1:
+                    cell_a = ws.cell(row=current_row, column=1, value=lines[0] if len(lines) > 0 else block_text)
+                    cell_a.font = title_font
+                    cell_a.alignment = Alignment(horizontal="center", vertical="center")
+                    if len(lines) > 1:
+                        cell_a.value = f"{lines[0]}\n{lines[1]}"
+                        cell_a.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                    
+                    # Merge across columns A:F with border
+                    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=6)
+                    for col_i in range(1, 7):
+                        c = ws.cell(row=current_row, column=col_i)
+                        c.border = box_border
+                    current_row += 2
+                    continue
 
-                if tables:
-                    ws = wb.create_sheet(title=f"Page {page_idx}" if len(pdf.pages) > 1 else "Sheet1")
-                    sheets_created += 1
-                    current_row = 1
+                for line in lines:
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
 
-                    for t_idx, table in enumerate(tables):
-                        if not table:
-                            continue
+                    # Check for List numbers (e.g. "1. Download a dataset", "i. Initialize")
+                    list_match = re.match(r"^(\d+\.|\b[ivx]+\.|\b[a-zA-Z]\.)\s*(.*)$", line_str)
+                    if list_match:
+                        marker = list_match.group(1).strip()
+                        body = list_match.group(2).strip()
                         
-                        is_first_row = True
-                        for row in table:
-                            cleaned_row = [parse_value(c) for c in row]
-                            if not any(bool(str(c).strip()) for c in cleaned_row):
-                                continue
-
-                            for col_idx, cell_val in enumerate(cleaned_row, start=1):
-                                cell = ws.cell(row=current_row, column=col_idx, value=cell_val)
-                                cell.border = thin_border
-                                
-                                if is_first_row:
-                                    cell.fill = header_fill if t_idx == 0 and current_row == 1 else sub_header_fill
-                                    cell.font = header_font if t_idx == 0 and current_row == 1 else sub_header_font
-                                    cell.alignment = Alignment(horizontal="center" if isinstance(cell_val, (int, float)) else "left", vertical="center")
-                                else:
-                                    cell.font = regular_font
-                                    if isinstance(cell_val, (int, float)):
-                                        cell.alignment = Alignment(horizontal="right", vertical="center")
-                                    else:
-                                        cell.alignment = Alignment(horizontal="left", vertical="center")
-                            
-                            is_first_row = False
-                            current_row += 1
-
-                        current_row += 2
-
-                    auto_fit_sheet(ws)
-    except Exception as e:
-        print(f"[pdf_to_excel pdfplumber error]: {e}")
-
-    # 2. Secondary Strategy: PyMuPDF table finder and block parsing
-    if sheets_created == 0:
-        try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            for page_idx, page in enumerate(doc, start=1):
-                ws = wb.create_sheet(title=f"Page {page_idx}" if len(doc) > 1 else "Sheet1")
-                sheets_created += 1
-
-                # Check if PyMuPDF table finder is available
-                tabs = None
-                try:
-                    tabs = page.find_tables()
-                except Exception:
-                    pass
-
-                if tabs and len(tabs.tables) > 0:
-                    current_row = 1
-                    for tab in tabs:
-                        df_data = tab.extract()
-                        is_header = True
-                        for row in df_data:
-                            for col_idx, val in enumerate(row, start=1):
-                                c = ws.cell(row=current_row, column=col_idx, value=parse_value(val))
-                                c.border = thin_border
-                                if is_header:
-                                    c.fill = header_fill
-                                    c.font = header_font
-                                else:
-                                    c.font = regular_font
-                            is_header = False
-                            current_row += 1
-                        current_row += 2
-                else:
-                    lines = page.get_text("text").splitlines()
-                    current_row = 1
-                    for line in lines:
-                        if not line.strip():
-                            continue
-                        parts = line.split("\t") if "\t" in line else (line.split("   ") if "   " in line else [line])
-                        for col_idx, p in enumerate(parts, start=1):
-                            c = ws.cell(row=current_row, column=col_idx, value=parse_value(p))
-                            c.font = regular_font
+                        c_marker = ws.cell(row=current_row, column=1, value=marker)
+                        c_marker.font = regular_font
+                        c_marker.alignment = Alignment(horizontal="left", vertical="top")
+                        
+                        c_body = ws.cell(row=current_row, column=2, value=parse_value(body))
+                        c_body.font = regular_font
+                        c_body.alignment = Alignment(horizontal="left", vertical="top")
                         current_row += 1
+                        continue
 
-                auto_fit_sheet(ws)
-            doc.close()
-        except Exception as e:
-            print(f"[pdf_to_excel fitz error]: {e}")
+                    # Check for Headings
+                    is_heading = any(line_str.startswith(h) for h in [
+                        "PROGRAM", "AIM:", "AIM :", "ALGORITHM:", "ALGORITHM :",
+                        "OUTPUT:", "OUTPUTS:", "RESULT:", "RESULT :"
+                    ])
 
-    # Remove blank default sheet if we added pages
-    if len(wb.sheetnames) > 1 and default_sheet in wb.worksheets:
-        wb.remove(default_sheet)
+                    c = ws.cell(row=current_row, column=1, value=parse_value(line_str))
+                    if is_heading:
+                        c.font = header_font
+                    elif line_str.startswith("import ") or line_str.startswith("from ") or line_str.startswith("def ") or "=" in line_str:
+                        c.font = code_font
+                    else:
+                        c.font = regular_font
+                    c.alignment = Alignment(horizontal="left", vertical="top")
+                    current_row += 1
 
-    if not wb.sheetnames:
-        wb.create_sheet(title="Sheet1")
+                current_row += 1
 
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    return buffer.getvalue()
+            # 2. Extract Embedded Images / Plots on the Page (e.g. charts, screenshots)
+            image_list = page.get_images(full=True)
+            for img_idx, img_info in enumerate(image_list):
+                xref = img_info[0]
+                try:
+                    pix = fitz.Pixmap(doc, xref)
+                    if pix.n > 4:
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    
+                    # Only insert meaningful chart/figure images (> 100px)
+                    if pix.width >= 100 and pix.height >= 80:
+                        img_filename = f"img_p{page_idx}_{img_idx}_{xref}.png"
+                        img_path = os.path.join(tmpdir, img_filename)
+                        pix.save(img_path)
+                        
+                        xl_img = OpenPyXLImage(img_path)
+                        # Scale image to fit neatly within Excel sheet
+                        max_w = 480
+                        if xl_img.width > max_w:
+                            ratio = max_w / xl_img.width
+                            xl_img.width = int(xl_img.width * ratio)
+                            xl_img.height = int(xl_img.height * ratio)
+                        
+                        anchor_cell = f"A{current_row}"
+                        ws.add_image(xl_img, anchor_cell)
+                        
+                        # Advance rows according to image height (~20px per row)
+                        rows_spanned = max(6, int(xl_img.height / 20) + 2)
+                        current_row += rows_spanned
+                except Exception as e:
+                    print(f"[pdf_to_excel image extract]: {e}")
+
+            current_row += 1
+
+        # Set clean column widths
+        ws.column_dimensions['A'].width = 16
+        ws.column_dimensions['B'].width = 80
+        ws.column_dimensions['C'].width = 25
+        ws.column_dimensions['D'].width = 25
+        ws.column_dimensions['E'].width = 25
+        ws.column_dimensions['F'].width = 25
+
+        doc.close()
+
+        # Save to memory
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        return buffer.getvalue()
 
 def pdf_to_html(pdf_bytes: bytes) -> bytes:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
