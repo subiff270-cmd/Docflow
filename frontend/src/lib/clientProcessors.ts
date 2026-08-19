@@ -263,12 +263,21 @@ export async function clientImageToPdf(files: File[]): Promise<ClientProcessResu
     }
 
     if (img) {
-      const page = pdf.addPage([img.width, img.height]);
+      const A4_W = 595.28;
+      const A4_H = 841.89;
+      const page = pdf.addPage([A4_W, A4_H]);
+
+      const scale = Math.min(A4_W / img.width, A4_H / img.height);
+      const fitW = img.width * scale;
+      const fitH = img.height * scale;
+      const x = (A4_W - fitW) / 2;
+      const y = (A4_H - fitH) / 2;
+
       page.drawImage(img, {
-        x: 0,
-        y: 0,
-        width: img.width,
-        height: img.height,
+        x,
+        y,
+        width: fitW,
+        height: fitH,
       });
     }
   }

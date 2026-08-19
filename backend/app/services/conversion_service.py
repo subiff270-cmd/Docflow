@@ -76,68 +76,53 @@ def jpg_to_pdf(images_bytes_list: list[bytes]) -> bytes:
     if not images_bytes_list:
         return b""
 
-    # 1. Primary: Native MuPDF Image-to-PDF Engine (EXIF-aware, color-accurate, lossless)
-    try:
-        doc = fitz.open()
-        for b in images_bytes_list:
+    A4_W, A4_H = 595.28, 841.89
+    doc = fitz.open()
+
+    for b in images_bytes_list:
+        try:
+            img = Image.open(io.BytesIO(b))
+            # Auto-orient based on EXIF
             try:
-                img_doc = fitz.open(stream=b, filetype="jpg")
-                rect = img_doc[0].rect
-                pdf_bytes_single = img_doc.convert_to_pdf()
-                img_pdf = fitz.open("pdf", pdf_bytes_single)
-                page = doc.new_page(width=rect.width, height=rect.height)
-                page.show_pdf_page(rect, img_pdf, 0)
-                img_doc.close()
-                img_pdf.close()
+                from PIL import ImageOps
+                img = ImageOps.exif_transpose(img)
             except Exception:
-                # Pillow fallback for non-standard image formats (PNG, WEBP, BMP, TIFF)
-                img = Image.open(io.BytesIO(b))
-                if img.mode in ("RGBA", "P", "LA", "CMYK"):
-                    bg = Image.new("RGB", img.size, (255, 255, 255))
-                    if img.mode in ("RGBA", "LA") and "A" in img.getbands():
-                        bg.paste(img, mask=img.split()[-1])
-                    else:
-                        bg.paste(img.convert("RGB"))
-                    img = bg
+                pass
+
+            if img.mode in ("RGBA", "P", "LA", "CMYK"):
+                bg = Image.new("RGB", img.size, (255, 255, 255))
+                if img.mode in ("RGBA", "LA") and "A" in img.getbands():
+                    bg.paste(img, mask=img.split()[-1])
                 else:
-                    img = img.convert("RGB")
-                
-                buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=98)
-                sub_bytes = buf.getvalue()
-                sub_doc = fitz.open(stream=sub_bytes, filetype="jpg")
-                rect = sub_doc[0].rect
-                sub_pdf_bytes = sub_doc.convert_to_pdf()
-                sub_pdf = fitz.open("pdf", sub_pdf_bytes)
-                page = doc.new_page(width=rect.width, height=rect.height)
-                page.show_pdf_page(rect, sub_pdf, 0)
-                sub_doc.close()
-                sub_pdf.close()
+                    bg.paste(img.convert("RGB"))
+                img = bg
+            else:
+                img = img.convert("RGB")
 
-        if len(doc) > 0:
-            out_buf = io.BytesIO()
-            doc.save(out_buf, garbage=4, deflate=True, clean=True)
-            doc.close()
-            return out_buf.getvalue()
-    except Exception as e:
-        print(f"[jpg_to_pdf mupdf]: {e}")
-
-    # 2. img2pdf Lossless Fallback
-    try:
-        import img2pdf
-        processed = []
-        for b in images_bytes_list:
-            img = Image.open(io.BytesIO(b)).convert("RGB")
             buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=95)
-            processed.append(buf.getvalue())
-        return img2pdf.convert(processed)
-    except Exception as e:
-        print(f"[jpg_to_pdf img2pdf fallback]: {e}")
-        pil_images = [Image.open(io.BytesIO(b)).convert("RGB") for b in images_bytes_list]
-        output = io.BytesIO()
-        pil_images[0].save(output, format="PDF", save_all=True, append_images=pil_images[1:], quality=95)
-        return output.getvalue()
+            img.save(buf, format="JPEG", quality=98)
+            clean_bytes = buf.getvalue()
+
+            img_w, img_h = img.size
+            # Calculate scale to fit within A4 page proportionally
+            scale = min(A4_W / img_w, A4_H / img_h)
+            fit_w = img_w * scale
+            fit_h = img_h * scale
+            x0 = (A4_W - fit_w) / 2.0
+            y0 = (A4_H - fit_h) / 2.0
+
+            page = doc.new_page(width=A4_W, height=A4_H)
+            rect = fitz.Rect(x0, y0, x0 + fit_w, y0 + fit_h)
+            page.insert_image(rect, stream=clean_bytes)
+        except Exception as e:
+            print(f"[jpg_to_pdf page]: {e}")
+
+    if len(doc) > 0:
+        out_buf = io.BytesIO()
+        doc.save(out_buf, garbage=4, deflate=True, clean=True)
+        doc.close()
+        return out_buf.getvalue()
+    return b""
 
 def word_to_pdf(docx_bytes: bytes) -> bytes:
     import html
