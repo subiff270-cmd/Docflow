@@ -312,6 +312,27 @@ def excel_to_pdf(xlsx_bytes: bytes) -> bytes:
     except Exception:
         pass
 
+    # Pre-configure page setup (fit all columns to 1 page width, auto landscape for wide tables)
+    try:
+        wb_prep = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+        for ws in wb_prep.worksheets:
+            max_col = ws.max_column or 1
+            ws.sheet_properties.pageSetUpPr.fitToPage = True
+            ws.page_setup.fitToPage = True
+            ws.page_setup.fitToWidth = 1
+            ws.page_setup.fitToHeight = 0
+            ws.print_options.gridLines = True
+            ws.print_options.gridLinesSet = True
+            if max_col > 6:
+                ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+            else:
+                ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+        prep_buf = io.BytesIO()
+        wb_prep.save(prep_buf)
+        xlsx_bytes = prep_buf.getvalue()
+    except Exception as prep_e:
+        print(f"[excel_to_pdf prep]: {prep_e}")
+
     # 1. Primary: Headless LibreOffice Calc Engine
     soffice_cmd = get_soffice_cmd()
     if soffice_cmd:
@@ -820,6 +841,32 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
         ws = wb.create_sheet(title=sheet_info["name"][:31])
         ws.views.sheetView[0].showGridLines = True
         rows_data = sheet_info["rows"]
+        if not rows_data:
+            continue
+
+        num_cols = max(len(r) for r in rows_data) if rows_data else 0
+
+        # Precompute alignment per column based on data types so headers match data underneath
+        col_alignments = {}
+        for c_idx in range(num_cols):
+            numeric_count = 0
+            date_count = 0
+            text_count = 0
+            for r_idx in range(1, len(rows_data)):
+                if c_idx < len(rows_data[r_idx]):
+                    val = parse_value(rows_data[r_idx][c_idx])
+                    if isinstance(val, (int, float)):
+                        numeric_count += 1
+                    elif isinstance(val, datetime.date):
+                        date_count += 1
+                    elif val:
+                        text_count += 1
+            if numeric_count > text_count:
+                col_alignments[c_idx] = "right"
+            elif date_count > text_count:
+                col_alignments[c_idx] = "center"
+            else:
+                col_alignments[c_idx] = "left"
 
         for r_idx, row in enumerate(rows_data, start=1):
             is_header = (r_idx == 1)
@@ -830,24 +877,25 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
                 parsed = parse_value(cell_val)
                 c = ws.cell(row=r_idx, column=col_idx, value=parsed)
                 c.border = thin_border
+                align_dir = col_alignments.get(col_idx - 1, "left")
 
                 if is_header:
                     c.fill = header_fill
                     c.font = header_font
-                    c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                    c.alignment = Alignment(horizontal=align_dir, vertical="center", wrap_text=False)
                 else:
                     c.font = regular_font
                     if is_alt:
                         c.fill = alt_fill
                     if isinstance(parsed, (int, float)):
-                        c.alignment = Alignment(horizontal="right", vertical="center")
+                        c.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
                         if isinstance(parsed, float):
                             c.number_format = "#,##0.00"
                     elif isinstance(parsed, datetime.date):
-                        c.alignment = Alignment(horizontal="center", vertical="center")
+                        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
                         c.number_format = "yyyy-mm-dd"
                     else:
-                        c.alignment = Alignment(horizontal="left", vertical="center")
+                        c.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
 
         ws.freeze_panes = "A2"
         if len(rows_data) > 1 and len(rows_data[0]) > 0:
@@ -861,7 +909,7 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
             for cell in col:
                 if cell.value is not None:
                     max_len = max(max_len, len(str(cell.value).split("\n")[0]))
-            ws.column_dimensions[col_letter].width = max(min(max_len + 4, 60), 12)
+            ws.column_dimensions[col_letter].width = max(min(max_len + 4, 60), 14)
 
     out_buf = io.BytesIO()
     wb.save(out_buf)
