@@ -187,79 +187,88 @@ def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
     import subprocess
     import tempfile
     import os
+    import shutil
 
-    # 1. Primary: Cloudmersive Enterprise PPTX to PDF
-    cm_api = get_cloudmersive_convert_api()
-    if cm_api:
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp_in:
-                tmp_in.write(pptx_bytes)
-                tmp_in_path = tmp_in.name
-            try:
-                res = cm_api.convert_document_pptx_to_pdf(tmp_in_path)
-                if res:
-                    if isinstance(res, str):
-                        if os.path.exists(res):
-                            with open(res, "rb") as fr:
-                                res = fr.read()
-                        elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
-                            try:
-                                import ast
-                                res = ast.literal_eval(res)
-                            except Exception:
-                                res = res.encode("latin1", errors="ignore")
-                        else:
-                            res = res.encode("latin1", errors="ignore")
-                    if isinstance(res, bytes) and len(res) > 50:
-                        return res
-            finally:
-                if os.path.exists(tmp_in_path):
-                    os.remove(tmp_in_path)
-        except Exception as e:
-            print(f"[ppt_to_pdf Cloudmersive]: {e}")
-
-    # 2. Secondary: Headless LibreOffice Impress / PPTX to PDF Engine
+    # 1. Primary: Headless LibreOffice Impress Export (100% pixel-perfect slide layout & fonts)
     soffice_cmd = get_soffice_cmd()
     if soffice_cmd:
+        tmpdir = tempfile.mkdtemp(prefix="docflow_ppt_")
         try:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                in_path = os.path.join(tmpdir, "presentation.pptx")
-                with open(in_path, "wb") as f:
-                    f.write(pptx_bytes)
-                subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf", in_path, "--outdir", tmpdir], check=True, timeout=25)
-                out_pdf = os.path.join(tmpdir, "presentation.pdf")
-                if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
-                    with open(out_pdf, "rb") as f:
-                        return f.read()
+            in_path = os.path.join(tmpdir, "presentation.pptx")
+            with open(in_path, "wb") as f:
+                f.write(pptx_bytes)
+            subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf:impress_pdf_Export", in_path, "--outdir", tmpdir], check=True, timeout=30)
+            out_pdf = os.path.join(tmpdir, "presentation.pdf")
+            if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
+                with open(out_pdf, "rb") as f:
+                    pdf_data = f.read()
+                return pdf_data
         except Exception as e:
             print(f"[ppt_to_pdf LibreOffice]: {e}")
+        finally:
+            try:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+            except Exception:
+                pass
 
-    # 3. Structural python-pptx Fallback
+    # 2. Secondary: Cloudmersive Enterprise PPTX to PDF
+    cm_api = get_cloudmersive_convert_api()
+    if cm_api:
+        tmp_in_path = None
+        try:
+            tmp_f = tempfile.NamedTemporaryFile(suffix=".pptx", delete=False)
+            tmp_f.write(pptx_bytes)
+            tmp_f.flush()
+            tmp_f.close()
+            tmp_in_path = tmp_f.name
+
+            res = cm_api.convert_document_pptx_to_pdf(tmp_in_path)
+            if res:
+                if isinstance(res, str):
+                    if os.path.exists(res):
+                        with open(res, "rb") as fr:
+                            res = fr.read()
+                    elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
+                        try:
+                            import ast
+                            res = ast.literal_eval(res)
+                        except Exception:
+                            res = res.encode("latin1", errors="ignore")
+                    else:
+                        res = res.encode("latin1", errors="ignore")
+                if isinstance(res, bytes) and len(res) > 50:
+                    return res
+        except Exception as e:
+            print(f"[ppt_to_pdf Cloudmersive]: {e}")
+        finally:
+            if tmp_in_path and os.path.exists(tmp_in_path):
+                try:
+                    os.remove(tmp_in_path)
+                except Exception:
+                    pass
+
+    # 3. Dynamic Slide Layout Fallback
     prs = Presentation(io.BytesIO(pptx_bytes))
-    buffer = io.BytesIO()
-    pdf_doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
-    styles = getSampleStyleSheet()
-    story = []
-
-    slide_num = 1
-    for slide in prs.slides:
-        story.append(Paragraph(f"Slide {slide_num}", styles['Heading1']))
-        story.append(Spacer(1, 10))
+    slide_w_pt = prs.slide_width.pt if prs.slide_width else 720.0
+    slide_h_pt = prs.slide_height.pt if prs.slide_height else 405.0
+    
+    doc = fitz.open()
+    for slide_idx, slide in enumerate(prs.slides):
+        page = doc.new_page(width=slide_w_pt, height=slide_h_pt)
         for shape in slide.shapes:
             if shape.has_text_frame:
-                for paragraph in shape.text_frame.paragraphs:
-                    raw_text = paragraph.text.strip()
-                    if raw_text:
-                        import html
-                        story.append(Paragraph(html.escape(raw_text), styles['Normal']))
-                        story.append(Spacer(1, 4))
-        story.append(Spacer(1, 15))
-        slide_num += 1
+                sx = shape.left.pt if shape.left else 40.0
+                sy = shape.top.pt if shape.top else 40.0
+                sw = shape.width.pt if shape.width else slide_w_pt - 80.0
+                sh = shape.height.pt if shape.height else 40.0
+                rect = fitz.Rect(sx, sy, sx + sw, sy + sh)
+                text = shape.text_frame.text.strip()
+                if text:
+                    page.insert_textbox(rect, text, fontsize=12, fontname="helv")
 
-    if not story:
-        story.append(Paragraph("Empty Presentation", styles['Normal']))
-
-    pdf_doc.build(story)
+    buffer = io.BytesIO()
+    doc.save(buffer, garbage=4, deflate=True, clean=True)
+    doc.close()
     return buffer.getvalue()
 
 def excel_to_pdf(xlsx_bytes: bytes) -> bytes:
