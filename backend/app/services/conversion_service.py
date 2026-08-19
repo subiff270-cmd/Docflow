@@ -73,17 +73,46 @@ def get_ghostscript_cmd() -> str | None:
     return None
 
 def jpg_to_pdf(images_bytes_list: list[bytes]) -> bytes:
-    pil_images = []
-    for b in images_bytes_list:
-        img = Image.open(io.BytesIO(b))
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        pil_images.append(img)
+    import img2pdf
+    processed_images = []
     
-    output = io.BytesIO()
-    if pil_images:
-        pil_images[0].save(output, format="PDF", save_all=True, append_images=pil_images[1:])
-    return output.getvalue()
+    for b in images_bytes_list:
+        try:
+            img = Image.open(io.BytesIO(b))
+            # If already a valid JPEG in RGB mode, keep raw bytes for 100% lossless conversion
+            if img.format == "JPEG" and img.mode == "RGB":
+                processed_images.append(b)
+            else:
+                # Flatten alpha transparency and convert PNG, WEBP, BMP, CMYK to high-quality RGB JPEG
+                if img.mode in ("RGBA", "P", "LA", "CMYK"):
+                    bg = Image.new("RGB", img.size, (255, 255, 255))
+                    if img.mode in ("RGBA", "LA") and "A" in img.getbands():
+                        bg.paste(img, mask=img.split()[-1])
+                    else:
+                        bg.paste(img.convert("RGB"))
+                    img = bg
+                else:
+                    img = img.convert("RGB")
+                
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=95, optimize=True)
+                processed_images.append(buf.getvalue())
+        except Exception as e:
+            print(f"[jpg_to_pdf prep]: {e}")
+            processed_images.append(b)
+
+    if not processed_images:
+        return b""
+
+    try:
+        # Lossless ISO-compliant PDF container generation with img2pdf
+        return img2pdf.convert(processed_images)
+    except Exception as e:
+        print(f"[jpg_to_pdf img2pdf fallback]: {e}")
+        pil_images = [Image.open(io.BytesIO(b)).convert("RGB") for b in processed_images]
+        output = io.BytesIO()
+        pil_images[0].save(output, format="PDF", save_all=True, append_images=pil_images[1:], quality=95)
+        return output.getvalue()
 
 def word_to_pdf(docx_bytes: bytes) -> bytes:
     import html

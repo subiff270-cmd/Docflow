@@ -227,33 +227,57 @@ export async function clientCropPdf(file: File, cropPct: { x: number; y: number;
   };
 }
 
-// 9. JPG / IMAGE TO PDF (Client-side)
+// 9. JPG / IMAGE TO PDF (Client-side with Canvas Auto-Conversion)
 export async function clientImageToPdf(files: File[]): Promise<ClientProcessResult> {
   const pdf = await PDFDocument.create();
 
   for (const file of files) {
     const arrayBuffer = await file.arrayBuffer();
-    let img;
-    if (file.type.includes("png")) {
-      img = await pdf.embedPng(arrayBuffer);
-    } else {
-      img = await pdf.embedJpg(arrayBuffer);
+    let img: any = null;
+
+    try {
+      if (file.type.includes("png") || file.name.toLowerCase().endsWith(".png")) {
+        img = await pdf.embedPng(arrayBuffer);
+      } else {
+        img = await pdf.embedJpg(arrayBuffer);
+      }
+    } catch {
+      try {
+        // Fallback: draw image on HTML5 Canvas to convert to clean JPEG bytes
+        const imgBitmap = await createImageBitmap(file);
+        const canvas = document.createElement("canvas");
+        canvas.width = imgBitmap.width;
+        canvas.height = imgBitmap.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(imgBitmap, 0, 0);
+          const jpegBlob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.95));
+          const jpegBuffer = await jpegBlob.arrayBuffer();
+          img = await pdf.embedJpg(jpegBuffer);
+        }
+      } catch (err) {
+        console.warn("Image canvas conversion error:", err);
+      }
     }
 
-    const page = pdf.addPage([img.width, img.height]);
-    page.drawImage(img, {
-      x: 0,
-      y: 0,
-      width: img.width,
-      height: img.height,
-    });
+    if (img) {
+      const page = pdf.addPage([img.width, img.height]);
+      page.drawImage(img, {
+        x: 0,
+        y: 0,
+        width: img.width,
+        height: img.height,
+      });
+    }
   }
 
   const outBytes = await pdf.save();
   const blob = new Blob([outBytes as BlobPart], { type: "application/pdf" });
   return {
     blob,
-    filename: `from_images.pdf`,
+    filename: `converted_images.pdf`,
     size: blob.size,
   };
 }
