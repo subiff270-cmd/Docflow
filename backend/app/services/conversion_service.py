@@ -629,13 +629,205 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
         return buffer.getvalue()
 
 def pdf_to_html(pdf_bytes: bytes) -> bytes:
+    import base64
+    import html
+    import re
+    import subprocess
+    import tempfile
+
+    # 1. Primary: LibreOffice Headless HTML Export if available
+    soffice_cmd = get_soffice_cmd()
+    if soffice_cmd:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                in_pdf = os.path.join(tmpdir, "document.pdf")
+                with open(in_pdf, "wb") as f:
+                    f.write(pdf_bytes)
+                res = subprocess.run(
+                    [soffice_cmd, "--headless", "--convert-to", "html", in_pdf, "--outdir", tmpdir],
+                    capture_output=True,
+                    timeout=20
+                )
+                out_html = os.path.join(tmpdir, "document.html")
+                if os.path.exists(out_html) and os.path.getsize(out_html) > 0:
+                    with open(out_html, "rb") as f:
+                        return f.read()
+        except Exception as e:
+            print(f"[pdf_to_html LibreOffice]: {e}")
+
+    # 2. Modern Responsive HTML5 Document Builder with Embedded Base64 Images
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    html_out = "<html><head><meta charset='utf-8'></head><body style='font-family:sans-serif; padding:20px;'>"
-    for i, page in enumerate(doc):
-        html_out += f"<div style='border:1px solid #ccc; padding:15px; margin-bottom:15px;'><h3>Page {i+1}</h3>"
-        html_out += page.get_text("html")
-        html_out += "</div>"
-    html_out += "</body></html>"
+    
+    html_out = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Converted Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4F46E5;
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 30px 15px;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .page-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    }
+    .page-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary);
+      background: #EEF2FF;
+      padding: 4px 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    h1, h2, h3, h4 {
+      color: #0F172A;
+      font-weight: 700;
+      margin-top: 1.2em;
+      margin-bottom: 0.6em;
+      line-height: 1.3;
+    }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.3rem; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    h3 { font-size: 1.1rem; }
+    p { margin-bottom: 0.8em; font-size: 14px; color: #334155; }
+    pre {
+      background: #0F172A;
+      color: #F8FAFC;
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      overflow-x: auto;
+      margin: 15px 0;
+      line-height: 1.5;
+    }
+    code {
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      background: #F1F5F9;
+      color: #0F172A;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    pre code { background: none; color: inherit; padding: 0; }
+    .img-container {
+      margin: 20px 0;
+      text-align: center;
+    }
+    .img-container img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: #F8FAFC;
+      font-weight: 600;
+      color: #0F172A;
+    }
+    @media (max-width: 640px) {
+      .page-card { padding: 20px 16px; border-radius: 12px; }
+      body { padding: 15px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+"""
+
+    for page_idx, page in enumerate(doc):
+        html_out += f'    <div class="page-card">\n'
+        html_out += f'      <div class="page-badge">Page {page_idx + 1} of {len(doc)}</div>\n'
+        
+        # 1. Process Text and Code
+        text_blocks = page.get_text("blocks")
+        text_blocks.sort(key=lambda b: b[1])
+
+        for block in text_blocks:
+            block_text = block[4].strip()
+            if not block_text:
+                continue
+
+            lines = block_text.splitlines()
+            is_code_block = any(line.strip().startswith(("import ", "from ", "def ", "class ", "plt.", "np.")) for line in lines)
+            
+            if is_code_block:
+                escaped_code = "\n".join(html.escape(l) for l in lines)
+                html_out += f'      <pre><code>{escaped_code}</code></pre>\n'
+            else:
+                for line in lines:
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
+                    
+                    is_h = line_str.isupper() and len(line_str) < 60
+                    if is_h or any(line_str.upper().startswith(h) for h in ["PROGRAM", "AIM", "ALGORITHM", "OUTPUT", "RESULT"]):
+                        html_out += f'      <h2>{html.escape(line_str)}</h2>\n'
+                    else:
+                        html_out += f'      <p>{html.escape(line_str)}</p>\n'
+
+        # 2. Process Embedded Images / Charts as Base64
+        image_list = page.get_images(full=True)
+        for img_info in image_list:
+            xref = img_info[0]
+            try:
+                pix = fitz.Pixmap(doc, xref)
+                if pix.n > 4:
+                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                if pix.width >= 100 and pix.height >= 80:
+                    img_bytes = pix.tobytes("png")
+                    b64_str = base64.b64encode(img_bytes).decode("ascii")
+                    html_out += f'      <div class="img-container"><img src="data:image/png;base64,{b64_str}" alt="Document Figure" /></div>\n'
+            except Exception as e:
+                print(f"[pdf_to_html img b64]: {e}")
+
+        html_out += f'    </div>\n'
+
+    html_out += """  </div>
+</body>
+</html>"""
+    
     doc.close()
     return html_out.encode("utf-8")
 
