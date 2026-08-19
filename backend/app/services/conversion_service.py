@@ -56,6 +56,19 @@ def get_cloudmersive_convert_api():
         print(f"[Cloudmersive Init Error]: {e}")
         return None
 
+def get_cloudmersive_ocr_api():
+    api_key = os.getenv("CLOUDMERSIVE_API_KEY", "").strip()
+    if not api_key:
+        return None
+    try:
+        import cloudmersive_ocr_api_client
+        configuration = cloudmersive_ocr_api_client.Configuration()
+        configuration.api_key['Apikey'] = api_key
+        return cloudmersive_ocr_api_client.PdfOcrApi(cloudmersive_ocr_api_client.ApiClient(configuration))
+    except Exception as e:
+        print(f"[Cloudmersive OCR Init Error]: {e}")
+        return None
+
 def get_ghostscript_cmd() -> str | None:
     """Find Ghostscript binary across PATH and default Windows/Linux install directories."""
     cmd = shutil.which("gswin64c") or shutil.which("gswin32c") or shutil.which("gs")
@@ -552,48 +565,14 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
     return out_bytes
 
 def pdf_to_excel(pdf_bytes: bytes) -> bytes:
-    # 0. Cloudmersive Enterprise Engine
-    cm_api = get_cloudmersive_convert_api()
-    if cm_api:
-        tmp_in_path = None
-        try:
-            tmp_f = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
-            tmp_f.write(pdf_bytes)
-            tmp_f.flush()
-            tmp_f.close()
-            tmp_in_path = tmp_f.name
-
-            res = cm_api.convert_document_pdf_to_xlsx(tmp_in_path)
-            if res:
-                if isinstance(res, str):
-                    if os.path.exists(res):
-                        with open(res, "rb") as fr:
-                            res = fr.read()
-                    elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
-                        try:
-                            import ast
-                            res = ast.literal_eval(res)
-                        except Exception:
-                            res = res.encode("latin1", errors="ignore")
-                    else:
-                        res = res.encode("latin1", errors="ignore")
-                if isinstance(res, bytes) and len(res) > 50:
-                    return res
-        except Exception as e:
-            print(f"[pdf_to_excel Cloudmersive]: {e}")
-        finally:
-            if tmp_in_path and os.path.exists(tmp_in_path):
-                try:
-                    os.remove(tmp_in_path)
-                except Exception:
-                    pass
-
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
     from openpyxl.drawing.image import Image as OpenPyXLImage
     import re
+    import tempfile
+    import os
 
     wb = Workbook()
     ws = wb.active
@@ -645,6 +624,34 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         for page_idx, page in enumerate(doc):
+            page_raw_text = page.get_text().strip()
+
+            # Automatic OCR Detection for Scanned PDF Pages
+            if len(page_raw_text) < 25:
+                ocr_api = get_cloudmersive_ocr_api()
+                if ocr_api:
+                    try:
+                        pix = page.get_pixmap(dpi=200)
+                        img_tmp = os.path.join(tmpdir, f"ocr_p{page_idx}.png")
+                        pix.save(img_tmp)
+                        ocr_res = ocr_api.pdf_ocr_pdf_to_lines_with_location(img_tmp)
+                        if ocr_res and hasattr(ocr_res, "ocr_pages") and ocr_res.ocr_pages:
+                            for ocr_p in ocr_res.ocr_pages:
+                                for ocr_l in ocr_p.ocr_lines:
+                                    if ocr_l.line_text and ocr_l.line_text.strip():
+                                        parts = [p.strip() for p in re.split(r"\t| {2,}", ocr_l.line_text) if p.strip()]
+                                        if parts:
+                                            max_cols_used = max(max_cols_used, len(parts))
+                                            for col_i, part in enumerate(parts, start=1):
+                                                c = ws.cell(row=current_row, column=col_i, value=parse_value(part))
+                                                c.font = regular_font
+                                                c.alignment = Alignment(horizontal="left", vertical="center")
+                                            current_row += 1
+                            current_row += 1
+                            continue
+                    except Exception as e:
+                        print(f"[pdf_to_excel OCR]: {e}")
+
             # 1. Check for real structured tables on this page
             tabs = None
             try:
