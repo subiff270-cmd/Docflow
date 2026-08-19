@@ -2,8 +2,8 @@ import datetime
 from sqlalchemy.orm import Session
 from ..models import User, ConversionHistory
 
-FREE_LIMIT = 10
-FREE_MAX_SIZE = 25
+FREE_LIMIT = 100
+FREE_MAX_SIZE = 50
 PRO_MAX_SIZE = 500
 
 def get_or_create_user(db: Session, firebase_uid: str, email: str = None, display_name: str = None) -> User:
