@@ -464,32 +464,38 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
     # 0. Cloudmersive Enterprise Engine
     cm_api = get_cloudmersive_convert_api()
     if cm_api:
+        tmp_in_path = None
         try:
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_in:
-                tmp_in.write(pdf_bytes)
-                tmp_in_path = tmp_in.name
-            try:
-                res = cm_api.convert_document_pdf_to_pptx(tmp_in_path)
-                if res:
-                    if isinstance(res, str):
-                        if os.path.exists(res):
-                            with open(res, "rb") as fr:
-                                res = fr.read()
-                        elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
-                            try:
-                                import ast
-                                res = ast.literal_eval(res)
-                            except Exception:
-                                res = res.encode("latin1", errors="ignore")
-                        else:
+            tmp_f = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+            tmp_f.write(pdf_bytes)
+            tmp_f.flush()
+            tmp_f.close()
+            tmp_in_path = tmp_f.name
+
+            res = cm_api.convert_document_pdf_to_pptx(tmp_in_path)
+            if res:
+                if isinstance(res, str):
+                    if os.path.exists(res):
+                        with open(res, "rb") as fr:
+                            res = fr.read()
+                    elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
+                        try:
+                            import ast
+                            res = ast.literal_eval(res)
+                        except Exception:
                             res = res.encode("latin1", errors="ignore")
-                    if isinstance(res, bytes) and len(res) > 50:
-                        return res
-            finally:
-                if os.path.exists(tmp_in_path):
-                    os.remove(tmp_in_path)
+                    else:
+                        res = res.encode("latin1", errors="ignore")
+                if isinstance(res, bytes) and len(res) > 50:
+                    return res
         except Exception as e:
             print(f"[pdf_to_pptx Cloudmersive]: {e}")
+        finally:
+            if tmp_in_path and os.path.exists(tmp_in_path):
+                try:
+                    os.remove(tmp_in_path)
+                except Exception:
+                    pass
 
     # 1. High-Fidelity Editable Microsoft PowerPoint Slide Reconstructor
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -509,19 +515,39 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
         for page_idx, page in enumerate(doc):
             slide = prs.slides.add_slide(blank_layout)
             
-            # A. Extract Real Editable Text Blocks
-            text_blocks = page.get_text("blocks")
+            # A. Extract & Cluster Real Editable Text Blocks (Prevents Text Overlapping)
+            text_blocks = [b for b in page.get_text("blocks") if b[4].strip()]
             text_blocks.sort(key=lambda b: b[1])
 
-            for block in text_blocks:
-                bx0, by0, bx1, by1, btext = block[0], block[1], block[2], block[3], block[4].strip()
-                if not btext:
-                    continue
+            # Spatial Clustering: Group vertically adjacent blocks into single text frames
+            clusters = []
+            curr_cluster = []
+            for b in text_blocks:
+                if not curr_cluster:
+                    curr_cluster.append(b)
+                else:
+                    prev = curr_cluster[-1]
+                    # If vertical gap is small and horizontal overlap exists, combine
+                    h_overlap = max(0, min(b[2], prev[2]) - max(b[0], prev[0]))
+                    v_gap = b[1] - prev[3]
+                    if v_gap < 24 and (h_overlap > 20 or abs(b[0] - prev[0]) < 40):
+                        curr_cluster.append(b)
+                    else:
+                        clusters.append(curr_cluster)
+                        curr_cluster = [b]
+            if curr_cluster:
+                clusters.append(curr_cluster)
 
-                w = max(50.0, bx1 - bx0 + 10.0)
-                h = max(20.0, by1 - by0 + 5.0)
+            for cluster in clusters:
+                min_x = min(b[0] for b in cluster)
+                min_y = min(b[1] for b in cluster)
+                max_x = max(b[2] for b in cluster)
+                max_y = max(b[3] for b in cluster)
 
-                tb = slide.shapes.add_textbox(Pt(bx0), Pt(by0), Pt(w), Pt(h))
+                w = max(60.0, max_x - min_x + 15.0)
+                h = max(20.0, max_y - min_y + 10.0)
+
+                tb = slide.shapes.add_textbox(Pt(min_x), Pt(min_y), Pt(w), Pt(h))
                 tf = tb.text_frame
                 tf.word_wrap = True
                 tf.margin_left = Pt(0)
@@ -529,29 +555,33 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
                 tf.margin_top = Pt(0)
                 tf.margin_bottom = Pt(0)
 
-                lines = btext.splitlines()
-                for l_idx, line in enumerate(lines):
-                    line_str = line.strip()
-                    if not line_str:
-                        continue
-                    para = tf.add_paragraph() if (l_idx > 0 or len(tf.paragraphs[0].text) > 0) else tf.paragraphs[0]
-                    para.text = line_str
-                    para.font.name = "Calibri"
+                is_first_para = True
+                for b in cluster:
+                    btext = b[4].strip()
+                    lines = btext.splitlines()
+                    for line in lines:
+                        line_str = line.strip()
+                        if not line_str:
+                            continue
+                        para = tf.paragraphs[0] if is_first_para else tf.add_paragraph()
+                        is_first_para = False
+                        para.text = line_str
+                        para.font.name = "Calibri"
 
-                    is_heading = (line_str.isupper() and len(line_str) < 50) or any(
-                        line_str.upper().startswith(h) for h in ["PROGRAM", "AIM", "ALGORITHM", "OUTPUT", "RESULT", "CHAPTER", "SECTION"]
-                    )
-                    if is_heading:
-                        para.font.size = Pt(12)
-                        para.font.bold = True
-                        para.font.color.rgb = RGBColor(15, 23, 42)
-                    elif line_str.startswith(("import ", "from ", "def ", "class ")) or "=" in line_str:
-                        para.font.name = "Consolas"
-                        para.font.size = Pt(9.5)
-                        para.font.color.rgb = RGBColor(30, 41, 59)
-                    else:
-                        para.font.size = Pt(10)
-                        para.font.color.rgb = RGBColor(30, 41, 59)
+                        is_heading = (line_str.isupper() and len(line_str) < 50) or any(
+                            line_str.upper().startswith(h) for h in ["PROGRAM", "AIM", "ALGORITHM", "OUTPUT", "RESULT", "REDEFINING", "SACRED"]
+                        )
+                        if is_heading:
+                            para.font.size = Pt(14)
+                            para.font.bold = True
+                            para.font.color.rgb = RGBColor(15, 23, 42)
+                        elif line_str.startswith(("import ", "from ", "def ", "class ")) or "=" in line_str:
+                            para.font.name = "Consolas"
+                            para.font.size = Pt(9.5)
+                            para.font.color.rgb = RGBColor(30, 41, 59)
+                        else:
+                            para.font.size = Pt(10.5)
+                            para.font.color.rgb = RGBColor(30, 41, 59)
 
             # B. Extract Embedded Charts, Figures & Images as Floating Shapes
             image_list = page.get_images(full=True)
@@ -568,7 +598,7 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
                         img_w_pt = min(float(pix.width) * 0.75, float(page.rect.width) * 0.85)
                         img_h_pt = (img_w_pt / float(pix.width)) * float(pix.height)
                         img_left = (float(page.rect.width) - img_w_pt) / 2.0
-                        img_top = float(page.rect.height) * 0.5
+                        img_top = float(page.rect.height) * 0.55
                         
                         slide.shapes.add_picture(img_path, Pt(img_left), Pt(img_top), width=Pt(img_w_pt), height=Pt(img_h_pt))
                 except Exception as e:
