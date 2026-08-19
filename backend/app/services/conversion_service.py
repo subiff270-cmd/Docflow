@@ -272,35 +272,79 @@ def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 def excel_to_pdf(xlsx_bytes: bytes) -> bytes:
-    import html
     import subprocess
     import tempfile
+    import os
+    import shutil
 
+    # 1. Primary: Headless LibreOffice Calc Engine (pdf:calc_pdf_Export)
     soffice_cmd = get_soffice_cmd()
     if soffice_cmd:
+        tmpdir = tempfile.mkdtemp(prefix="docflow_calc_")
         try:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                in_path = os.path.join(tmpdir, "sheet.xlsx")
-                with open(in_path, "wb") as f:
-                    f.write(xlsx_bytes)
-                subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf", in_path, "--outdir", tmpdir], check=True, timeout=20)
-                out_pdf = os.path.join(tmpdir, "sheet.pdf")
-                if os.path.exists(out_pdf):
-                    with open(out_pdf, "rb") as f:
-                        return f.read()
+            in_path = os.path.join(tmpdir, "sheet.xlsx")
+            with open(in_path, "wb") as f:
+                f.write(xlsx_bytes)
+            subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf:calc_pdf_Export", in_path, "--outdir", tmpdir], check=True, timeout=30)
+            out_pdf = os.path.join(tmpdir, "sheet.pdf")
+            if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
+                with open(out_pdf, "rb") as f:
+                    return f.read()
         except Exception as e:
             print(f"[excel_to_pdf LibreOffice]: {e}")
+        finally:
+            try:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+            except Exception:
+                pass
 
-    wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+    # 2. Secondary: Cloudmersive Enterprise XLSX to PDF Engine
+    cm_api = get_cloudmersive_convert_api()
+    if cm_api:
+        tmp_in_path = None
+        try:
+            tmp_f = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
+            tmp_f.write(xlsx_bytes)
+            tmp_f.flush()
+            tmp_f.close()
+            tmp_in_path = tmp_f.name
+
+            res = cm_api.convert_document_xlsx_to_pdf(tmp_in_path)
+            if res:
+                if isinstance(res, str):
+                    if os.path.exists(res):
+                        with open(res, "rb") as fr:
+                            res = fr.read()
+                    elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
+                        try:
+                            import ast
+                            res = ast.literal_eval(res)
+                        except Exception:
+                            res = res.encode("latin1", errors="ignore")
+                    else:
+                        res = res.encode("latin1", errors="ignore")
+                if isinstance(res, bytes) and len(res) > 50:
+                    return res
+        except Exception as e:
+            print(f"[excel_to_pdf Cloudmersive]: {e}")
+        finally:
+            if tmp_in_path and os.path.exists(tmp_in_path):
+                try:
+                    os.remove(tmp_in_path)
+                except Exception:
+                    pass
+
+    # 3. ReportLab Structured Spreadsheet Fallback
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
     buffer = io.BytesIO()
-    pdf_doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    pdf_doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
     styles = getSampleStyleSheet()
     story = []
 
     for sheet_name in wb.sheetnames:
         sheet = wb[sheet_name]
-        story.append(Paragraph(f"Sheet: {sheet_name}", styles['Heading1']))
-        story.append(Spacer(1, 10))
+        story.append(Paragraph(f"<b>Sheet: {sheet_name}</b>", styles['Heading2']))
+        story.append(Spacer(1, 8))
 
         table_data = []
         for row in sheet.iter_rows(values_only=True):
@@ -311,11 +355,16 @@ def excel_to_pdf(xlsx_bytes: bytes) -> bytes:
         if table_data:
             t = Table(table_data)
             t.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('FONTSIZE', (0, 0), (-1, -1), 8)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F46E5')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')])
             ]))
             story.append(t)
-            story.append(Spacer(1, 15))
+            story.append(Spacer(1, 14))
 
     pdf_doc.build(story)
     return buffer.getvalue()
@@ -506,19 +555,38 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
     # 0. Cloudmersive Enterprise Engine
     cm_api = get_cloudmersive_convert_api()
     if cm_api:
+        tmp_in_path = None
         try:
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_in:
-                tmp_in.write(pdf_bytes)
-                tmp_in_path = tmp_in.name
-            try:
-                res = cm_api.convert_document_pdf_to_xlsx(tmp_in_path)
-                if res and len(res) > 100:
+            tmp_f = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+            tmp_f.write(pdf_bytes)
+            tmp_f.flush()
+            tmp_f.close()
+            tmp_in_path = tmp_f.name
+
+            res = cm_api.convert_document_pdf_to_xlsx(tmp_in_path)
+            if res:
+                if isinstance(res, str):
+                    if os.path.exists(res):
+                        with open(res, "rb") as fr:
+                            res = fr.read()
+                    elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
+                        try:
+                            import ast
+                            res = ast.literal_eval(res)
+                        except Exception:
+                            res = res.encode("latin1", errors="ignore")
+                    else:
+                        res = res.encode("latin1", errors="ignore")
+                if isinstance(res, bytes) and len(res) > 50:
                     return res
-            finally:
-                if os.path.exists(tmp_in_path):
-                    os.remove(tmp_in_path)
         except Exception as e:
             print(f"[pdf_to_excel Cloudmersive]: {e}")
+        finally:
+            if tmp_in_path and os.path.exists(tmp_in_path):
+                try:
+                    os.remove(tmp_in_path)
+                except Exception:
+                    pass
 
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -731,15 +799,15 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
 
             current_row += 1
 
-        # Dynamic Auto-Fit Column Widths for all columns used
-        for col_i in range(1, max(max_cols_used + 1, 7)):
-            col_letter = get_column_letter(col_i)
-            if col_i == 1:
-                ws.column_dimensions[col_letter].width = 16
-            elif col_i == 2:
-                ws.column_dimensions[col_letter].width = 75
-            else:
-                ws.column_dimensions[col_letter].width = 22
+        # Dynamic Auto-Fit Column Widths based on actual cell content lengths
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                if cell.value:
+                    val_str = str(cell.value).split("\n")[0]
+                    max_len = max(max_len, len(val_str))
+            ws.column_dimensions[col_letter].width = max(min(max_len + 4, 60), 12)
 
         doc.close()
 
