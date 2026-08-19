@@ -457,6 +457,9 @@ def pdf_to_word(pdf_bytes: bytes) -> bytes:
 def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
     import tempfile
     import os
+    from pptx import Presentation
+    from pptx.util import Pt
+    from pptx.dml.color import RGBColor
 
     # 0. Cloudmersive Enterprise Engine
     cm_api = get_cloudmersive_convert_api()
@@ -488,7 +491,7 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
         except Exception as e:
             print(f"[pdf_to_pptx Cloudmersive]: {e}")
 
-    # 1. Exact Dynamic Aspect-Ratio Presentation Builder
+    # 1. High-Fidelity Editable Microsoft PowerPoint Slide Reconstructor
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     prs = Presentation()
     
@@ -500,17 +503,76 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
         prs.slide_width = Inches(10)
         prs.slide_height = Inches(7.5)
     
-    # Use blank slide layout
-    layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
+    blank_layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         for page_idx, page in enumerate(doc):
-            slide = prs.slides.add_slide(layout)
-            pix = page.get_pixmap(dpi=250)
-            img_path = os.path.join(tmpdir, f"page_{page_idx}.png")
-            pix.save(img_path)
+            slide = prs.slides.add_slide(blank_layout)
             
-            slide.shapes.add_picture(img_path, Pt(0), Pt(0), width=Pt(page.rect.width), height=Pt(page.rect.height))
+            # A. Extract Real Editable Text Blocks
+            text_blocks = page.get_text("blocks")
+            text_blocks.sort(key=lambda b: b[1])
+
+            for block in text_blocks:
+                bx0, by0, bx1, by1, btext = block[0], block[1], block[2], block[3], block[4].strip()
+                if not btext:
+                    continue
+
+                w = max(50.0, bx1 - bx0 + 10.0)
+                h = max(20.0, by1 - by0 + 5.0)
+
+                tb = slide.shapes.add_textbox(Pt(bx0), Pt(by0), Pt(w), Pt(h))
+                tf = tb.text_frame
+                tf.word_wrap = True
+                tf.margin_left = Pt(0)
+                tf.margin_right = Pt(0)
+                tf.margin_top = Pt(0)
+                tf.margin_bottom = Pt(0)
+
+                lines = btext.splitlines()
+                for l_idx, line in enumerate(lines):
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
+                    para = tf.add_paragraph() if (l_idx > 0 or len(tf.paragraphs[0].text) > 0) else tf.paragraphs[0]
+                    para.text = line_str
+                    para.font.name = "Calibri"
+
+                    is_heading = (line_str.isupper() and len(line_str) < 50) or any(
+                        line_str.upper().startswith(h) for h in ["PROGRAM", "AIM", "ALGORITHM", "OUTPUT", "RESULT", "CHAPTER", "SECTION"]
+                    )
+                    if is_heading:
+                        para.font.size = Pt(12)
+                        para.font.bold = True
+                        para.font.color.rgb = RGBColor(15, 23, 42)
+                    elif line_str.startswith(("import ", "from ", "def ", "class ")) or "=" in line_str:
+                        para.font.name = "Consolas"
+                        para.font.size = Pt(9.5)
+                        para.font.color.rgb = RGBColor(30, 41, 59)
+                    else:
+                        para.font.size = Pt(10)
+                        para.font.color.rgb = RGBColor(30, 41, 59)
+
+            # B. Extract Embedded Charts, Figures & Images as Floating Shapes
+            image_list = page.get_images(full=True)
+            for img_idx, img_info in enumerate(image_list):
+                xref = img_info[0]
+                try:
+                    pix = fitz.Pixmap(doc, xref)
+                    if pix.n > 4:
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    if pix.width >= 80 and pix.height >= 60:
+                        img_path = os.path.join(tmpdir, f"img_p{page_idx}_{img_idx}_{xref}.png")
+                        pix.save(img_path)
+                        
+                        img_w_pt = min(float(pix.width) * 0.75, float(page.rect.width) * 0.85)
+                        img_h_pt = (img_w_pt / float(pix.width)) * float(pix.height)
+                        img_left = (float(page.rect.width) - img_w_pt) / 2.0
+                        img_top = float(page.rect.height) * 0.5
+                        
+                        slide.shapes.add_picture(img_path, Pt(img_left), Pt(img_top), width=Pt(img_w_pt), height=Pt(img_h_pt))
+                except Exception as e:
+                    print(f"[pdf_to_pptx image shape]: {e}")
 
         out_pptx = os.path.join(tmpdir, "presentation.pptx")
         prs.save(out_pptx)
