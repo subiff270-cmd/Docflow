@@ -253,8 +253,21 @@ def html_to_pdf(html_content: str) -> bytes:
                 tmp_in_path = tmp_in.name
             try:
                 res = cm_api.convert_document_html_to_pdf(tmp_in_path)
-                if res and len(res) > 100:
-                    return res
+                if res:
+                    if isinstance(res, str):
+                        if os.path.exists(res):
+                            with open(res, "rb") as fr:
+                                res = fr.read()
+                        elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
+                            try:
+                                import ast
+                                res = ast.literal_eval(res)
+                            except Exception:
+                                res = res.encode("latin1", errors="ignore")
+                        else:
+                            res = res.encode("latin1", errors="ignore")
+                    if isinstance(res, bytes) and len(res) > 50:
+                        return res
             finally:
                 if os.path.exists(tmp_in_path):
                     os.remove(tmp_in_path)

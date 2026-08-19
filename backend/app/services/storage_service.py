@@ -38,11 +38,24 @@ def save_uploaded_file(db: Session, file: UploadFile, firebase_uid: str = None) 
     db.refresh(doc_item)
     return doc_item
 
-def save_generated_bytes(db: Session, content: bytes, original_name: str, mime_type: str = "application/pdf", firebase_uid: str = None) -> DocumentItem:
+def save_generated_bytes(db: Session, content: bytes | str, original_name: str, mime_type: str = "application/pdf", firebase_uid: str = None) -> DocumentItem:
     file_key = str(uuid.uuid4())
     ext = os.path.splitext(original_name)[1] or ".pdf"
     stored_name = f"{file_key}{ext}"
     stored_path = os.path.join(STORAGE_DIR, stored_name)
+
+    if isinstance(content, str):
+        if os.path.exists(content):
+            with open(content, "rb") as fc:
+                content = fc.read()
+        elif (content.startswith("b'") and content.endswith("'")) or (content.startswith('b"') and content.endswith('"')):
+            try:
+                import ast
+                content = ast.literal_eval(content)
+            except Exception:
+                content = content.encode("latin1", errors="ignore")
+        else:
+            content = content.encode("utf-8", errors="ignore")
 
     with open(stored_path, "wb") as f:
         f.write(content)
