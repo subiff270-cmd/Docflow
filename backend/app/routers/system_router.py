@@ -27,6 +27,10 @@ def check_dependency(module_name: str) -> str:
         return "NOT INSTALLED"
 
 def check_binary(cmd_name: str) -> str:
+    if cmd_name in ["soffice", "libreoffice"]:
+        return "OK" if conversion_service.get_soffice_cmd() is not None else "NOT CONFIGURED"
+    if cmd_name == "tesseract":
+        return "OK" if shutil.which("tesseract") is not None or conversion_service.get_cloudmersive_ocr_api() is not None else "NOT CONFIGURED"
     return "OK" if shutil.which(cmd_name) is not None else "NOT CONFIGURED"
 
 @router.get("/health")
@@ -37,16 +41,17 @@ def get_system_health():
         "timestamp": datetime.now().isoformat(),
         "python": f"OK ({sys.version.split()[0]})",
         "pymupdf": check_dependency("fitz"),
+        "pdfplumber": check_dependency("pdfplumber"),
+        "pandas": check_dependency("pandas"),
+        "openpyxl": check_dependency("openpyxl"),
         "pypdf": check_dependency("pypdf"),
         "pdf2docx": check_dependency("pdf2docx"),
         "python_docx": check_dependency("docx"),
-        "openpyxl": check_dependency("openpyxl"),
         "python_pptx": check_dependency("pptx"),
         "pillow": check_dependency("PIL"),
         "reportlab": check_dependency("reportlab"),
-        "pdfplumber": check_dependency("pdfplumber"),
+        "libreoffice": check_binary("libreoffice"),
         "tesseract": check_binary("tesseract"),
-        "libreoffice": check_binary("soffice") or check_binary("libreoffice"),
         "temp_storage": "OK",
         "environment": "production-ready"
     }
@@ -267,13 +272,13 @@ async def run_tool_health_check(
         if xlsx_artifact:
             x2p_bytes = conversion_service.excel_to_pdf(xlsx_artifact)
             if validation_service.validate_pdf_bytes(x2p_bytes):
-                record("Excel to PDF", "CONVERT TO PDF", "openpyxl / ReportLab", "XLSX", "PDF", "PASS", f"Successfully rendered spreadsheet tables into PDF ({len(x2p_bytes):,} bytes).", x2p_bytes, "from_excel.pdf", "application/pdf")
+                record("Excel to PDF", "CONVERT TO PDF", "LibreOffice Calc Vector Engine", "XLSX", "PDF", "PASS", f"Successfully rendered spreadsheet tables into PDF ({len(x2p_bytes):,} bytes).", x2p_bytes, "from_excel.pdf", "application/pdf")
             else:
-                record("Excel to PDF", "CONVERT TO PDF", "ReportLab", "XLSX", "PDF", "FAIL", "Output failed PDF validation.")
+                record("Excel to PDF", "CONVERT TO PDF", "LibreOffice Calc", "XLSX", "PDF", "FAIL", "Output failed PDF validation.")
         else:
-            record("Excel to PDF", "CONVERT TO PDF", "ReportLab", "XLSX", "PDF", "FAIL", "XLSX prerequisite missing.")
+            record("Excel to PDF", "CONVERT TO PDF", "LibreOffice Calc", "XLSX", "PDF", "FAIL", "XLSX prerequisite missing.")
     except Exception as e:
-        record("Excel to PDF", "CONVERT TO PDF", "ReportLab", "XLSX", "PDF", "FAIL", str(e))
+        record("Excel to PDF", "CONVERT TO PDF", "LibreOffice Calc", "XLSX", "PDF", "FAIL", str(e))
 
     # 12. HTML -> PDF
     try:
