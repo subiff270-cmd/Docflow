@@ -885,6 +885,6 @@ def pdf_to_pdfa(pdf_bytes: bytes) -> bytes:
         print(f"[pdf_to_pdfa xmp]: {e}")
 
     buffer = io.BytesIO()
-    doc.save(buffer, garbage=4, deflate=True, clean=True, linear=True)
+    doc.save(buffer, garbage=4, deflate=True, clean=True)
     doc.close()
     return buffer.getvalue()
