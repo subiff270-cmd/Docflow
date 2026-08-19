@@ -576,7 +576,8 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Sheet1"
+    ws.title = "TableData"
+    ws.views.sheetView[0].showGridLines = True
 
     # Styling definitions
     title_font = Font(name="Calibri", size=12, bold=True, color="000000")
@@ -674,24 +675,31 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
                             continue
                         
                         max_cols_used = max(max_cols_used, len(cleaned_row))
+                        ws.row_dimensions[current_row].height = 24 if is_header_row else 20
+                        is_alt = (current_row % 2 == 0)
+
                         for col_idx, cell_val in enumerate(cleaned_row, start=1):
                             cell = ws.cell(row=current_row, column=col_idx, value=cell_val)
                             cell.border = thin_border
                             if is_header_row:
                                 cell.fill = table_header_fill
                                 cell.font = table_header_font
-                                cell.alignment = Alignment(horizontal="center", vertical="center")
+                                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
                             else:
                                 cell.font = regular_font
-                                cell.alignment = Alignment(
-                                    horizontal="right" if isinstance(cell_val, (int, float)) else "left",
-                                    vertical="center"
-                                )
+                                if is_alt:
+                                    cell.fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+                                if isinstance(cell_val, (int, float)):
+                                    cell.alignment = Alignment(horizontal="right", vertical="center")
+                                    if isinstance(cell_val, float):
+                                        cell.number_format = "#,##0.00"
+                                else:
+                                    cell.alignment = Alignment(horizontal="left", vertical="center")
                         is_header_row = False
                         current_row += 1
                     current_row += 1
 
-            # 2. Process non-table text blocks
+            # 2. Process non-table text blocks as cleanly formatted table rows
             text_blocks = page.get_text("blocks")
             text_blocks.sort(key=lambda b: b[1])
 
@@ -711,52 +719,31 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
 
                 lines = block_text.splitlines()
 
-                # Dynamic Title Box Detection (Page 1 top header)
-                if page_idx == 0 and current_row == 1 and by0 < 150 and len(lines) <= 3:
-                    full_title = "\n".join(lines)
-                    cell_a = ws.cell(row=current_row, column=1, value=full_title)
-                    cell_a.font = title_font
-                    cell_a.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=6)
-                    for col_i in range(1, 7):
-                        ws.cell(row=current_row, column=col_i).border = box_border
-                    current_row += 2
-                    continue
-
                 for line in lines:
                     line_str = line.strip()
                     if not line_str:
                         continue
 
-                    # Numbered list alignment (e.g. "1. Step description", "i. Feature")
-                    list_match = re.match(r"^(\d+\.|\b[ivx]+\.|\b[a-zA-Z]\.|\*|-|•)\s*(.*)$", line_str)
-                    if list_match and len(list_match.group(1)) <= 4:
-                        marker = list_match.group(1).strip()
-                        body = list_match.group(2).strip()
-                        
-                        c_marker = ws.cell(row=current_row, column=1, value=marker)
-                        c_marker.font = regular_font
-                        c_marker.alignment = Alignment(horizontal="left", vertical="top")
-                        
-                        c_body = ws.cell(row=current_row, column=2, value=parse_value(body))
-                        c_body.font = regular_font
-                        c_body.alignment = Alignment(horizontal="left", vertical="top")
-                        max_cols_used = max(max_cols_used, 2)
-                        current_row += 1
-                        continue
-
                     # Multi-column line detection (tabs or multi-spaces)
-                    parts = [p.strip() for p in re.split(r"\t| {3,}", line_str) if p.strip()]
+                    parts = [p.strip() for p in re.split(r"\t| {2,}", line_str) if p.strip()]
                     if len(parts) > 1:
                         max_cols_used = max(max_cols_used, len(parts))
+                        ws.row_dimensions[current_row].height = 20
                         for col_i, part in enumerate(parts, start=1):
-                            c = ws.cell(row=current_row, column=col_i, value=parse_value(part))
+                            parsed = parse_value(part)
+                            c = ws.cell(row=current_row, column=col_i, value=parsed)
                             c.font = regular_font
-                            c.alignment = Alignment(horizontal="left", vertical="top")
+                            c.border = thin_border
+                            if isinstance(parsed, (int, float)):
+                                c.alignment = Alignment(horizontal="right", vertical="center")
+                                if isinstance(parsed, float):
+                                    c.number_format = "#,##0.00"
+                            else:
+                                c.alignment = Alignment(horizontal="left", vertical="center")
                         current_row += 1
                         continue
 
-                    # Dynamic Heading detection (uppercase words, bold indicators, key section terms)
+                    # Single line row
                     is_heading = (
                         line_str.isupper() and len(line_str) < 60
                     ) or any(line_str.upper().startswith(h) for h in [
@@ -764,17 +751,19 @@ def pdf_to_excel(pdf_bytes: bytes) -> bytes:
                         "CHAPTER", "TABLE", "INVOICE", "TOTAL", "SUMMARY", "NOTE"
                     ])
 
-                    c = ws.cell(row=current_row, column=1, value=parse_value(line_str))
+                    parsed = parse_value(line_str)
+                    c = ws.cell(row=current_row, column=1, value=parsed)
+                    c.border = thin_border
+                    ws.row_dimensions[current_row].height = 22 if is_heading else 20
                     if is_heading:
                         c.font = header_font
-                    elif line_str.startswith("import ") or line_str.startswith("from ") or line_str.startswith("def ") or "=" in line_str:
+                        c.fill = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
+                    elif line_str.startswith(("import ", "from ", "def ")) or "=" in line_str:
                         c.font = code_font
                     else:
                         c.font = regular_font
-                    c.alignment = Alignment(horizontal="left", vertical="top")
+                    c.alignment = Alignment(horizontal="left", vertical="center")
                     current_row += 1
-
-                current_row += 1
 
             # 3. Extract Embedded Images & Charts on the page
             image_list = page.get_images(full=True)
