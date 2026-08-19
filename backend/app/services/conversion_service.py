@@ -184,10 +184,41 @@ def word_to_pdf(docx_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
-    import html
     import subprocess
     import tempfile
+    import os
 
+    # 1. Primary: Cloudmersive Enterprise PPTX to PDF
+    cm_api = get_cloudmersive_convert_api()
+    if cm_api:
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp_in:
+                tmp_in.write(pptx_bytes)
+                tmp_in_path = tmp_in.name
+            try:
+                res = cm_api.convert_document_pptx_to_pdf(tmp_in_path)
+                if res:
+                    if isinstance(res, str):
+                        if os.path.exists(res):
+                            with open(res, "rb") as fr:
+                                res = fr.read()
+                        elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
+                            try:
+                                import ast
+                                res = ast.literal_eval(res)
+                            except Exception:
+                                res = res.encode("latin1", errors="ignore")
+                        else:
+                            res = res.encode("latin1", errors="ignore")
+                    if isinstance(res, bytes) and len(res) > 50:
+                        return res
+            finally:
+                if os.path.exists(tmp_in_path):
+                    os.remove(tmp_in_path)
+        except Exception as e:
+            print(f"[ppt_to_pdf Cloudmersive]: {e}")
+
+    # 2. Secondary: Headless LibreOffice Impress / PPTX to PDF Engine
     soffice_cmd = get_soffice_cmd()
     if soffice_cmd:
         try:
@@ -195,14 +226,15 @@ def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
                 in_path = os.path.join(tmpdir, "presentation.pptx")
                 with open(in_path, "wb") as f:
                     f.write(pptx_bytes)
-                subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf", in_path, "--outdir", tmpdir], check=True, timeout=20)
+                subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf", in_path, "--outdir", tmpdir], check=True, timeout=25)
                 out_pdf = os.path.join(tmpdir, "presentation.pdf")
-                if os.path.exists(out_pdf):
+                if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
                     with open(out_pdf, "rb") as f:
                         return f.read()
         except Exception as e:
             print(f"[ppt_to_pdf LibreOffice]: {e}")
 
+    # 3. Structural python-pptx Fallback
     prs = Presentation(io.BytesIO(pptx_bytes))
     buffer = io.BytesIO()
     pdf_doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
@@ -218,6 +250,7 @@ def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
                 for paragraph in shape.text_frame.paragraphs:
                     raw_text = paragraph.text.strip()
                     if raw_text:
+                        import html
                         story.append(Paragraph(html.escape(raw_text), styles['Normal']))
                         story.append(Spacer(1, 4))
         story.append(Spacer(1, 15))
@@ -422,6 +455,9 @@ def pdf_to_word(pdf_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
+    import tempfile
+    import os
+
     # 0. Cloudmersive Enterprise Engine
     cm_api = get_cloudmersive_convert_api()
     if cm_api:
@@ -431,46 +467,50 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
                 tmp_in_path = tmp_in.name
             try:
                 res = cm_api.convert_document_pdf_to_pptx(tmp_in_path)
-                if res and len(res) > 100:
-                    return res
+                if res:
+                    if isinstance(res, str):
+                        if os.path.exists(res):
+                            with open(res, "rb") as fr:
+                                res = fr.read()
+                        elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
+                            try:
+                                import ast
+                                res = ast.literal_eval(res)
+                            except Exception:
+                                res = res.encode("latin1", errors="ignore")
+                        else:
+                            res = res.encode("latin1", errors="ignore")
+                    if isinstance(res, bytes) and len(res) > 50:
+                        return res
             finally:
                 if os.path.exists(tmp_in_path):
                     os.remove(tmp_in_path)
         except Exception as e:
             print(f"[pdf_to_pptx Cloudmersive]: {e}")
 
+    # 1. Exact Dynamic Aspect-Ratio Presentation Builder
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     prs = Presentation()
-    # Standard 16:9 widescreen presentation
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
     
-    # Use blank slide layout (index 6 in default template, fallback to 0)
+    first_page = doc[0] if len(doc) > 0 else None
+    if first_page:
+        prs.slide_width = Pt(first_page.rect.width)
+        prs.slide_height = Pt(first_page.rect.height)
+    else:
+        prs.slide_width = Inches(10)
+        prs.slide_height = Inches(7.5)
+    
+    # Use blank slide layout
     layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         for page_idx, page in enumerate(doc):
             slide = prs.slides.add_slide(layout)
-            
-            # High-resolution 200 DPI rendering for crisp presentation
-            pix = page.get_pixmap(dpi=200)
+            pix = page.get_pixmap(dpi=250)
             img_path = os.path.join(tmpdir, f"page_{page_idx}.png")
             pix.save(img_path)
             
-            page_w = page.rect.width
-            page_h = page.rect.height
-            
-            slide_w = 13.333
-            slide_h = 7.5
-            
-            # Calculate aspect ratio scaling
-            scale = min(slide_w / (page_w / 72.0), slide_h / (page_h / 72.0))
-            target_w = (page_w / 72.0) * scale
-            target_h = (page_h / 72.0) * scale
-            left = (slide_w - target_w) / 2.0
-            top = (slide_h - target_h) / 2.0
-            
-            slide.shapes.add_picture(img_path, Inches(left), Inches(top), width=Inches(target_w), height=Inches(target_h))
+            slide.shapes.add_picture(img_path, Pt(0), Pt(0), width=Pt(page.rect.width), height=Pt(page.rect.height))
 
         out_pptx = os.path.join(tmpdir, "presentation.pptx")
         prs.save(out_pptx)
