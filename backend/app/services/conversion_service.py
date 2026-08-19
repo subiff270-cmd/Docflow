@@ -832,15 +832,86 @@ def pdf_to_html(pdf_bytes: bytes) -> bytes:
     return html_out.encode("utf-8")
 
 def pdf_to_markdown(pdf_bytes: bytes) -> bytes:
+    # 1. Primary: Enterprise Layout-Aware PyMuPDF4LLM Engine (CloudConvert / Marker-grade)
+    try:
+        import pymupdf4llm
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        md_text = pymupdf4llm.to_markdown(doc, page_chunks=False, write_images=False)
+        doc.close()
+        if md_text and len(md_text.strip()) > 0:
+            return md_text.encode("utf-8")
+    except Exception as e:
+        print(f"[pdf_to_markdown pymupdf4llm]: {e}")
+
+    # 2. Advanced Multi-Pass GFM Markdown Fallback
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     md_lines = []
-    for i, page in enumerate(doc):
-        md_lines.append(f"# Page {i+1}\n")
-        text = page.get_text("text")
-        md_lines.append(text)
-        md_lines.append("\n---\n")
+
+    for page_idx, page in enumerate(doc):
+        md_lines.append(f"<!-- Page {page_idx + 1} -->\n")
+        
+        # Check for vector/drawn tables on the page
+        tabs = None
+        try:
+            tabs = page.find_tables()
+        except Exception:
+            pass
+
+        table_bboxes = []
+        if tabs and len(tabs.tables) > 0:
+            for tab in tabs:
+                table_bboxes.append(tab.bbox)
+                df_data = tab.extract()
+                if not df_data:
+                    continue
+                # Format as GitHub Flavored Markdown Table
+                headers = [str(c or "").strip().replace("\n", " ") for c in df_data[0]]
+                md_lines.append("| " + " | ".join(headers) + " |")
+                md_lines.append("| " + " | ".join([":---" for _ in headers]) + " |")
+                for row in df_data[1:]:
+                    cleaned_row = [str(c or "").strip().replace("\n", " ") for c in row]
+                    md_lines.append("| " + " | ".join(cleaned_row) + " |")
+                md_lines.append("\n")
+
+        # Process Non-Table Blocks
+        text_blocks = page.get_text("blocks")
+        text_blocks.sort(key=lambda b: b[1])
+
+        for block in text_blocks:
+            by0, by1, block_text = block[1], block[3], block[4].strip()
+            if not block_text:
+                continue
+
+            inside_table = False
+            for tbbox in table_bboxes:
+                if by0 >= tbbox[1] - 5 and by1 <= tbbox[3] + 5:
+                    inside_table = True
+                    break
+            if inside_table:
+                continue
+
+            lines = block_text.splitlines()
+            is_code = any(l.strip().startswith(("import ", "from ", "def ", "class ", "plt.", "np.")) for l in lines)
+
+            if is_code:
+                md_lines.append("```python")
+                md_lines.extend(lines)
+                md_lines.append("```\n")
+            else:
+                for line in lines:
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
+                    if line_str.isupper() and len(line_str) < 50:
+                        md_lines.append(f"## {line_str}\n")
+                    else:
+                        md_lines.append(f"{line_str}\n")
+                md_lines.append("\n")
+
+        md_lines.append("\n---\n\n")
+
     doc.close()
-    return "\n".join(md_lines).encode("utf-8")
+    return "".join(md_lines).encode("utf-8")
 
 def pdf_to_pdfa(pdf_bytes: bytes) -> bytes:
     # PyMuPDF PDF/A compliance clean stream rewrite
