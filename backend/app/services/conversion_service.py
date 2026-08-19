@@ -240,8 +240,50 @@ def excel_to_pdf(xlsx_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 def html_to_pdf(html_content: str) -> bytes:
+    import tempfile
+    import subprocess
+    import os
+
+    # 1. Primary: Cloudmersive Enterprise HTML to PDF Converter
+    cm_api = get_cloudmersive_convert_api()
+    if cm_api:
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as tmp_in:
+                tmp_in.write(html_content)
+                tmp_in_path = tmp_in.name
+            try:
+                res = cm_api.convert_document_html_to_pdf(tmp_in_path)
+                if res and len(res) > 100:
+                    return res
+            finally:
+                if os.path.exists(tmp_in_path):
+                    os.remove(tmp_in_path)
+        except Exception as e:
+            print(f"[html_to_pdf Cloudmersive]: {e}")
+
+    # 2. Secondary: Headless LibreOffice HTML to PDF Engine
+    soffice_cmd = get_soffice_cmd()
+    if soffice_cmd:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                in_html = os.path.join(tmpdir, "document.html")
+                with open(in_html, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                res = subprocess.run(
+                    [soffice_cmd, "--headless", "--convert-to", "pdf", in_html, "--outdir", tmpdir],
+                    capture_output=True,
+                    timeout=20
+                )
+                out_pdf = os.path.join(tmpdir, "document.pdf")
+                if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
+                    with open(out_pdf, "rb") as f:
+                        return f.read()
+        except Exception as e:
+            print(f"[html_to_pdf LibreOffice]: {e}")
+
+    # 3. Structural ReportLab Fallback
     buffer = io.BytesIO()
-    pdf_doc = SimpleDocTemplate(buffer, pagesize=letter)
+    pdf_doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
     styles = getSampleStyleSheet()
     story = []
 
@@ -252,6 +294,9 @@ def html_to_pdf(html_content: str) -> bytes:
         if line:
             story.append(Paragraph(line, styles['Normal']))
             story.append(Spacer(1, 6))
+
+    if not story:
+        story.append(Paragraph("Empty HTML Document", styles['Normal']))
 
     pdf_doc.build(story)
     return buffer.getvalue()
