@@ -450,8 +450,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [tool.id, historyIndex, historyIdx, history, zoomPage, selectedPageIds, organizePages, showResetModal]);
+  }, [tool.id, historyIdx, history, zoomPage, selectedPageIds, organizePages, showResetModal]);
 
   // Compute Human-Readable Change Summary Log
   const getChangeSummary = () => {
