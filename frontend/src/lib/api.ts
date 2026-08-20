@@ -43,16 +43,21 @@ export async function syncUserWithBackend(firebaseUid: string, email?: string | 
 }
 
 export async function fetchPdfThumbnails(file: File) {
-  const formData = new FormData();
-  formData.append("file", file);
-  const res = await fetch(`${API_BASE_URL}/api/tools/pdf-thumbnails`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) {
-    throw new Error("Failed to fetch thumbnails");
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API_BASE_URL}/api/tools/pdf-thumbnails`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) {
+      return { success: false, thumbnails: [] };
+    }
+    return res.json();
+  } catch (e) {
+    console.warn("fetchPdfThumbnails network warning:", e);
+    return { success: false, thumbnails: [] };
   }
-  return res.json();
 }
 
 export async function processToolApi(endpoint: string, formData: FormData, firebaseUid?: string) {

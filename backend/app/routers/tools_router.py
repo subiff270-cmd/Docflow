@@ -1,7 +1,9 @@
 import io
 import os
 import json
+import base64
 import zipfile
+import fitz
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header
 from fastapi.responses import FileResponse, StreamingResponse
