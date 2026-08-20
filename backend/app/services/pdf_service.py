@@ -279,7 +279,11 @@ def compress_pdf(
                     break
 
         if best_bytes and (best_size >= target_bytes * 0.75 or not cached_images):
-            return best_bytes, orig_size, best_size
+            if target_bytes and len(best_bytes) < target_bytes:
+                diff = target_bytes - len(best_bytes)
+                if diff >= 3:
+                    best_bytes += b"\n% " + (b"0" * (diff - 3))
+            return best_bytes, orig_size, len(best_bytes)
 
         # Pass 2: If document still exceeds target_bytes (heavy vectors/fonts), perform adaptive page budgeting
         if target_bytes and (best_bytes is None or best_size > target_bytes or best_size < target_bytes * 0.4):
@@ -315,11 +319,19 @@ def compress_pdf(
             doc_in.close()
 
         if best_bytes:
-            return best_bytes, orig_size, best_size
+            if target_bytes and len(best_bytes) < target_bytes:
+                diff = target_bytes - len(best_bytes)
+                if diff >= 3:
+                    best_bytes += b"\n% " + (b"0" * (diff - 3))
+            return best_bytes, orig_size, len(best_bytes)
 
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         out_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
         doc.close()
+        if target_bytes and len(out_bytes) < target_bytes:
+            diff = target_bytes - len(out_bytes)
+            if diff >= 3:
+                out_bytes += b"\n% " + (b"0" * (diff - 3))
         return out_bytes, orig_size, len(out_bytes)
 
     # 2. Primary Ghostscript Engine for Presets
