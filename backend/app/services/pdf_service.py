@@ -213,11 +213,16 @@ def compress_pdf(
     if level == "custom":
         target_bytes = (target_size_kb * 1024) if target_size_kb and target_size_kb > 0 else None
         
-        # If target size is already larger than original, return cleaned original at 100% full quality
+        # If target size is larger than original, enlarge & pad to exact requested target size
         if target_bytes and orig_size <= target_bytes:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             out_bytes = doc.tobytes(garbage=4, deflate=True)
             doc.close()
+            if len(out_bytes) < target_bytes:
+                diff = target_bytes - len(out_bytes)
+                if diff > 4:
+                    pad = b"\n% " + (b"0" * (diff - 4))
+                    out_bytes += pad
             return out_bytes, orig_size, len(out_bytes)
 
         # Extract & Cache embedded images once for ultra-fast binary search iterations
