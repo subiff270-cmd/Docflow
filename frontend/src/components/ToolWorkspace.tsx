@@ -650,7 +650,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         clientRes = await clientAddWatermark(files[0], watermarkText || "CONFIDENTIAL");
       } else if (tool.id === "crop-pdf" && files[0]) {
         clientRes = await clientCropPdf(files[0], { x: cropX, y: cropY, w: cropW, h: cropH });
-      } else if (tool.id === "jpg-to-pdf" && files.length > 0) {
+      } else if ((tool.id === "jpg-to-pdf" || tool.id === "scan-to-pdf") && files.length > 0) {
         clientRes = await clientImageToPdf(files);
       } else if (tool.id === "resize-image" && files[0]) {
         clientRes = await clientResizeImage(files[0], { percentage: 50 });

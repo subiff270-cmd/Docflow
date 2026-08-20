@@ -235,7 +235,7 @@ export const TOOLS: ToolItem[] = [
     iconName: "Camera",
     href: "/scan-to-pdf",
     endpoint: "scan-to-pdf",
-    accept: "image/*",
+    accept: "image/*,.jpg,.jpeg,.png,.webp,.bmp,.tiff",
     multiple: true,
   },
 
