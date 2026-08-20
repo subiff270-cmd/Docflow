@@ -438,12 +438,18 @@ export async function clientConvertImage(file: File, targetFormat: string = "web
 // 13. ORGANIZE PDF (Client-side Page Reordering, Rotation, Insertion & Deletion)
 export interface PageOrderConfig {
   id: string;
-  original_page: number; // 1-based index
+  sourceDocumentId: number;
+  sourceFileName: string;
+  originalPageNumber: number; // 1-based index
+  currentPosition?: number;
   rotation: number; // 0, 90, 180, 270
-  delete?: boolean;
+  excluded?: boolean;
+  deleted?: boolean;
   thumbnail?: string;
+  // Backward compatibility alias keys
+  original_page?: number;
   sourceFileIndex?: number;
-  sourceFileName?: string;
+  delete?: boolean;
 }
 
 export async function getPdfPageCount(file: File): Promise<number> {
@@ -467,24 +473,29 @@ export async function clientOrganizePdf(
   const newPdf = await PDFDocument.create();
 
   for (const item of pageOrders) {
-    if (item.delete) continue;
-    const fileIdx = item.sourceFileIndex ?? 0;
+    const isExcluded = Boolean(item.excluded || item.deleted || item.delete);
+    if (isExcluded) continue;
+
+    const fileIdx = item.sourceDocumentId ?? item.sourceFileIndex ?? 0;
     const srcDoc = loadedPdfs[fileIdx] || loadedPdfs[0];
     if (!srcDoc) continue;
 
-    const origIdx = item.original_page - 1;
+    const origPage = item.originalPageNumber ?? item.original_page ?? 1;
+    const origIdx = origPage - 1;
+
     if (origIdx >= 0 && origIdx < srcDoc.getPageCount()) {
       const [copiedPage] = await newPdf.copyPages(srcDoc, [origIdx]);
-      if (item.rotation) {
+      const rot = (item.rotation || 0) % 360;
+      if (rot !== 0) {
         const currentAngle = copiedPage.getRotation().angle;
-        copiedPage.setRotation(degrees((currentAngle + item.rotation) % 360));
+        copiedPage.setRotation(degrees((currentAngle + rot) % 360));
       }
       newPdf.addPage(copiedPage);
     }
   }
 
   if (newPdf.getPageCount() === 0) {
-    throw new Error("Cannot save an empty PDF. Please keep at least one page in your document.");
+    throw new Error("Cannot save an empty PDF. Please keep at least one page included in your document.");
   }
 
   const outBytes = await newPdf.save();

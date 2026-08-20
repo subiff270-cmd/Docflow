@@ -121,9 +121,11 @@ def extract_pages(file_bytes: bytes, pages_range_str: str) -> bytes:
     doc.close()
     return out
 
-def organize_pdf(file_bytes_list: list[bytes] | bytes, page_orders: list[dict]) -> bytes:
+def organize_pdf(file_bytes_list: list[bytes] | bytes, page_orders: list[dict]) -> tuple[bytes, dict]:
     """
-    page_orders e.g. [{"original_page": 1, "rotation": 90, "delete": False, "sourceFileIndex": 0}, ...]
+    Organizes, reorders, rotates, excludes, duplicates, and merges pages across multiple PDFs.
+    Preserves original vector text, embedded fonts, annotations, images, and links.
+    Returns: (output_pdf_bytes, metadata)
     """
     if isinstance(file_bytes_list, (bytes, bytearray)):
         file_bytes_list = [bytes(file_bytes_list)]
@@ -131,26 +133,68 @@ def organize_pdf(file_bytes_list: list[bytes] | bytes, page_orders: list[dict]) 
     docs = [fitz.open(stream=b, filetype="pdf") for b in file_bytes_list]
     new_doc = fitz.open()
 
+    total_original_pages = sum(len(d) for d in docs)
+    exported_page_count = 0
+    expected_rotations = []
+
     for item in page_orders:
-        if item.get("delete"):
+        is_excluded = item.get("excluded", False) or item.get("delete", False)
+        if is_excluded:
             continue
-        file_idx = item.get("sourceFileIndex", 0)
+
+        file_idx = item.get("sourceDocumentId", item.get("sourceFileIndex", 0))
         src_doc = docs[file_idx] if 0 <= file_idx < len(docs) else docs[0]
 
-        orig_idx = item.get("original_page", 1) - 1
-        if 0 <= orig_idx < len(src_doc):
-            page_idx = new_doc.page_count
-            new_doc.insert_pdf(src_doc, from_page=orig_idx, to_page=orig_idx)
-            rot = item.get("rotation", 0)
-            if rot:
-                page = new_doc[page_idx]
-                page.set_rotation((page.rotation + rot) % 360)
+        orig_page = item.get("originalPageNumber", item.get("original_page", 1))
+        orig_idx = orig_page - 1
 
-    out = new_doc.tobytes()
+        if 0 <= orig_idx < len(src_doc):
+            target_idx = new_doc.page_count
+            new_doc.insert_pdf(src_doc, from_page=orig_idx, to_page=orig_idx)
+            rot = int(item.get("rotation", 0)) % 360
+            if rot != 0:
+                page = new_doc[target_idx]
+                page.set_rotation((page.rotation + rot) % 360)
+            
+            expected_rotations.append(new_doc[target_idx].rotation)
+            exported_page_count += 1
+
+    if new_doc.page_count == 0:
+        for d in docs:
+            d.close()
+        new_doc.close()
+        raise ValueError("Cannot export an empty PDF. Please ensure at least one page is not excluded or deleted.")
+
+    out_bytes = new_doc.tobytes(deflate=True, garbage=3)
     new_doc.close()
     for d in docs:
         d.close()
-    return out
+
+    # Deep Output Validation
+    val_doc = fitz.open(stream=out_bytes, filetype="pdf")
+    if len(val_doc) != exported_page_count:
+        actual_len = len(val_doc)
+        val_doc.close()
+        raise ValueError(f"PDF Validation Error: Expected {exported_page_count} pages but generated {actual_len} pages.")
+
+    # Validate Rotations
+    for idx, page in enumerate(val_doc):
+        if idx < len(expected_rotations):
+            if page.rotation != expected_rotations[idx]:
+                actual_rot = page.rotation
+                val_doc.close()
+                raise ValueError(f"PDF Validation Error: Page {idx+1} rotation mismatch (expected {expected_rotations[idx]}°, got {actual_rot}°).")
+
+    val_doc.close()
+
+    metadata = {
+        "original_total_pages": total_original_pages,
+        "exported_pages": exported_page_count,
+        "excluded_pages": len(page_orders) - exported_page_count,
+        "file_size": len(out_bytes)
+    }
+
+    return out_bytes, metadata
 
 def compress_pdf(file_bytes: bytes, level: str = "medium") -> tuple[bytes, int, int]:
     import subprocess

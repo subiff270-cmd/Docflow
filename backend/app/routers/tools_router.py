@@ -158,10 +158,16 @@ async def api_organize_pdf(
 
     try:
         page_orders = json.loads(page_orders_json)
-        out_bytes = pdf_service.organize_pdf(file_bytes_list, page_orders)
+        out_bytes, metadata = pdf_service.organize_pdf(file_bytes_list, page_orders)
         out_name = f"organized_{all_files[0].filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
-        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
+        return {
+            "success": True,
+            "download_key": item.file_key,
+            "filename": out_name,
+            "size": item.file_size,
+            "metadata": metadata
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to organize PDF: {str(e)}")
 

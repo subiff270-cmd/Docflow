@@ -51,6 +51,7 @@ import {
   FileCheck2,
   Copy,
   Undo2,
+  Redo2,
   ArrowLeft,
   LayoutGrid,
   Maximize2,
@@ -58,7 +59,9 @@ import {
   Square,
   GripVertical,
   ZoomIn,
-  Eye
+  ZoomOut,
+  Eye,
+  History
 } from "lucide-react";
 
 interface ToolWorkspaceProps {
@@ -89,14 +92,59 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
   const [ocrLanguage, setOcrLanguage] = useState("English");
 
-  // Organize PDF State
+  // Organize PDF Full Production State
   const [organizePages, setOrganizePages] = useState<PageOrderConfig[]>([]);
+  const [initialSnapshot, setInitialSnapshot] = useState<PageOrderConfig[]>([]);
+  const [history, setHistory] = useState<PageOrderConfig[][]>([]);
+  const [historyIdx, setHistoryIdx] = useState<number>(-1);
   const [loadingPages, setLoadingPages] = useState(false);
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
   const [zoomPage, setZoomPage] = useState<PageOrderConfig | null>(null);
+  const [zoomScale, setZoomScale] = useState<number>(1);
+  const [showResetModal, setShowResetModal] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [thumbnailSize, setThumbnailSize] = useState<"sm" | "md" | "lg">("md");
+
+  // Helper to commit new page state to undo/redo history
+  const commitState = (newPages: PageOrderConfig[]) => {
+    setOrganizePages(newPages);
+    setHistory((prev) => {
+      const upToCurrent = prev.slice(0, historyIdx + 1);
+      return [...upToCurrent, newPages];
+    });
+    setHistoryIdx((prev) => prev + 1);
+  };
+
+  const canUndo = historyIdx > 0;
+  const canRedo = historyIdx < history.length - 1;
+
+  const handleUndo = () => {
+    if (!canUndo) return;
+    const targetIdx = historyIdx - 1;
+    const targetState = history[targetIdx];
+    if (targetState) {
+      setOrganizePages(targetState);
+      setHistoryIdx(targetIdx);
+      if (zoomPage) {
+        const updatedZoom = targetState.find((p) => p.id === zoomPage.id) || null;
+        setZoomPage(updatedZoom);
+      }
+    }
+  };
+
+  const handleRedo = () => {
+    if (!canRedo) return;
+    const targetIdx = historyIdx + 1;
+    const targetState = history[targetIdx];
+    if (targetState) {
+      setOrganizePages(targetState);
+      setHistoryIdx(targetIdx);
+      if (zoomPage) {
+        const updatedZoom = targetState.find((p) => p.id === zoomPage.id) || null;
+        setZoomPage(updatedZoom);
+      }
+    }
+  };
 
   useEffect(() => {
     if (tool.id === "organize-pdf" && files.length > 0) {
@@ -111,16 +159,19 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           try {
             // Try fetching high-res server thumbnails
             const res = await fetchPdfThumbnails(currentFile);
-            if (res.success && Array.isArray(res.thumbnails)) {
+            if (res.success && Array.isArray(res.thumbnails) && res.thumbnails.length > 0) {
               res.thumbnails.forEach((t: any) => {
                 allPages.push({
                   id: `p-${fileIdx}-${t.page_num}-${Math.random().toString(36).substring(2, 7)}`,
+                  sourceDocumentId: fileIdx,
+                  sourceFileName: currentFile.name,
+                  originalPageNumber: t.page_num,
                   original_page: t.page_num,
+                  sourceFileIndex: fileIdx,
                   rotation: 0,
+                  excluded: false,
                   delete: false,
                   thumbnail: t.thumbnail,
-                  sourceFileIndex: fileIdx,
-                  sourceFileName: currentFile.name,
                 });
               });
               continue;
@@ -135,11 +186,14 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             for (let i = 1; i <= count; i++) {
               allPages.push({
                 id: `p-${fileIdx}-${i}-${Math.random().toString(36).substring(2, 7)}`,
-                original_page: i,
-                rotation: 0,
-                delete: false,
-                sourceFileIndex: fileIdx,
+                sourceDocumentId: fileIdx,
                 sourceFileName: currentFile.name,
+                originalPageNumber: i,
+                original_page: i,
+                sourceFileIndex: fileIdx,
+                rotation: 0,
+                excluded: false,
+                delete: false,
               });
             }
           } catch (cntErr) {
@@ -149,6 +203,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
         if (isMounted) {
           setOrganizePages(allPages);
+          setInitialSnapshot(allPages);
+          setHistory([allPages]);
+          setHistoryIdx(0);
           setSelectedPageIds([]);
           setLoadingPages(false);
         }
@@ -161,59 +218,79 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       };
     } else {
       setOrganizePages([]);
+      setInitialSnapshot([]);
+      setHistory([]);
+      setHistoryIdx(-1);
       setSelectedPageIds([]);
       setZoomPage(null);
     }
   }, [files, tool.id]);
 
+  // Page Operations
   const handleRotatePage = (id: string, delta: number) => {
-    setOrganizePages((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, rotation: (p.rotation + delta + 360) % 360 } : p))
+    const next = organizePages.map((p) =>
+      p.id === id ? { ...p, rotation: (p.rotation + delta + 360) % 360 } : p
     );
+    commitState(next);
+    if (zoomPage && zoomPage.id === id) {
+      setZoomPage((prev) => (prev ? { ...prev, rotation: (prev.rotation + delta + 360) % 360 } : null));
+    }
   };
 
-  const handleDeleteTogglePage = (id: string) => {
-    setOrganizePages((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, delete: !p.delete } : p))
-    );
+  const handleExcludeTogglePage = (id: string) => {
+    const next = organizePages.map((p) => {
+      if (p.id === id) {
+        const isNowExcluded = !(p.excluded || p.delete);
+        return { ...p, excluded: isNowExcluded, delete: isNowExcluded };
+      }
+      return p;
+    });
+    commitState(next);
+    if (zoomPage && zoomPage.id === id) {
+      setZoomPage((prev) => (prev ? { ...prev, excluded: !(prev.excluded || prev.delete), delete: !(prev.excluded || prev.delete) } : null));
+    }
+  };
+
+  const handleDeletePermanentPage = (id: string) => {
+    const next = organizePages.filter((p) => p.id !== id);
+    commitState(next);
+    setSelectedPageIds((prev) => prev.filter((pId) => pId !== id));
+    if (zoomPage && zoomPage.id === id) {
+      setZoomPage(null);
+    }
   };
 
   const handleDuplicatePage = (id: string) => {
-    setOrganizePages((prev) => {
-      const idx = prev.findIndex((p) => p.id === id);
-      if (idx === -1) return prev;
-      const target = prev[idx];
-      const clone: PageOrderConfig = {
-        ...target,
-        id: `p-${target.original_page}-dup-${Math.random().toString(36).substring(2, 7)}`,
-        delete: false,
-      };
-      const next = [...prev];
-      next.splice(idx + 1, 0, clone);
-      return next;
-    });
+    const idx = organizePages.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+    const target = organizePages[idx];
+    const clone: PageOrderConfig = {
+      ...target,
+      id: `p-${target.originalPageNumber || target.original_page}-dup-${Math.random().toString(36).substring(2, 7)}`,
+      excluded: false,
+      delete: false,
+    };
+    const next = [...organizePages];
+    next.splice(idx + 1, 0, clone);
+    commitState(next);
   };
 
   const handleMovePage = (index: number, direction: -1 | 1) => {
     const targetIdx = index + direction;
     if (targetIdx < 0 || targetIdx >= organizePages.length) return;
-    setOrganizePages((prev) => {
-      const next = [...prev];
-      const temp = next[index];
-      next[index] = next[targetIdx];
-      next[targetIdx] = temp;
-      return next;
-    });
+    const next = [...organizePages];
+    const temp = next[index];
+    next[index] = next[targetIdx];
+    next[targetIdx] = temp;
+    commitState(next);
   };
 
   const handleDropCard = (targetIndex: number) => {
     if (draggedIndex === null || draggedIndex === targetIndex) return;
-    setOrganizePages((prev) => {
-      const next = [...prev];
-      const [draggedItem] = next.splice(draggedIndex, 1);
-      next.splice(targetIndex, 0, draggedItem);
-      return next;
-    });
+    const next = [...organizePages];
+    const [draggedItem] = next.splice(draggedIndex, 1);
+    next.splice(targetIndex, 0, draggedItem);
+    commitState(next);
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
@@ -225,7 +302,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   };
 
   const handleToggleSelectAll = () => {
-    const activePages = organizePages.filter((p) => !p.delete);
+    const activePages = organizePages.filter((p) => !(p.excluded || p.delete));
     if (selectedPageIds.length === activePages.length) {
       setSelectedPageIds([]);
     } else {
@@ -233,51 +310,189 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     }
   };
 
-  const handleBatchRotate = (delta: number) => {
-    if (selectedPageIds.length === 0) return;
-    setOrganizePages((prev) =>
-      prev.map((p) =>
-        selectedPageIds.includes(p.id) ? { ...p, rotation: (p.rotation + delta + 360) % 360 } : p
-      )
-    );
+  const handleSelectOddPages = () => {
+    const oddIds = organizePages
+      .filter((_, idx) => idx % 2 === 0)
+      .map((p) => p.id);
+    setSelectedPageIds(oddIds);
   };
 
-  const handleBatchDelete = (shouldDelete: boolean) => {
+  const handleSelectEvenPages = () => {
+    const evenIds = organizePages
+      .filter((_, idx) => idx % 2 === 1)
+      .map((p) => p.id);
+    setSelectedPageIds(evenIds);
+  };
+
+  const handleBatchRotate = (delta: number) => {
     if (selectedPageIds.length === 0) return;
-    setOrganizePages((prev) =>
-      prev.map((p) => (selectedPageIds.includes(p.id) ? { ...p, delete: shouldDelete } : p))
+    const next = organizePages.map((p) =>
+      selectedPageIds.includes(p.id) ? { ...p, rotation: (p.rotation + delta + 360) % 360 } : p
     );
-    if (shouldDelete) {
-      setSelectedPageIds([]);
-    }
+    commitState(next);
+  };
+
+  const handleBatchExclude = (shouldExclude: boolean) => {
+    if (selectedPageIds.length === 0) return;
+    const next = organizePages.map((p) =>
+      selectedPageIds.includes(p.id) ? { ...p, excluded: shouldExclude, delete: shouldExclude } : p
+    );
+    commitState(next);
+    setSelectedPageIds([]);
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedPageIds.length === 0) return;
+    const next = organizePages.filter((p) => !selectedPageIds.includes(p.id));
+    commitState(next);
+    setSelectedPageIds([]);
+  };
+
+  const handleBatchDuplicate = () => {
+    if (selectedPageIds.length === 0) return;
+    const next: PageOrderConfig[] = [];
+    organizePages.forEach((p) => {
+      next.push(p);
+      if (selectedPageIds.includes(p.id)) {
+        next.push({
+          ...p,
+          id: `p-${p.originalPageNumber || p.original_page}-dup-${Math.random().toString(36).substring(2, 7)}`,
+          excluded: false,
+          delete: false,
+        });
+      }
+    });
+    commitState(next);
+    setSelectedPageIds([]);
   };
 
   const handleRotateAll = (delta: number) => {
-    setOrganizePages((prev) =>
-      prev.map((p) => ({ ...p, rotation: (p.rotation + delta + 360) % 360 }))
-    );
+    const next = organizePages.map((p) => ({ ...p, rotation: (p.rotation + delta + 360) % 360 }));
+    commitState(next);
   };
 
-  const handleResetOrganize = () => {
-    if (files.length === 0) return;
-    setLoadingPages(true);
-    fetchPdfThumbnails(files[0])
-      .then((res) => {
-        if (res.success && Array.isArray(res.thumbnails)) {
-          const initial: PageOrderConfig[] = res.thumbnails.map((t: any) => ({
-            id: `p-0-${t.page_num}-${Math.random().toString(36).substring(2, 7)}`,
-            original_page: t.page_num,
-            rotation: 0,
-            delete: false,
-            thumbnail: t.thumbnail,
-            sourceFileIndex: 0,
-            sourceFileName: files[0].name,
-          }));
-          setOrganizePages(initial);
+  const handleConfirmReset = () => {
+    if (initialSnapshot.length > 0) {
+      setOrganizePages(initialSnapshot);
+      setHistory([initialSnapshot]);
+      setHistoryIdx(0);
+      setSelectedPageIds([]);
+      setZoomPage(null);
+    }
+    setShowResetModal(false);
+  };
+
+  // Zoom Modal Navigation
+  const handlePrevZoomPage = () => {
+    if (!zoomPage) return;
+    const curIdx = organizePages.findIndex((p) => p.id === zoomPage.id);
+    if (curIdx > 0) {
+      setZoomPage(organizePages[curIdx - 1]);
+      setZoomScale(1);
+    }
+  };
+
+  const handleNextZoomPage = () => {
+    if (!zoomPage) return;
+    const curIdx = organizePages.findIndex((p) => p.id === zoomPage.id);
+    if (curIdx < organizePages.length - 1) {
+      setZoomPage(organizePages[curIdx + 1]);
+      setZoomScale(1);
+    }
+  };
+
+  // Keyboard Shortcuts Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (tool.id !== "organize-pdf") return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // Undo: Ctrl+Z or Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      // Redo: Ctrl+Y or Cmd+Shift+Z or Cmd+Y
+      else if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "z")
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+      // Escape: Close modal or clear selection
+      else if (e.key === "Escape") {
+        if (showResetModal) {
+          setShowResetModal(false);
+        } else if (zoomPage) {
+          setZoomPage(null);
+        } else if (selectedPageIds.length > 0) {
           setSelectedPageIds([]);
         }
-      })
-      .finally(() => setLoadingPages(false));
+      }
+      // Delete / Backspace: Exclude selected pages
+      else if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedPageIds.length > 0 && !zoomPage) {
+          e.preventDefault();
+          handleBatchExclude(true);
+        }
+      }
+      // Left / Right Arrow in Preview modal
+      else if (zoomPage) {
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          handlePrevZoomPage();
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          handleNextZoomPage();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [tool.id, historyIndex, historyIdx, history, zoomPage, selectedPageIds, organizePages, showResetModal]);
+
+  // Compute Human-Readable Change Summary Log
+  const getChangeSummary = () => {
+    if (initialSnapshot.length === 0 || organizePages.length === 0) return [];
+    const changes: string[] = [];
+
+    // Rotations
+    const rotated = organizePages.filter((p) => p.rotation > 0);
+    if (rotated.length > 0) {
+      changes.push(`${rotated.length} page${rotated.length > 1 ? "s" : ""} rotated`);
+    }
+
+    // Excluded
+    const excluded = organizePages.filter((p) => p.excluded || p.delete);
+    if (excluded.length > 0) {
+      changes.push(`${excluded.length} page${excluded.length > 1 ? "s" : ""} excluded from export`);
+    }
+
+    // Inserted from additional documents
+    const inserted = organizePages.filter((p) => (p.sourceDocumentId ?? p.sourceFileIndex ?? 0) > 0);
+    if (inserted.length > 0) {
+      changes.push(`${inserted.length} page${inserted.length > 1 ? "s" : ""} inserted from additional documents`);
+    }
+
+    // Duplicated
+    const duplicates = organizePages.filter((p) => p.id.includes("-dup-"));
+    if (duplicates.length > 0) {
+      changes.push(`${duplicates.length} duplicated page${duplicates.length > 1 ? "s" : ""}`);
+    }
+
+    // Reordered check
+    if (organizePages.length === initialSnapshot.length) {
+      const isReordered = organizePages.some((p, i) => p.id !== initialSnapshot[i]?.id);
+      if (isReordered) {
+        changes.push("Custom page sequence rearranged");
+      }
+    } else if (organizePages.length !== initialSnapshot.length) {
+      changes.push("Page count modified");
+    }
+
+    return changes;
   };
 
   const [cropX, setCropX] = useState(10);
@@ -793,31 +1008,77 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
           {/* 6. Organize PDF Visual Interactive Page Manager Canvas */}
           {files.length > 0 && tool.id === "organize-pdf" && (
-            <div className="p-5 sm:p-6 bg-slate-50/95 rounded-3xl border border-slate-200/90 space-y-5 shadow-xs">
-              {/* Header & Controls */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+            <div className="p-5 sm:p-7 bg-slate-50/95 rounded-3xl border border-slate-200 space-y-6 shadow-xs">
+              {/* Top Header & Production Action Bar */}
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-200/90 pb-5">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <LayoutGrid className="w-5 h-5 text-indigo-600" />
-                    <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
-                      Visual Page Organizer Canvas
-                    </h4>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+                      <LayoutGrid className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-extrabold text-slate-900">
+                        Visual PDF Page Organizer
+                      </h4>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Drag pages to rearrange sequence • Rotate, duplicate, exclude, or merge documents
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {loadingPages
-                      ? "Rendering high-resolution document pages..."
-                      : `Drag pages to reorder • ${organizePages.filter((p) => !p.delete).length} of ${organizePages.length} pages will be exported`}
-                  </p>
+
+                  {/* Dynamic Page Counter Pills */}
+                  <div className="flex flex-wrap items-center gap-2 mt-3 text-[11px] font-bold">
+                    <span className="bg-slate-200/80 text-slate-700 px-2.5 py-1 rounded-lg">
+                      Original: {initialSnapshot.length} pages
+                    </span>
+                    <span className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-lg">
+                      Export Total: {organizePages.filter((p) => !(p.excluded || p.delete)).length} pages
+                    </span>
+                    {organizePages.filter((p) => p.excluded || p.delete).length > 0 && (
+                      <span className="bg-rose-100 text-rose-800 px-2.5 py-1 rounded-lg">
+                        Excluded: {organizePages.filter((p) => p.excluded || p.delete).length} page(s)
+                      </span>
+                    )}
+                    {selectedPageIds.length > 0 && (
+                      <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg">
+                        Selected: {selectedPageIds.length} page(s)
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Global Quick Action Buttons */}
+                {/* Production Control Toolbar: Undo/Redo, Selection, Rotate, Add PDF, Reset */}
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Undo / Redo Group */}
+                  <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-xs">
+                    <button
+                      type="button"
+                      onClick={handleUndo}
+                      disabled={!canUndo}
+                      className="p-2 text-slate-600 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-slate-600 rounded-lg hover:bg-slate-50 transition cursor-pointer"
+                      title="Undo (Ctrl+Z)"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                    </button>
+                    <div className="h-4 w-px bg-slate-200" />
+                    <button
+                      type="button"
+                      onClick={handleRedo}
+                      disabled={!canRedo}
+                      className="p-2 text-slate-600 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-slate-600 rounded-lg hover:bg-slate-50 transition cursor-pointer"
+                      title="Redo (Ctrl+Y)"
+                    >
+                      <Redo2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Selection Dropdown / Buttons */}
                   <button
                     type="button"
                     onClick={handleToggleSelectAll}
-                    className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
-                    {selectedPageIds.length > 0 && selectedPageIds.length === organizePages.filter(p => !p.delete).length ? (
+                    {selectedPageIds.length > 0 && selectedPageIds.length === organizePages.filter((p) => !(p.excluded || p.delete)).length ? (
                       <>
                         <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
                         <span>Deselect All</span>
@@ -832,28 +1093,48 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
                   <button
                     type="button"
+                    onClick={handleSelectOddPages}
+                    className="px-2.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 transition hidden sm:inline-flex shadow-xs cursor-pointer"
+                  >
+                    Select Odd
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSelectEvenPages}
+                    className="px-2.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 transition hidden sm:inline-flex shadow-xs cursor-pointer"
+                  >
+                    Select Even
+                  </button>
+
+                  {/* Global Rotate 90° */}
+                  <button
+                    type="button"
                     onClick={() => handleRotateAll(90)}
-                    className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <RotateCw className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Rotate All 90°</span>
                   </button>
 
+                  {/* Insert Another PDF Button */}
                   <button
                     type="button"
                     onClick={openFilePicker}
-                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl text-xs font-bold text-indigo-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="px-3.5 py-2 bg-gradient-to-r from-indigo-50 to-violet-50 hover:from-indigo-100 hover:to-violet-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Insert Another PDF</span>
                   </button>
 
+                  {/* Reset Changes Button */}
                   <button
                     type="button"
-                    onClick={handleResetOrganize}
-                    className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    onClick={() => setShowResetModal(true)}
+                    className="px-3 py-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-600 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    title="Reset to original document"
                   >
-                    <Undo2 className="w-3.5 h-3.5" />
+                    <History className="w-3.5 h-3.5" />
                     <span>Reset</span>
                   </button>
                 </div>
@@ -861,17 +1142,17 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
               {/* Batch Actions Toolbar (Visible when pages are selected) */}
               {selectedPageIds.length > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-indigo-600 text-white rounded-2xl shadow-md animate-in fade-in">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 text-white rounded-2xl shadow-lg shadow-indigo-500/20 animate-in fade-in">
                   <div className="flex items-center gap-2 text-xs font-bold pl-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                    <span>{selectedPageIds.length} pages selected</span>
+                    <span>{selectedPageIds.length} page(s) selected</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => handleBatchRotate(90)}
-                      className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
                       <span>Rotate 90°</span>
@@ -880,7 +1161,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     <button
                       type="button"
                       onClick={() => handleBatchRotate(180)}
-                      className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
                       <span>Rotate 180°</span>
@@ -888,17 +1169,44 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
                     <button
                       type="button"
-                      onClick={() => handleBatchDelete(true)}
-                      className="px-2.5 py-1 bg-rose-500/80 hover:bg-rose-600 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      onClick={handleBatchDuplicate}
+                      className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Duplicate</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleBatchExclude(true)}
+                      className="px-3 py-1.5 bg-amber-500/90 hover:bg-amber-600 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Exclude</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleBatchExclude(false)}
+                      className="px-3 py-1.5 bg-emerald-500/90 hover:bg-emerald-600 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Include</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleBatchDelete}
+                      className="px-3 py-1.5 bg-rose-500/90 hover:bg-rose-600 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Exclude Selected</span>
+                      <span>Delete</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setSelectedPageIds([])}
-                      className="p-1 hover:bg-white/20 rounded-lg transition"
+                      className="p-1.5 hover:bg-white/20 rounded-xl transition cursor-pointer"
                       title="Clear Selection"
                     >
                       <X className="w-4 h-4" />
@@ -907,16 +1215,37 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
+              {/* Changes Summary Box */}
+              <div className="px-4 py-3 bg-white rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-slate-700 uppercase tracking-wider text-[10px]">
+                    Modifications Log:
+                  </span>
+                  {getChangeSummary().length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5 text-indigo-700 font-semibold">
+                      {getChangeSummary().map((item, cIdx) => (
+                        <span key={cIdx} className="bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 font-medium italic">No changes yet — document in original order</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Page Thumbnails Grid */}
               {loadingPages ? (
-                <div className="py-16 text-center space-y-3">
-                  <RefreshCw className="w-7 h-7 animate-spin text-indigo-600 mx-auto" />
-                  <p className="text-xs font-bold text-slate-700">Rendering visual PDF page thumbnails...</p>
-                  <p className="text-[11px] text-slate-400">Processing page graphics and high-resolution previews</p>
+                <div className="py-20 text-center space-y-3">
+                  <RefreshCw className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
+                  <p className="text-sm font-bold text-slate-800">Processing visual PDF page structure...</p>
+                  <p className="text-xs text-slate-400">Rendering high-resolution vector page thumbnails</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {organizePages.map((page, idx) => {
-                    const isDeleted = Boolean(page.delete);
+                    const isExcluded = Boolean(page.excluded || page.delete);
                     const isSelected = selectedPageIds.includes(page.id);
                     const isBeingDragged = draggedIndex === idx;
                     const isDragTarget = dragOverIndex === idx;
@@ -924,7 +1253,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     return (
                       <div
                         key={page.id}
-                        draggable={!isDeleted}
+                        draggable={true}
                         onDragStart={() => setDraggedIndex(idx)}
                         onDragOver={(e) => {
                           e.preventDefault();
@@ -935,15 +1264,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           e.preventDefault();
                           handleDropCard(idx);
                         }}
-                        className={`relative bg-white rounded-2xl border transition-all duration-200 flex flex-col items-center justify-between p-3 group shadow-xs select-none ${
+                        className={`relative bg-white rounded-2xl border transition-all duration-200 flex flex-col items-center justify-between p-3 group select-none shadow-xs ${
                           isBeingDragged
-                            ? "opacity-40 scale-95 border-indigo-400 border-dashed"
+                            ? "opacity-30 scale-95 border-indigo-400 border-dashed"
                             : isDragTarget
-                            ? "border-indigo-600 ring-2 ring-indigo-500/30 scale-105 shadow-lg shadow-indigo-500/15"
+                            ? "border-indigo-600 ring-2 ring-indigo-500/30 scale-105 shadow-xl shadow-indigo-500/20"
                             : isSelected
                             ? "border-indigo-600 ring-2 ring-indigo-600/20 bg-indigo-50/10"
-                            : isDeleted
-                            ? "border-rose-300 bg-rose-50/40 opacity-60"
+                            : isExcluded
+                            ? "border-rose-300 bg-rose-50/30 opacity-60"
                             : "border-slate-200 hover:border-indigo-400 hover:shadow-md hover:shadow-indigo-500/10"
                         }`}
                       >
@@ -953,7 +1282,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                             <button
                               type="button"
                               onClick={() => handleToggleSelectPage(page.id)}
-                              disabled={isDeleted}
                               className="text-slate-400 hover:text-indigo-600 transition cursor-pointer"
                             >
                               {isSelected ? (
@@ -968,19 +1296,22 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           </div>
 
                           <div className="flex items-center gap-1">
-                            {page.rotation > 0 && !isDeleted && (
-                              <span className="bg-indigo-50 text-indigo-700 text-[10px] font-extrabold px-1.5 py-0.5 rounded">
+                            {page.rotation > 0 && !isExcluded && (
+                              <span className="bg-indigo-50 text-indigo-700 text-[10px] font-extrabold px-1.5 py-0.5 rounded border border-indigo-100">
                                 ↻ {page.rotation}°
                               </span>
                             )}
-                            {isDeleted && (
-                              <span className="bg-rose-100 text-rose-700 text-[10px] font-extrabold px-1.5 py-0.5 rounded">
+                            {isExcluded && (
+                              <span className="bg-rose-100 text-rose-700 text-[10px] font-extrabold px-1.5 py-0.5 rounded border border-rose-200">
                                 Excluded
                               </span>
                             )}
                             <button
                               type="button"
-                              onClick={() => setZoomPage(page)}
+                              onClick={() => {
+                                setZoomPage(page);
+                                setZoomScale(1);
+                              }}
                               className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-md transition cursor-pointer"
                               title="Zoom & Inspect Page"
                             >
@@ -989,7 +1320,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           </div>
                         </div>
 
-                        {/* Visual PDF Page Preview Card */}
+                        {/* Visual PDF Page Preview Sheet */}
                         <div
                           className="w-full aspect-[3/4] bg-white border border-slate-200 rounded-xl flex items-center justify-center p-1.5 shadow-inner transition-transform duration-300 relative overflow-hidden cursor-grab active:cursor-grabbing"
                           style={{ transform: `rotate(${page.rotation}deg)` }}
@@ -997,7 +1328,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           {page.thumbnail ? (
                             <img
                               src={page.thumbnail}
-                              alt={`Page ${page.original_page}`}
+                              alt={`Page ${page.originalPageNumber || page.original_page}`}
                               className="w-full h-full object-contain pointer-events-none rounded-lg"
                             />
                           ) : (
@@ -1009,7 +1340,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                 <div className="h-1 bg-slate-300 rounded-full w-5/6" />
                               </div>
                               <div className="text-center font-extrabold text-slate-500 text-xs">
-                                Page {page.original_page}
+                                Page {page.originalPageNumber || page.original_page}
                               </div>
                               <div className="space-y-1.5 opacity-30">
                                 <div className="h-1 bg-slate-300 rounded-full w-full" />
@@ -1017,11 +1348,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                             </div>
                           )}
 
-                          {/* Deleted Watermark Overlay */}
-                          {isDeleted && (
+                          {/* Excluded Watermark Overlay */}
+                          {isExcluded && (
                             <div className="absolute inset-0 bg-rose-500/20 backdrop-blur-[1px] flex items-center justify-center">
                               <span className="text-xs font-extrabold text-rose-700 bg-white/95 px-2.5 py-1 rounded-lg shadow-sm border border-rose-200">
-                                Excluded
+                                Excluded from PDF
                               </span>
                             </div>
                           )}
@@ -1030,18 +1361,17 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         {/* Multi-Document Origin Tag if multiple files */}
                         {files.length > 1 && (
                           <div className="w-full text-center text-[9px] text-slate-400 truncate mt-1">
-                            {page.sourceFileName || `Doc ${page.sourceFileIndex || 1}`}
+                            {page.sourceFileName || `Doc ${(page.sourceDocumentId ?? page.sourceFileIndex ?? 0) + 1}`} • Orig p.{page.originalPageNumber || page.original_page}
                           </div>
                         )}
 
                         {/* Bottom Quick Action Toolbar */}
-                        <div className="w-full pt-2 mt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                        <div className="w-full pt-2 mt-2 border-t border-slate-100 flex items-center justify-between gap-0.5">
                           {/* Rotate CCW */}
                           <button
                             type="button"
                             onClick={() => handleRotatePage(page.id, -90)}
-                            disabled={isDeleted}
-                            className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition cursor-pointer"
+                            className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
                             title="Rotate 90° Left"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
@@ -1051,8 +1381,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             type="button"
                             onClick={() => handleRotatePage(page.id, 90)}
-                            disabled={isDeleted}
-                            className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition cursor-pointer"
+                            className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
                             title="Rotate 90° Right"
                           >
                             <RotateCw className="w-3.5 h-3.5" />
@@ -1062,8 +1391,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             type="button"
                             onClick={() => handleDuplicatePage(page.id)}
-                            disabled={isDeleted}
-                            className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition cursor-pointer"
+                            className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
                             title="Duplicate Page"
                           >
                             <Copy className="w-3.5 h-3.5" />
@@ -1073,7 +1401,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             type="button"
                             onClick={() => handleMovePage(idx, -1)}
-                            disabled={idx === 0 || isDeleted}
+                            disabled={idx === 0}
                             className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-20 transition cursor-pointer"
                             title="Move Page Earlier"
                           >
@@ -1084,25 +1412,35 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             type="button"
                             onClick={() => handleMovePage(idx, 1)}
-                            disabled={idx === organizePages.length - 1 || isDeleted}
+                            disabled={idx === organizePages.length - 1}
                             className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-20 transition cursor-pointer"
                             title="Move Page Later"
                           >
                             <ArrowRight className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Delete / Restore Toggle */}
+                          {/* Exclude / Include Toggle */}
                           <button
                             type="button"
-                            onClick={() => handleDeleteTogglePage(page.id)}
+                            onClick={() => handleExcludeTogglePage(page.id)}
                             className={`p-1 rounded-lg transition cursor-pointer ${
-                              isDeleted
+                              isExcluded
                                 ? "text-emerald-600 hover:bg-emerald-50"
-                                : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"
                             }`}
-                            title={isDeleted ? "Restore Page" : "Exclude Page"}
+                            title={isExcluded ? "Include Page" : "Exclude Page"}
                           >
-                            {isDeleted ? <Undo2 className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+                            {isExcluded ? <Undo2 className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {/* Delete Page */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePermanentPage(page.id)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Delete Page"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -1113,51 +1451,138 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             </div>
           )}
 
+          {/* Reset Confirmation Modal */}
+          {showResetModal && (
+            <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                  <History className="w-6 h-6" />
+                </div>
+                <div className="text-center space-y-1.5">
+                  <h4 className="text-base font-extrabold text-slate-900">Reset All Changes?</h4>
+                  <p className="text-xs text-slate-500">
+                    This will restore the original document page order, clear all rotations, and reset exclusions.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowResetModal(false)}
+                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmReset}
+                    className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition cursor-pointer"
+                  >
+                    Reset Everything
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Full-Screen Page Zoom & Inspect Modal */}
           {zoomPage && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl relative border border-slate-100">
+            <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative border border-slate-100">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <Eye className="w-5 h-5 text-indigo-600" />
+                    <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
+                      #{organizePages.findIndex((p) => p.id === zoomPage.id) + 1}
+                    </div>
                     <div>
                       <h4 className="text-sm font-bold text-slate-900">
-                        Page {zoomPage.original_page} Inspection
+                        Page {zoomPage.originalPageNumber || zoomPage.original_page} Inspection
                       </h4>
                       <p className="text-[11px] text-slate-500">
-                        {zoomPage.sourceFileName || "Document Page"} • Rotation: {zoomPage.rotation}°
+                        {zoomPage.sourceFileName || "Main Document"} • Rotation: {zoomPage.rotation}° {zoomPage.excluded || zoomPage.delete ? "• (Excluded)" : ""}
                       </p>
                     </div>
                   </div>
 
+                  {/* Zoom Controls */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-slate-100 rounded-xl p-0.5 text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setZoomScale((s) => Math.max(0.75, s - 0.25))}
+                        className="p-1.5 hover:bg-white rounded-lg transition"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-3.5 h-3.5 text-slate-600" />
+                      </button>
+                      <span className="px-2 font-mono text-[11px] text-slate-700">{Math.round(zoomScale * 100)}%</span>
+                      <button
+                        type="button"
+                        onClick={() => setZoomScale((s) => Math.min(2.5, s + 0.25))}
+                        className="p-1.5 hover:bg-white rounded-lg transition"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-3.5 h-3.5 text-slate-600" />
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setZoomPage(null)}
+                      className="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* High-Resolution Enlarged Preview with Navigation Arrows */}
+                <div className="relative w-full aspect-[3/4] max-h-[55vh] bg-slate-100 rounded-2xl flex items-center justify-center p-3 overflow-hidden border border-slate-200 group">
+                  {/* Previous Page Arrow */}
                   <button
                     type="button"
-                    onClick={() => setZoomPage(null)}
-                    className="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                    onClick={handlePrevZoomPage}
+                    disabled={organizePages.findIndex((p) => p.id === zoomPage.id) === 0}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-white/90 hover:bg-white text-slate-700 rounded-full shadow-md disabled:opacity-20 transition z-10 cursor-pointer"
+                    title="Previous Page (ArrowLeft)"
                   >
-                    <X className="w-5 h-5" />
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+
+                  {/* Image Display */}
+                  {zoomPage.thumbnail ? (
+                    <div className="overflow-auto max-h-full max-w-full flex items-center justify-center">
+                      <img
+                        src={zoomPage.thumbnail}
+                        alt={`Page ${zoomPage.originalPageNumber || zoomPage.original_page}`}
+                        className="object-contain rounded-lg shadow transition-transform duration-300"
+                        style={{
+                          transform: `rotate(${zoomPage.rotation}deg) scale(${zoomScale})`,
+                          maxHeight: "50vh",
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 font-bold text-sm">
+                      Page {zoomPage.originalPageNumber || zoomPage.original_page} (Preview not available)
+                    </div>
+                  )}
+
+                  {/* Next Page Arrow */}
+                  <button
+                    type="button"
+                    onClick={handleNextZoomPage}
+                    disabled={organizePages.findIndex((p) => p.id === zoomPage.id) === organizePages.length - 1}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white/90 hover:bg-white text-slate-700 rounded-full shadow-md disabled:opacity-20 transition z-10 cursor-pointer"
+                    title="Next Page (ArrowRight)"
+                  >
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* High-Resolution Enlarged Preview */}
-                <div className="w-full aspect-[3/4] max-h-[55vh] bg-slate-100 rounded-2xl flex items-center justify-center p-3 overflow-hidden border border-slate-200">
-                  {zoomPage.thumbnail ? (
-                    <img
-                      src={zoomPage.thumbnail}
-                      alt={`Page ${zoomPage.original_page}`}
-                      className="max-h-full max-w-full object-contain rounded-lg shadow transition-transform duration-300"
-                      style={{ transform: `rotate(${zoomPage.rotation}deg)` }}
-                    />
-                  ) : (
-                    <div className="text-slate-400 font-bold text-sm">
-                      Page {zoomPage.original_page} (Preview not available)
-                    </div>
-                  )}
-                </div>
-
                 {/* Modal Actions */}
-                <div className="flex items-center justify-between gap-2 pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -1180,18 +1605,24 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        handleDeleteTogglePage(zoomPage.id);
-                        setZoomPage(null);
-                      }}
+                      onClick={() => handleExcludeTogglePage(zoomPage.id)}
                       className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
-                        zoomPage.delete
+                        zoomPage.excluded || zoomPage.delete
                           ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                          : "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                          : "bg-amber-50 text-amber-700 hover:bg-amber-100"
                       }`}
                     >
-                      {zoomPage.delete ? <Undo2 className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
-                      <span>{zoomPage.delete ? "Restore Page" : "Exclude Page"}</span>
+                      {zoomPage.excluded || zoomPage.delete ? <Check className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      <span>{zoomPage.excluded || zoomPage.delete ? "Include in PDF" : "Exclude from PDF"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePermanentPage(zoomPage.id)}
+                      className="px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
                     </button>
 
                     <button
