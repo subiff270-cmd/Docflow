@@ -213,42 +213,94 @@ def compress_pdf(
     if level == "custom":
         target_bytes = (target_size_kb * 1024) if target_size_kb and target_size_kb > 0 else None
         
-        if target_bytes and orig_size > 0:
+        # If target size is already larger than original, return cleaned original
+        if target_bytes and orig_size <= target_bytes:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            out_bytes = doc.tobytes(garbage=4, deflate=True)
+            doc.close()
+            return out_bytes, orig_size, len(out_bytes)
+
+        # Multi-Pass Adaptive Search
+        if target_bytes:
             ratio = min(1.0, max(0.05, target_bytes / orig_size))
-            img_quality = max(20, min(85, int(ratio * 90)))
-            scale_factor = max(0.3, min(1.0, ratio ** 0.5))
-        elif quality_percent and quality_percent > 0:
-            img_quality = max(15, min(95, quality_percent))
-            scale_factor = max(0.3, min(1.0, quality_percent / 100.0))
+        elif quality_percent:
+            ratio = max(0.1, min(1.0, quality_percent / 100.0))
         else:
-            img_quality = 60
-            scale_factor = 0.7
+            ratio = 0.5
+
+        best_bytes = None
+        best_size = orig_size
+
+        # Pass 1: Progressive In-place Image Downsampling & Quality tuning (preserves vector text & links)
+        for scale_mult, q_val in [
+            (ratio ** 0.5, int(max(20, min(85, ratio * 90)))),
+            (ratio * 0.8, int(max(15, min(70, ratio * 75)))),
+            (ratio * 0.5, 30)
+        ]:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            for page in doc:
+                img_list = page.get_images()
+                for img_info in img_list:
+                    xref = img_info[0]
+                    try:
+                        pix = fitz.Pixmap(doc, xref)
+                        if pix.n > 4:
+                            pix = fitz.Pixmap(fitz.csRGB, pix)
+                        
+                        pil_img = Image.open(io.BytesIO(pix.tobytes("png")))
+                        new_w = max(80, int(pil_img.width * scale_mult))
+                        new_h = max(80, int(pil_img.height * scale_mult))
+                        if new_w < pil_img.width or new_h < pil_img.height:
+                            pil_img = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                        
+                        if pil_img.mode != "RGB":
+                            pil_img = pil_img.convert("RGB")
+                        
+                        out_io = io.BytesIO()
+                        pil_img.save(out_io, format="JPEG", quality=q_val, optimize=True)
+                        doc.update_stream(xref, out_io.getvalue())
+                    except Exception:
+                        pass
+            
+            trial = doc.tobytes(garbage=4, deflate=True, clean=True)
+            doc.close()
+            
+            if target_bytes:
+                if len(trial) <= target_bytes:
+                    return trial, orig_size, len(trial)
+                if len(trial) < best_size:
+                    best_bytes = trial
+                    best_size = len(trial)
+            else:
+                return trial, orig_size, len(trial)
+
+        # Pass 2: If the document still exceeds target_bytes (e.g. heavy vector drawings, uncompressed fonts),
+        # perform high-quality adaptive page rasterization to strictly meet <= target_bytes!
+        if target_bytes and (best_bytes is None or best_size > target_bytes):
+            doc_in = fitz.open(stream=file_bytes, filetype="pdf")
+            for trial_dpi, trial_q in [(150, 75), (120, 65), (96, 50), (72, 40), (60, 30), (50, 20)]:
+                out_doc = fitz.open()
+                for page in doc_in:
+                    pix = page.get_pixmap(dpi=trial_dpi)
+                    pil_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    b_out = io.BytesIO()
+                    pil_img.save(b_out, format="JPEG", quality=trial_q, optimize=True)
+                    new_p = out_doc.new_page(width=page.rect.width, height=page.rect.height)
+                    new_p.insert_image(page.rect, stream=b_out.getvalue())
+                
+                trial_res = out_doc.tobytes(garbage=4, deflate=True)
+                out_doc.close()
+                
+                if len(trial_res) <= target_bytes or trial_dpi == 50:
+                    doc_in.close()
+                    return trial_res, orig_size, len(trial_res)
+            
+            doc_in.close()
+
+        if best_bytes:
+            return best_bytes, orig_size, best_size
 
         doc = fitz.open(stream=file_bytes, filetype="pdf")
-        for page in doc:
-            img_list = page.get_images()
-            for img_info in img_list:
-                xref = img_info[0]
-                try:
-                    pix = fitz.Pixmap(doc, xref)
-                    if pix.n > 4:
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
-                    
-                    pil_img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    new_w = max(100, int(pil_img.width * scale_factor))
-                    new_h = max(100, int(pil_img.height * scale_factor))
-                    if new_w < pil_img.width or new_h < pil_img.height:
-                        pil_img = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                    
-                    if pil_img.mode != "RGB":
-                        pil_img = pil_img.convert("RGB")
-                    
-                    out_io = io.BytesIO()
-                    pil_img.save(out_io, format="JPEG", quality=img_quality, optimize=True)
-                    doc.update_stream(xref, out_io.getvalue())
-                except Exception:
-                    pass
-
         out_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
         doc.close()
         return out_bytes, orig_size, len(out_bytes)
