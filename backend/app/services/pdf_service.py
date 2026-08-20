@@ -196,14 +196,64 @@ def organize_pdf(file_bytes_list: list[bytes] | bytes, page_orders: list[dict]) 
 
     return out_bytes, metadata
 
-def compress_pdf(file_bytes: bytes, level: str = "medium") -> tuple[bytes, int, int]:
+def compress_pdf(
+    file_bytes: bytes,
+    level: str = "medium",
+    target_size_kb: Optional[int] = None,
+    quality_percent: Optional[int] = None
+) -> tuple[bytes, int, int]:
     import subprocess
     import tempfile
+    from PIL import Image
     from .conversion_service import get_ghostscript_cmd
 
     orig_size = len(file_bytes)
 
-    # 1. Primary Ghostscript Engine if available
+    # 1. Custom User-Specified Target Size or Custom Percentage
+    if level == "custom":
+        target_bytes = (target_size_kb * 1024) if target_size_kb and target_size_kb > 0 else None
+        
+        if target_bytes and orig_size > 0:
+            ratio = min(1.0, max(0.05, target_bytes / orig_size))
+            img_quality = max(20, min(85, int(ratio * 90)))
+            scale_factor = max(0.3, min(1.0, ratio ** 0.5))
+        elif quality_percent and quality_percent > 0:
+            img_quality = max(15, min(95, quality_percent))
+            scale_factor = max(0.3, min(1.0, quality_percent / 100.0))
+        else:
+            img_quality = 60
+            scale_factor = 0.7
+
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        for page in doc:
+            img_list = page.get_images()
+            for img_info in img_list:
+                xref = img_info[0]
+                try:
+                    pix = fitz.Pixmap(doc, xref)
+                    if pix.n > 4:
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    
+                    pil_img = Image.open(io.BytesIO(pix.tobytes("png")))
+                    new_w = max(100, int(pil_img.width * scale_factor))
+                    new_h = max(100, int(pil_img.height * scale_factor))
+                    if new_w < pil_img.width or new_h < pil_img.height:
+                        pil_img = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                    
+                    if pil_img.mode != "RGB":
+                        pil_img = pil_img.convert("RGB")
+                    
+                    out_io = io.BytesIO()
+                    pil_img.save(out_io, format="JPEG", quality=img_quality, optimize=True)
+                    doc.update_stream(xref, out_io.getvalue())
+                except Exception:
+                    pass
+
+        out_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
+        doc.close()
+        return out_bytes, orig_size, len(out_bytes)
+
+    # 2. Primary Ghostscript Engine for Presets
     gs_cmd = get_ghostscript_cmd()
     if gs_cmd:
         try:
@@ -228,29 +278,40 @@ def compress_pdf(file_bytes: bytes, level: str = "medium") -> tuple[bytes, int, 
                 if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
                     with open(out_pdf, "rb") as f:
                         comp_bytes = f.read()
-                        return comp_bytes, orig_size, len(comp_bytes)
+                        if len(comp_bytes) < orig_size:
+                            return comp_bytes, orig_size, len(comp_bytes)
         except Exception as e:
             print(f"[compress_pdf Ghostscript]: {e}")
 
-    # 2. Native High-Precision PyMuPDF Deflate Engine
+    # 3. Native High-Precision PyMuPDF Deflate Engine
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     deflate = True
-    garbage = 4 # maximum garbage collection
+    garbage = 4
     
-    if level == "high":
-        for page in doc:
-            img_list = page.get_images()
-            for img_info in img_list:
-                xref = img_info[0]
-                try:
-                    pix = fitz.Pixmap(doc, xref)
-                    if pix.n > 4:
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
-                    if pix.width > 1200 or pix.height > 1200:
-                        pix_small = fitz.Pixmap(pix, int(pix.width * 0.6), int(pix.height * 0.6), 0)
-                        doc.update_stream(xref, pix_small.tobytes("jpeg"))
-                except Exception:
-                    pass
+    scale_factor = 0.5 if level == "high" else 0.75 if level == "medium" else 0.9
+    img_quality = 40 if level == "high" else 65 if level == "medium" else 85
+    
+    for page in doc:
+        img_list = page.get_images()
+        for img_info in img_list:
+            xref = img_info[0]
+            try:
+                pix = fitz.Pixmap(doc, xref)
+                if pix.n > 4:
+                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                
+                pil_img = Image.open(io.BytesIO(pix.tobytes("png")))
+                if pil_img.width > 800 or pil_img.height > 800 or level in ("high", "medium"):
+                    new_w = max(100, int(pil_img.width * scale_factor))
+                    new_h = max(100, int(pil_img.height * scale_factor))
+                    pil_img = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                    if pil_img.mode != "RGB":
+                        pil_img = pil_img.convert("RGB")
+                    out_io = io.BytesIO()
+                    pil_img.save(out_io, format="JPEG", quality=img_quality, optimize=True)
+                    doc.update_stream(xref, out_io.getvalue())
+            except Exception:
+                pass
 
     out_bytes = doc.tobytes(garbage=garbage, deflate=deflate, clean=True)
     doc.close()

@@ -87,6 +87,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [pagesToRemove, setPagesToRemove] = useState("1");
 
   const [compressLevel, setCompressLevel] = useState("medium");
+  const [targetSizeValue, setTargetSizeValue] = useState("200");
+  const [targetSizeUnit, setTargetSizeUnit] = useState<"KB" | "MB">("KB");
+  const [customQualityPercent, setCustomQualityPercent] = useState(60);
   const [rotateAngle, setRotateAngle] = useState("90");
   const [password, setPassword] = useState("");
   const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
@@ -699,7 +702,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     } else if (tool.id === "extract-pages") {
       formData.append("ranges", ranges);
     } else if (tool.id === "compress-pdf") {
-      formData.append("level", compressLevel);
+      const isCustom = compressLevel === "custom_target" || compressLevel === "custom_percent";
+      formData.append("level", isCustom ? "custom" : compressLevel);
+      if (compressLevel === "custom_target") {
+        const val = parseFloat(targetSizeValue) || 200;
+        const kb = targetSizeUnit === "MB" ? Math.round(val * 1024) : Math.round(val);
+        formData.append("target_size_kb", String(kb));
+      } else if (compressLevel === "custom_percent") {
+        formData.append("quality_percent", String(customQualityPercent));
+      }
     } else if (tool.id === "rotate-pdf") {
       formData.append("angle", rotateAngle);
     } else if (tool.id === "unlock-pdf" || tool.id === "protect-pdf") {
@@ -1721,33 +1732,116 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
-              {/* Compress PDF */}
+              {/* Compress PDF with Custom Typed Target Size */}
               {tool.id === "compress-pdf" && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2">Compression Level</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { id: "low", label: "Low", desc: "Highest quality" },
-                      { id: "medium", label: "Medium", desc: "Balanced" },
-                      { id: "high", label: "High", desc: "Smallest size" },
-                    ].map((lvl) => (
-                      <button
-                        type="button"
-                        key={lvl.id}
-                        onClick={() => setCompressLevel(lvl.id)}
-                        className={`p-3 rounded-xl border text-center transition ${
-                          compressLevel === lvl.id
-                            ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                        }`}
-                      >
-                        <div className="text-xs font-bold uppercase">{lvl.label}</div>
-                        <div className={`text-[10px] mt-0.5 ${compressLevel === lvl.id ? "text-indigo-200" : "text-slate-400"}`}>
-                          {lvl.desc}
-                        </div>
-                      </button>
-                    ))}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-2">Compression Mode</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {[
+                        { id: "low", label: "Low", desc: "Highest quality (~20%)" },
+                        { id: "medium", label: "Medium", desc: "Balanced (~50%)" },
+                        { id: "high", label: "High", desc: "Smallest size (~80%)" },
+                        { id: "custom_target", label: "Exact Size", desc: "Type target KB/MB" },
+                      ].map((lvl) => (
+                        <button
+                          type="button"
+                          key={lvl.id}
+                          onClick={() => setCompressLevel(lvl.id)}
+                          className={`p-3 rounded-2xl border text-center transition cursor-pointer ${
+                            compressLevel === lvl.id
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20 ring-2 ring-indigo-600/30"
+                              : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="text-xs font-bold uppercase">{lvl.label}</div>
+                          <div className={`text-[10px] mt-0.5 ${compressLevel === lvl.id ? "text-indigo-200" : "text-slate-400"}`}>
+                            {lvl.desc}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
+                  {/* Custom Target Size Input Area */}
+                  {compressLevel === "custom_target" && (
+                    <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-3 animate-in fade-in">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <span>Enter Desired Target File Size</span>
+                          <span className="text-[10px] text-slate-400 font-normal">(We'll optimize the PDF to match)</span>
+                        </label>
+
+                        {/* Unit Toggle: KB / MB */}
+                        <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 text-xs font-bold w-fit">
+                          <button
+                            type="button"
+                            onClick={() => setTargetSizeUnit("KB")}
+                            className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                              targetSizeUnit === "KB" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
+                            }`}
+                          >
+                            KB
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTargetSizeUnit("MB")}
+                            className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                              targetSizeUnit === "MB" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
+                            }`}
+                          >
+                            MB
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Number Input Box & Quick Select Chips */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div className="relative flex-1">
+                          <input
+                            type="number"
+                            min="10"
+                            step="any"
+                            value={targetSizeValue}
+                            onChange={(e) => setTargetSizeValue(e.target.value)}
+                            placeholder={targetSizeUnit === "KB" ? "e.g. 200" : "e.g. 1.5"}
+                            className="w-full pl-4 pr-14 py-3 bg-white border border-indigo-200 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 rounded-xl text-sm font-bold text-slate-900 outline-hidden"
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-600">
+                            {targetSizeUnit}
+                          </span>
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {(targetSizeUnit === "KB" ? ["50", "100", "200", "500"] : ["0.5", "1.0", "2.0", "5.0"]).map((val) => (
+                            <button
+                              type="button"
+                              key={val}
+                              onClick={() => setTargetSizeValue(val)}
+                              className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                targetSizeValue === val
+                                  ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                              }`}
+                            >
+                              {val} {targetSizeUnit}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Dynamic Reduction Calculation Preview */}
+                      {files[0] && (
+                        <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1 border-t border-indigo-100/60 font-medium">
+                          <span>Original size: <strong className="text-slate-800">{formatFileSize(files[0].size)}</strong></span>
+                          <span>
+                            Target size: <strong className="text-indigo-700">{targetSizeValue} {targetSizeUnit}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

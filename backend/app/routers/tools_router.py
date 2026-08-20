@@ -222,6 +222,8 @@ async def api_scan_to_pdf(
 async def api_compress_pdf(
     file: UploadFile = File(...),
     level: str = Form("medium"),
+    target_size_kb: Optional[int] = Form(None),
+    quality_percent: Optional[int] = Form(None),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -232,7 +234,12 @@ async def api_compress_pdf(
         raise HTTPException(status_code=403, detail=msg)
 
     try:
-        out_bytes, orig_sz, comp_sz = pdf_service.compress_pdf(content, level)
+        out_bytes, orig_sz, comp_sz = pdf_service.compress_pdf(
+            content,
+            level=level,
+            target_size_kb=target_size_kb,
+            quality_percent=quality_percent
+        )
         out_name = f"compressed_{file.filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
         reduction_pct = max(0, int(((orig_sz - comp_sz) / orig_sz) * 100)) if orig_sz > 0 else 0
