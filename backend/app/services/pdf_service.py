@@ -213,87 +213,99 @@ def compress_pdf(
     if level == "custom":
         target_bytes = (target_size_kb * 1024) if target_size_kb and target_size_kb > 0 else None
         
-        # If target size is already larger than original, return cleaned original
+        # If target size is already larger than original, return cleaned original at 100% full quality
         if target_bytes and orig_size <= target_bytes:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             out_bytes = doc.tobytes(garbage=4, deflate=True)
             doc.close()
             return out_bytes, orig_size, len(out_bytes)
 
-        # Multi-Pass Adaptive Search
-        if target_bytes:
-            ratio = min(1.0, max(0.05, target_bytes / orig_size))
-        elif quality_percent:
-            ratio = max(0.1, min(1.0, quality_percent / 100.0))
-        else:
-            ratio = 0.5
-
-        best_bytes = None
-        best_size = orig_size
-
-        # Pass 1: Progressive In-place Image Downsampling & Quality tuning (preserves vector text & links)
-        for scale_mult, q_val in [
-            (ratio ** 0.5, int(max(20, min(85, ratio * 90)))),
-            (ratio * 0.8, int(max(15, min(70, ratio * 75)))),
-            (ratio * 0.5, 30)
-        ]:
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            for page in doc:
-                img_list = page.get_images()
-                for img_info in img_list:
-                    xref = img_info[0]
+        # Extract & Cache embedded images once for ultra-fast binary search iterations
+        doc_tmp = fitz.open(stream=file_bytes, filetype="pdf")
+        cached_images = {}
+        for page in doc_tmp:
+            for img_info in page.get_images():
+                xref = img_info[0]
+                if xref not in cached_images:
                     try:
-                        pix = fitz.Pixmap(doc, xref)
+                        pix = fitz.Pixmap(doc_tmp, xref)
                         if pix.n > 4:
                             pix = fitz.Pixmap(fitz.csRGB, pix)
-                        
-                        pil_img = Image.open(io.BytesIO(pix.tobytes("png")))
-                        new_w = max(80, int(pil_img.width * scale_mult))
-                        new_h = max(80, int(pil_img.height * scale_mult))
-                        if new_w < pil_img.width or new_h < pil_img.height:
-                            pil_img = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                        
-                        if pil_img.mode != "RGB":
-                            pil_img = pil_img.convert("RGB")
-                        
-                        out_io = io.BytesIO()
-                        pil_img.save(out_io, format="JPEG", quality=q_val, optimize=True)
-                        doc.update_stream(xref, out_io.getvalue())
+                        cached_images[xref] = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
                     except Exception:
                         pass
-            
-            trial = doc.tobytes(garbage=4, deflate=True, clean=True)
-            doc.close()
-            
-            if target_bytes:
-                if len(trial) <= target_bytes:
-                    return trial, orig_size, len(trial)
-                if len(trial) < best_size:
-                    best_bytes = trial
-                    best_size = len(trial)
-            else:
-                return trial, orig_size, len(trial)
+        doc_tmp.close()
 
-        # Pass 2: If the document still exceeds target_bytes (e.g. heavy vector drawings, uncompressed fonts),
-        # perform high-quality adaptive page rasterization to strictly meet <= target_bytes!
-        if target_bytes and (best_bytes is None or best_size > target_bytes):
+        best_bytes = None
+        best_size = 0
+
+        # Precision Binary Search on Image Scales & Qualities (preserves text vector clarity)
+        if cached_images and target_bytes:
+            for scale in [1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6, 0.5, 0.4]:
+                l_q, r_q = 15, 95
+                while l_q <= r_q:
+                    mid_q = (l_q + r_q) // 2
+                    d = fitz.open(stream=file_bytes, filetype="pdf")
+                    for xref, pil_img in cached_images.items():
+                        curr = pil_img
+                        if scale < 1.0:
+                            nw, nh = max(60, int(pil_img.width * scale)), max(60, int(pil_img.height * scale))
+                            curr = pil_img.resize((nw, nh), Image.Resampling.LANCZOS)
+                        b = io.BytesIO()
+                        curr.save(b, format="JPEG", quality=mid_q, optimize=True)
+                        d.update_stream(xref, b.getvalue())
+                    
+                    trial = d.tobytes(garbage=4, deflate=True, clean=True)
+                    d.close()
+                    sz = len(trial)
+                    
+                    if sz <= target_bytes:
+                        if sz > best_size:
+                            best_size = sz
+                            best_bytes = trial
+                        # Try higher quality to get even closer to target
+                        l_q = mid_q + 1
+                    else:
+                        # Too large, lower quality
+                        r_q = mid_q - 1
+
+                # If within 92-100% of target budget, we have the ideal result
+                if best_size >= target_bytes * 0.92:
+                    break
+
+        if best_bytes and (best_size >= target_bytes * 0.75 or not cached_images):
+            return best_bytes, orig_size, best_size
+
+        # Pass 2: If document still exceeds target_bytes (heavy vectors/fonts), perform adaptive page budgeting
+        if target_bytes and (best_bytes is None or best_size > target_bytes or best_size < target_bytes * 0.4):
             doc_in = fitz.open(stream=file_bytes, filetype="pdf")
-            for trial_dpi, trial_q in [(150, 75), (120, 65), (96, 50), (72, 40), (60, 30), (50, 20)]:
-                out_doc = fitz.open()
-                for page in doc_in:
-                    pix = page.get_pixmap(dpi=trial_dpi)
-                    pil_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    b_out = io.BytesIO()
-                    pil_img.save(b_out, format="JPEG", quality=trial_q, optimize=True)
-                    new_p = out_doc.new_page(width=page.rect.width, height=page.rect.height)
-                    new_p.insert_image(page.rect, stream=b_out.getvalue())
-                
-                trial_res = out_doc.tobytes(garbage=4, deflate=True)
-                out_doc.close()
-                
-                if len(trial_res) <= target_bytes or trial_dpi == 50:
-                    doc_in.close()
-                    return trial_res, orig_size, len(trial_res)
+            for trial_dpi in [150, 130, 110, 96, 85, 72, 60, 50]:
+                l_q, r_q = 20, 90
+                while l_q <= r_q:
+                    mid_q = (l_q + r_q) // 2
+                    out_doc = fitz.open()
+                    for page in doc_in:
+                        pix = page.get_pixmap(dpi=trial_dpi)
+                        pil_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                        b_out = io.BytesIO()
+                        pil_img.save(b_out, format="JPEG", quality=mid_q, optimize=True)
+                        new_p = out_doc.new_page(width=page.rect.width, height=page.rect.height)
+                        new_p.insert_image(page.rect, stream=b_out.getvalue())
+                    
+                    trial_res = out_doc.tobytes(garbage=4, deflate=True)
+                    out_doc.close()
+                    sz = len(trial_res)
+                    
+                    if sz <= target_bytes:
+                        if sz > best_size:
+                            best_size = sz
+                            best_bytes = trial_res
+                        l_q = mid_q + 1
+                    else:
+                        r_q = mid_q - 1
+                        
+                if best_size >= target_bytes * 0.88:
+                    break
             
             doc_in.close()
 
