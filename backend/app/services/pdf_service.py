@@ -34,19 +34,40 @@ def split_pdf(file_bytes: bytes, split_mode: str = "ranges", ranges: str = "", e
             new_doc = fitz.open()
             end_page = min(i + every_n - 1, num_pages - 1)
             new_doc.insert_pdf(doc, from_page=i, to_page=end_page)
-            results.append((f"part_{chunk_idx}_pages_{i+1}_to_{end_page+1}.pdf", new_doc.tobytes()))
+            results.append((f"split_part_{chunk_idx}_pages_{i+1}_to_{end_page+1}.pdf", new_doc.tobytes()))
             new_doc.close()
             chunk_idx += 1
-    else: # ranges e.g. "1-2, 5, 8-10"
-        page_indices = parse_page_ranges(ranges, num_pages)
-        if not page_indices:
-            page_indices = list(range(num_pages))
-        
-        new_doc = fitz.open()
-        for idx in page_indices:
-            new_doc.insert_pdf(doc, from_page=idx, to_page=idx)
-        results.append(("split_output.pdf", new_doc.tobytes()))
-        new_doc.close()
+    else:  # ranges e.g. "1-2, 3-5, 8-10"
+        parts = [p.strip() for p in ranges.split(",") if p.strip()]
+        if not parts:
+            parts = [f"1-{num_pages}"]
+
+        for r_idx, part in enumerate(parts, start=1):
+            if "-" in part:
+                sub = part.split("-")
+                if len(sub) == 2 and sub[0].isdigit() and sub[1].isdigit():
+                    start = max(1, int(sub[0]))
+                    end = min(num_pages, int(sub[1]))
+                    if start <= end:
+                        new_doc = fitz.open()
+                        new_doc.insert_pdf(doc, from_page=start - 1, to_page=end - 1)
+                        fname = f"split_{r_idx}_pages_{start}-{end}.pdf" if len(parts) > 1 else f"split_pages_{start}-{end}.pdf"
+                        results.append((fname, new_doc.tobytes()))
+                        new_doc.close()
+            elif part.isdigit():
+                val = int(part)
+                if 1 <= val <= num_pages:
+                    new_doc = fitz.open()
+                    new_doc.insert_pdf(doc, from_page=val - 1, to_page=val - 1)
+                    fname = f"split_{r_idx}_page_{val}.pdf" if len(parts) > 1 else f"split_page_{val}.pdf"
+                    results.append((fname, new_doc.tobytes()))
+                    new_doc.close()
+
+        if not results:
+            new_doc = fitz.open()
+            new_doc.insert_pdf(doc, from_page=0, to_page=num_pages - 1)
+            results.append(("split_document.pdf", new_doc.tobytes()))
+            new_doc.close()
 
     doc.close()
     return results
