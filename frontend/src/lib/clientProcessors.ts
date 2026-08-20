@@ -434,3 +434,53 @@ export async function clientConvertImage(file: File, targetFormat: string = "web
     img.src = url;
   });
 }
+
+// 13. ORGANIZE PDF (Client-side Page Reordering, Rotation & Deletion)
+export interface PageOrderConfig {
+  id: string;
+  original_page: number; // 1-based index
+  rotation: number; // 0, 90, 180, 270
+  delete?: boolean;
+}
+
+export async function getPdfPageCount(file: File): Promise<number> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  return pdf.getPageCount();
+}
+
+export async function clientOrganizePdf(
+  file: File,
+  pageOrders: PageOrderConfig[]
+): Promise<ClientProcessResult> {
+  const arrayBuffer = await file.arrayBuffer();
+  const srcPdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const totalSrcPages = srcPdf.getPageCount();
+  const newPdf = await PDFDocument.create();
+
+  for (const item of pageOrders) {
+    if (item.delete) continue;
+    const origIdx = item.original_page - 1;
+    if (origIdx >= 0 && origIdx < totalSrcPages) {
+      const [copiedPage] = await newPdf.copyPages(srcPdf, [origIdx]);
+      if (item.rotation) {
+        const currentAngle = copiedPage.getRotation().angle;
+        copiedPage.setRotation(degrees((currentAngle + item.rotation) % 360));
+      }
+      newPdf.addPage(copiedPage);
+    }
+  }
+
+  if (newPdf.getPageCount() === 0) {
+    throw new Error("Cannot save an empty PDF. Please keep at least one page in your document.");
+  }
+
+  const outBytes = await newPdf.save();
+  const blob = new Blob([outBytes as BlobPart], { type: "application/pdf" });
+  return {
+    blob,
+    filename: `organized_${file.name}`,
+    size: blob.size,
+  };
+}
+
