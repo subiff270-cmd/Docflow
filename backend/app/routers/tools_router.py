@@ -127,25 +127,63 @@ async def api_extract_pages(
 
 @router.post("/organize-pdf")
 async def api_organize_pdf(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
     page_orders_json: str = Form(...),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     uid = get_uid_from_header(x_firebase_uid)
-    content = await file.read()
-    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    all_files = []
+    if files:
+        all_files.extend(files)
+    if file and file not in all_files:
+        all_files.insert(0, file)
+
+    if not all_files:
+        raise HTTPException(status_code=400, detail="No PDF file provided.")
+
+    file_bytes_list = []
+    total_len = 0
+    for f in all_files:
+        content = await f.read()
+        total_len += len(content)
+        file_bytes_list.append(content)
+
+    allowed, msg = check_user_quota(db, uid, total_len / (1024*1024))
     if not allowed:
         raise HTTPException(status_code=403, detail=msg)
 
     try:
         page_orders = json.loads(page_orders_json)
-        out_bytes = pdf_service.organize_pdf(content, page_orders)
-        out_name = f"organized_{file.filename}"
+        out_bytes = pdf_service.organize_pdf(file_bytes_list, page_orders)
+        out_name = f"organized_{all_files[0].filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to organize PDF: {str(e)}")
+
+@router.post("/pdf-thumbnails")
+async def api_pdf_thumbnails(
+    file: UploadFile = File(...)
+):
+    try:
+        content = await file.read()
+        doc = fitz.open(stream=content, filetype="pdf")
+        thumbnails = []
+        for idx, page in enumerate(doc):
+            pix = page.get_pixmap(dpi=90)
+            img_b64 = base64.b64encode(pix.tobytes("png")).decode("utf-8")
+            thumbnails.append({
+                "page_num": idx + 1,
+                "width": page.rect.width,
+                "height": page.rect.height,
+                "thumbnail": f"data:image/png;base64,{img_b64}"
+            })
+        doc.close()
+        return {"success": True, "total_pages": len(thumbnails), "thumbnails": thumbnails}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate thumbnails: {str(e)}")
 
 @router.post("/scan-to-pdf")
 async def api_scan_to_pdf(

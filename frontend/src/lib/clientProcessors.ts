@@ -435,12 +435,15 @@ export async function clientConvertImage(file: File, targetFormat: string = "web
   });
 }
 
-// 13. ORGANIZE PDF (Client-side Page Reordering, Rotation & Deletion)
+// 13. ORGANIZE PDF (Client-side Page Reordering, Rotation, Insertion & Deletion)
 export interface PageOrderConfig {
   id: string;
   original_page: number; // 1-based index
   rotation: number; // 0, 90, 180, 270
   delete?: boolean;
+  thumbnail?: string;
+  sourceFileIndex?: number;
+  sourceFileName?: string;
 }
 
 export async function getPdfPageCount(file: File): Promise<number> {
@@ -450,19 +453,28 @@ export async function getPdfPageCount(file: File): Promise<number> {
 }
 
 export async function clientOrganizePdf(
-  file: File,
+  files: File[] | File,
   pageOrders: PageOrderConfig[]
 ): Promise<ClientProcessResult> {
-  const arrayBuffer = await file.arrayBuffer();
-  const srcPdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
-  const totalSrcPages = srcPdf.getPageCount();
+  const fileList = Array.isArray(files) ? files : [files];
+  const loadedPdfs: PDFDocument[] = [];
+  for (const f of fileList) {
+    const ab = await f.arrayBuffer();
+    const p = await PDFDocument.load(ab, { ignoreEncryption: true });
+    loadedPdfs.push(p);
+  }
+
   const newPdf = await PDFDocument.create();
 
   for (const item of pageOrders) {
     if (item.delete) continue;
+    const fileIdx = item.sourceFileIndex ?? 0;
+    const srcDoc = loadedPdfs[fileIdx] || loadedPdfs[0];
+    if (!srcDoc) continue;
+
     const origIdx = item.original_page - 1;
-    if (origIdx >= 0 && origIdx < totalSrcPages) {
-      const [copiedPage] = await newPdf.copyPages(srcPdf, [origIdx]);
+    if (origIdx >= 0 && origIdx < srcDoc.getPageCount()) {
+      const [copiedPage] = await newPdf.copyPages(srcDoc, [origIdx]);
       if (item.rotation) {
         const currentAngle = copiedPage.getRotation().angle;
         copiedPage.setRotation(degrees((currentAngle + item.rotation) % 360));
@@ -479,7 +491,7 @@ export async function clientOrganizePdf(
   const blob = new Blob([outBytes as BlobPart], { type: "application/pdf" });
   return {
     blob,
-    filename: `organized_${file.name}`,
+    filename: `organized_${fileList[0]?.name || "document.pdf"}`,
     size: blob.size,
   };
 }

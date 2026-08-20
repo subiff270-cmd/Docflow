@@ -42,6 +42,19 @@ export async function syncUserWithBackend(firebaseUid: string, email?: string | 
   return res.json();
 }
 
+export async function fetchPdfThumbnails(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE_URL}/api/tools/pdf-thumbnails`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    throw new Error("Failed to fetch thumbnails");
+  }
+  return res.json();
+}
+
 export async function processToolApi(endpoint: string, formData: FormData, firebaseUid?: string) {
   const headers: Record<string, string> = {};
   if (firebaseUid) {

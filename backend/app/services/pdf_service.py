@@ -121,20 +121,26 @@ def extract_pages(file_bytes: bytes, pages_range_str: str) -> bytes:
     doc.close()
     return out
 
-def organize_pdf(file_bytes: bytes, page_orders: list[dict]) -> bytes:
+def organize_pdf(file_bytes_list: list[bytes] | bytes, page_orders: list[dict]) -> bytes:
     """
-    page_orders e.g. [{"original_page": 1, "rotation": 90, "delete": False}, ...]
+    page_orders e.g. [{"original_page": 1, "rotation": 90, "delete": False, "sourceFileIndex": 0}, ...]
     """
-    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    if isinstance(file_bytes_list, (bytes, bytearray)):
+        file_bytes_list = [bytes(file_bytes_list)]
+
+    docs = [fitz.open(stream=b, filetype="pdf") for b in file_bytes_list]
     new_doc = fitz.open()
 
     for item in page_orders:
         if item.get("delete"):
             continue
-        orig_idx = item["original_page"] - 1
-        if 0 <= orig_idx < len(doc):
+        file_idx = item.get("sourceFileIndex", 0)
+        src_doc = docs[file_idx] if 0 <= file_idx < len(docs) else docs[0]
+
+        orig_idx = item.get("original_page", 1) - 1
+        if 0 <= orig_idx < len(src_doc):
             page_idx = new_doc.page_count
-            new_doc.insert_pdf(doc, from_page=orig_idx, to_page=orig_idx)
+            new_doc.insert_pdf(src_doc, from_page=orig_idx, to_page=orig_idx)
             rot = item.get("rotation", 0)
             if rot:
                 page = new_doc[page_idx]
@@ -142,7 +148,8 @@ def organize_pdf(file_bytes: bytes, page_orders: list[dict]) -> bytes:
 
     out = new_doc.tobytes()
     new_doc.close()
-    doc.close()
+    for d in docs:
+        d.close()
     return out
 
 def compress_pdf(file_bytes: bytes, level: str = "medium") -> tuple[bytes, int, int]:
