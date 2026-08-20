@@ -1776,12 +1776,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 text-xs font-bold w-fit">
                           <button
                             type="button"
-                            onClick={() => {
-                              setTargetSizeUnit("KB");
-                              if (parseFloat(targetSizeValue) < 10) {
-                                setTargetSizeValue("200");
-                              }
-                            }}
+                            onClick={() => setTargetSizeUnit("KB")}
                             className={`px-3 py-1 rounded-lg transition cursor-pointer ${
                               targetSizeUnit === "KB" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
                             }`}
@@ -1790,12 +1785,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              setTargetSizeUnit("MB");
-                              if (parseFloat(targetSizeValue) > 50) {
-                                setTargetSizeValue("1.0");
-                              }
-                            }}
+                            onClick={() => setTargetSizeUnit("MB")}
                             className={`px-3 py-1 rounded-lg transition cursor-pointer ${
                               targetSizeUnit === "MB" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
                             }`}
@@ -1805,16 +1795,20 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         </div>
                       </div>
 
-                      {/* Number Input Box & Quick Select Chips */}
+                      {/* Unrestricted Number Input Box & Quick Select Chips */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                         <div className="relative flex-1">
                           <input
-                            type="number"
-                            min={targetSizeUnit === "MB" ? "0.01" : "1"}
-                            step={targetSizeUnit === "MB" ? "0.1" : "1"}
+                            type="text"
+                            inputMode="decimal"
                             value={targetSizeValue}
-                            onChange={(e) => setTargetSizeValue(e.target.value)}
-                            placeholder={targetSizeUnit === "KB" ? "e.g. 200" : "e.g. 1.5"}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^[0-9]*\.?[0-9]*$/.test(val)) {
+                                setTargetSizeValue(val);
+                              }
+                            }}
+                            placeholder={targetSizeUnit === "KB" ? "e.g. 200" : "e.g. 5"}
                             className="w-full pl-4 pr-14 py-3 bg-white border border-indigo-200 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 rounded-xl text-sm font-bold text-slate-900 outline-hidden"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-600">
