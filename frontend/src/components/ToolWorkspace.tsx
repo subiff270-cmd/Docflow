@@ -93,6 +93,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [rotateAngle, setRotateAngle] = useState("90");
   const [password, setPassword] = useState("");
   const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
+  const [pageNumberPosition, setPageNumberPosition] = useState("bottom-center");
   const [ocrLanguage, setOcrLanguage] = useState("English");
 
   // Organize PDF Full Production State
@@ -648,7 +649,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       } else if (tool.id === "rotate-pdf" && files[0]) {
         clientRes = await clientRotatePdf(files[0], Number(rotateAngle) || 90);
       } else if (tool.id === "add-page-numbers" && files[0]) {
-        clientRes = await clientAddPageNumbers(files[0], "bottom-center");
+        clientRes = await clientAddPageNumbers(files[0], pageNumberPosition);
       } else if (tool.id === "add-watermark" && files[0]) {
         clientRes = await clientAddWatermark(files[0], watermarkText || "CONFIDENTIAL");
       } else if (tool.id === "crop-pdf" && files[0]) {
@@ -717,6 +718,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       formData.append("password", password);
     } else if (tool.id === "add-watermark") {
       formData.append("text", watermarkText);
+    } else if (tool.id === "add-page-numbers") {
+      formData.append("position", pageNumberPosition);
     } else if (tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") {
       formData.append("language", ocrLanguage);
     } else if (tool.id === "crop-pdf") {
@@ -1906,16 +1909,46 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
               {/* Add Page Numbers */}
               {tool.id === "add-page-numbers" && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Page Number Position</label>
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold text-slate-700">Page Number Position</label>
+                  
+                  {/* Visual 6-position Page Grid */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "top-left", label: "Top Left" },
+                      { id: "top-center", label: "Top Center" },
+                      { id: "top-right", label: "Top Right" },
+                      { id: "bottom-left", label: "Bottom Left" },
+                      { id: "bottom-center", label: "Bottom Center" },
+                      { id: "bottom-right", label: "Bottom Right" },
+                    ].map((pos) => (
+                      <button
+                        type="button"
+                        key={pos.id}
+                        onClick={() => setPageNumberPosition(pos.id)}
+                        className={`p-2.5 rounded-xl border text-center transition cursor-pointer text-xs font-bold ${
+                          pageNumberPosition === pos.id
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {pos.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Accessible Select Dropdown */}
                   <select
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
-                    defaultValue="bottom-center"
+                    value={pageNumberPosition}
+                    onChange={(e) => setPageNumberPosition(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 outline-hidden"
                   >
                     <option value="bottom-center">Bottom Center (Recommended)</option>
                     <option value="bottom-right">Bottom Right</option>
                     <option value="bottom-left">Bottom Left</option>
+                    <option value="top-center">Top Center</option>
                     <option value="top-right">Top Right</option>
+                    <option value="top-left">Top Left</option>
                   </select>
                 </div>
               )}

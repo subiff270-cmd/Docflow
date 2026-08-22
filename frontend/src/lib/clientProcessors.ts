@@ -148,10 +148,21 @@ export async function clientAddPageNumbers(file: File, position: string = "botto
 
     if (position === "bottom-right") {
       x = width - textWidth - 40;
+      y = 30;
     } else if (position === "bottom-left") {
       x = 40;
+      y = 30;
+    } else if (position === "bottom-center") {
+      x = width / 2 - textWidth / 2;
+      y = 30;
     } else if (position === "top-right") {
       x = width - textWidth - 40;
+      y = height - 35;
+    } else if (position === "top-left") {
+      x = 40;
+      y = height - 35;
+    } else if (position === "top-center") {
+      x = width / 2 - textWidth / 2;
       y = height - 35;
     }
 
@@ -160,7 +171,7 @@ export async function clientAddPageNumbers(file: File, position: string = "botto
       y,
       size: textSize,
       font,
-      color: rgb(0.3, 0.3, 0.35),
+      color: rgb(0.2, 0.2, 0.25),
     });
   });
 
