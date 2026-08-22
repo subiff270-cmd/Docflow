@@ -196,28 +196,46 @@ export async function clientAddWatermark(
 
   pdf.getPages().forEach((page) => {
     const { width, height } = page.getSize();
-    const textSize = Math.min(width, height) / 8;
-    const textWidth = font.widthOfTextAtSize(text, textSize);
-
-    let x = width / 2 - textWidth / 2;
-    let y = height / 2 - textSize / 2;
-    let rot = degrees(0);
-
-    if (position === "cross") {
-      rot = degrees(45);
-      x = width / 2 - textWidth / 2.8;
-      y = height / 2 - textSize / 2;
+    const maxWidth = width * 0.85;
+    let textSize = Math.min(Math.min(width, height) / 10, 48);
+    let textWidth = font.widthOfTextAtSize(text, textSize);
+    if (textWidth > maxWidth && textWidth > 0) {
+      textSize = (maxWidth / textWidth) * textSize;
+      textWidth = font.widthOfTextAtSize(text, textSize);
     }
+    const textHeight = font.heightAtSize(textSize);
 
-    page.drawText(text, {
-      x,
-      y,
-      size: textSize,
-      font,
-      color: rgb(0.65, 0.65, 0.7),
-      opacity: 0.35,
-      rotate: rot,
-    });
+    if (position === "center") {
+      // Clean horizontal center
+      const x = (width - textWidth) / 2;
+      const y = (height - textHeight) / 2;
+      page.drawText(text, {
+        x,
+        y,
+        size: textSize,
+        font,
+        color: rgb(0.5, 0.5, 0.55),
+        opacity: 0.35,
+        rotate: degrees(0),
+      });
+    } else {
+      // 45 degree diagonal cross centered on page
+      const rad = (45 * Math.PI) / 180;
+      const cx = width / 2;
+      const cy = height / 2;
+      const x = cx - (textWidth * Math.cos(rad) - textHeight * Math.sin(rad)) / 2;
+      const y = cy - (textWidth * Math.sin(rad) + textHeight * Math.cos(rad)) / 2;
+
+      page.drawText(text, {
+        x,
+        y,
+        size: textSize,
+        font,
+        color: rgb(0.5, 0.5, 0.55),
+        opacity: 0.35,
+        rotate: degrees(45),
+      });
+    }
   });
 
   const outBytes = await pdf.save();
