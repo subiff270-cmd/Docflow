@@ -2145,8 +2145,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               </div>
             )}
 
-            {/* OCR Extracted Text Preview */}
-            {result.extracted_text && (
+            {/* Extracted Text Preview (only for Image to Text) */}
+            {result.extracted_text && tool.id === "image-to-text" && (
               <div className="space-y-2">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Extracted Text</span>
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 max-h-48 overflow-y-auto font-mono text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
