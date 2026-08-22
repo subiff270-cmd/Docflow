@@ -252,19 +252,6 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
-  {
-    id: "ocr-pdf",
-    name: "OCR PDF",
-    category: "OPTIMIZE PDF",
-    description: "Extract text from scanned PDFs and create searchable documents.",
-    iconName: "ScanText",
-    href: "/ocr-pdf",
-    endpoint: "ocr-pdf",
-    accept: ".pdf",
-    multiple: false,
-    popular: true,
-  },
-
   // EDIT PDF
   {
     id: "rotate-pdf",

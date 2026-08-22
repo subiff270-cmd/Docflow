@@ -17,10 +17,10 @@ import {
   X,
   FileOutput,
   FileMinus,
-  FileSearch,
   Brain,
   Globe,
   Lock,
+  LayoutGrid,
 } from "lucide-react";
 
 /* ──────────────────────────────────────────
@@ -75,11 +75,11 @@ const FEATURED_TOOLS = [
     glowClass: "",
   },
   {
-    id: "ocr-pdf",
-    name: "OCR PDF",
-    desc: "Extract text from scanned documents with precision.",
-    icon: FileSearch,
-    href: "/ocr-pdf",
+    id: "organize-pdf",
+    name: "Organize PDF",
+    desc: "Reorder, rotate, delete, and duplicate pages visually.",
+    icon: LayoutGrid,
+    href: "/organize-pdf",
     glowClass: "",
   },
   {
