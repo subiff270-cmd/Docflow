@@ -506,16 +506,20 @@ def add_watermark(file_bytes: bytes, text: str = "CONFIDENTIAL", opacity: float 
     
     for page in doc:
         rect = page.rect
-        center = fitz.Point(rect.width / 4, rect.height / 2)
+        center = fitz.Point(rect.width / 2, rect.height / 2)
+        
+        # Calculate text width to properly center
+        text_len = len(text) * (font_size * 0.5)
+        text_point = fitz.Point(rect.width / 2 - text_len / 2, rect.height / 2 + font_size / 3)
         
         page.insert_text(
-            center,
+            text_point,
             text,
             fontsize=font_size,
             fontname="helv",
             color=(0.5, 0.5, 0.5),
             fill_opacity=opacity,
-            morph=(center, fitz.Matrix(float(rotation)))
+            morph=(center, fitz.Matrix(float(rotation))) if float(rotation) != 0 else None
         )
 
     out = doc.tobytes()

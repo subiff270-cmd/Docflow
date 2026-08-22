@@ -185,7 +185,11 @@ export async function clientAddPageNumbers(file: File, position: string = "botto
 }
 
 // 7. ADD WATERMARK (Client-side)
-export async function clientAddWatermark(file: File, text: string = "CONFIDENTIAL"): Promise<ClientProcessResult> {
+export async function clientAddWatermark(
+  file: File,
+  text: string = "CONFIDENTIAL",
+  position: "cross" | "center" = "cross"
+): Promise<ClientProcessResult> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
   const font = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -195,14 +199,24 @@ export async function clientAddWatermark(file: File, text: string = "CONFIDENTIA
     const textSize = Math.min(width, height) / 8;
     const textWidth = font.widthOfTextAtSize(text, textSize);
 
+    let x = width / 2 - textWidth / 2;
+    let y = height / 2 - textSize / 2;
+    let rot = degrees(0);
+
+    if (position === "cross") {
+      rot = degrees(45);
+      x = width / 2 - textWidth / 2.8;
+      y = height / 2 - textSize / 2;
+    }
+
     page.drawText(text, {
-      x: width / 2 - textWidth / 2.8,
-      y: height / 2 - textSize / 2,
+      x,
+      y,
       size: textSize,
       font,
-      color: rgb(0.7, 0.7, 0.75),
+      color: rgb(0.65, 0.65, 0.7),
       opacity: 0.35,
-      rotate: degrees(45),
+      rotate: rot,
     });
   });
 

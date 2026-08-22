@@ -93,6 +93,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [rotateAngle, setRotateAngle] = useState("90");
   const [password, setPassword] = useState("");
   const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
+  const [watermarkPosition, setWatermarkPosition] = useState<"cross" | "center">("cross");
   const [pageNumberPosition, setPageNumberPosition] = useState("bottom-center");
   const [ocrLanguage, setOcrLanguage] = useState("English");
 
@@ -651,7 +652,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       } else if (tool.id === "add-page-numbers" && files[0]) {
         clientRes = await clientAddPageNumbers(files[0], pageNumberPosition);
       } else if (tool.id === "add-watermark" && files[0]) {
-        clientRes = await clientAddWatermark(files[0], watermarkText || "CONFIDENTIAL");
+        clientRes = await clientAddWatermark(files[0], watermarkText || "CONFIDENTIAL", watermarkPosition);
       } else if (tool.id === "crop-pdf" && files[0]) {
         clientRes = await clientCropPdf(files[0], { x: cropX, y: cropY, w: cropW, h: cropH });
       } else if ((tool.id === "jpg-to-pdf" || tool.id === "scan-to-pdf") && files.length > 0) {
@@ -718,6 +719,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       formData.append("password", password);
     } else if (tool.id === "add-watermark") {
       formData.append("text", watermarkText);
+      formData.append("rotation", watermarkPosition === "center" ? "0" : "45");
     } else if (tool.id === "add-page-numbers") {
       formData.append("position", pageNumberPosition);
     } else if (tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") {
@@ -1896,14 +1898,52 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
               {/* Watermark */}
               {tool.id === "add-watermark" && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Watermark Text</label>
-                  <input
-                    type="text"
-                    value={watermarkText}
-                    onChange={(e) => setWatermarkText(e.target.value)}
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Watermark Text</label>
+                    <input
+                      type="text"
+                      value={watermarkText}
+                      onChange={(e) => setWatermarkText(e.target.value)}
+                      placeholder="e.g. CONFIDENTIAL, DRAFT, DO NOT COPY"
+                      className="w-full p-3 bg-white border border-slate-200 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 rounded-xl text-xs font-bold text-slate-800 outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Watermark Orientation</label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setWatermarkPosition("cross")}
+                        className={`p-3 rounded-2xl border text-center transition cursor-pointer ${
+                          watermarkPosition === "cross"
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20 ring-2 ring-indigo-600/30"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="text-xs font-bold uppercase">Cross (Diagonal)</div>
+                        <div className={`text-[10px] mt-0.5 ${watermarkPosition === "cross" ? "text-indigo-200" : "text-slate-400"}`}>
+                          Diagonal 45° across page
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setWatermarkPosition("center")}
+                        className={`p-3 rounded-2xl border text-center transition cursor-pointer ${
+                          watermarkPosition === "center"
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20 ring-2 ring-indigo-600/30"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="text-xs font-bold uppercase">Center (Horizontal)</div>
+                        <div className={`text-[10px] mt-0.5 ${watermarkPosition === "center" ? "text-indigo-200" : "text-slate-400"}`}>
+                          Horizontal 0° in middle
+                        </div>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
