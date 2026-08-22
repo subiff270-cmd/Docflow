@@ -254,10 +254,10 @@ export async function clientCropPdf(file: File, cropPct: { x: number; y: number;
 
   pdf.getPages().forEach((page) => {
     const { width, height } = page.getSize();
-    const x = (cropPct.x / 100) * width;
-    const y = (cropPct.y / 100) * height;
-    const w = Math.max(10, (cropPct.w / 100) * width);
-    const h = Math.max(10, (cropPct.h / 100) * height);
+    const x = Math.max(0, (cropPct.x / 100) * width);
+    const w = Math.max(10, Math.min(width - x, (cropPct.w / 100) * width));
+    const h = Math.max(10, Math.min(height, (cropPct.h / 100) * height));
+    const y = Math.max(0, height - ((cropPct.y + cropPct.h) / 100) * height);
     page.setCropBox(x, y, w, h);
   });
 

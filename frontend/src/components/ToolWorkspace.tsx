@@ -61,7 +61,9 @@ import {
   ZoomIn,
   ZoomOut,
   Eye,
-  History
+  History,
+  Crop,
+  Move,
 } from "lucide-react";
 
 interface ToolWorkspaceProps {
@@ -499,10 +501,177 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     return changes;
   };
 
+  // Visual Crop State
   const [cropX, setCropX] = useState(10);
   const [cropY, setCropY] = useState(10);
   const [cropW, setCropW] = useState(80);
   const [cropH, setCropH] = useState(80);
+  const [cropMode, setCropMode] = useState<"free" | "normal">("free");
+  const [cropPreset, setCropPreset] = useState<string>("free");
+  const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
+  const [cropLoadingPreview, setCropLoadingPreview] = useState(false);
+
+  const cropContainerRef = useRef<HTMLDivElement>(null);
+  const [activeDragHandle, setActiveDragHandle] = useState<string | null>(null);
+  const dragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    initialW: number;
+    initialH: number;
+  }>({ startX: 0, startY: 0, initialX: 10, initialY: 10, initialW: 80, initialH: 80 });
+
+  useEffect(() => {
+    if ((tool.id === "crop-pdf" || tool.id === "crop-image") && files.length > 0 && files[0]) {
+      let isMounted = true;
+      setCropLoadingPreview(true);
+
+      if (tool.id === "crop-pdf") {
+        fetchPdfThumbnails(files[0])
+          .then((res) => {
+            if (isMounted && res.success && Array.isArray(res.thumbnails) && res.thumbnails.length > 0) {
+              setCropPreviewUrl(res.thumbnails[0].thumbnail);
+            }
+          })
+          .catch((err) => console.warn("Failed to load PDF crop preview:", err))
+          .finally(() => {
+            if (isMounted) setCropLoadingPreview(false);
+          });
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (isMounted && e.target?.result) {
+            setCropPreviewUrl(e.target.result as string);
+          }
+          if (isMounted) setCropLoadingPreview(false);
+        };
+        reader.readAsDataURL(files[0]);
+      }
+
+      return () => {
+        isMounted = false;
+      };
+    } else {
+      setCropPreviewUrl(null);
+    }
+  }, [files, tool.id]);
+
+  const handleCropMouseDown = (e: React.MouseEvent, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!cropContainerRef.current) return;
+
+    const rect = cropContainerRef.current.getBoundingClientRect();
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    if (handle === "new") {
+      const xPct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      const yPct = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+      setCropX(Math.round(xPct));
+      setCropY(Math.round(yPct));
+      setCropW(5);
+      setCropH(5);
+
+      dragStartRef.current = {
+        startX: clientX,
+        startY: clientY,
+        initialX: xPct,
+        initialY: yPct,
+        initialW: 5,
+        initialH: 5,
+      };
+      setActiveDragHandle("se");
+    } else {
+      dragStartRef.current = {
+        startX: clientX,
+        startY: clientY,
+        initialX: cropX,
+        initialY: cropY,
+        initialW: cropW,
+        initialH: cropH,
+      };
+      setActiveDragHandle(handle);
+    }
+  };
+
+  useEffect(() => {
+    if (!activeDragHandle) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!cropContainerRef.current) return;
+      const rect = cropContainerRef.current.getBoundingClientRect();
+      const deltaXPct = ((e.clientX - dragStartRef.current.startX) / rect.width) * 100;
+      const deltaYPct = ((e.clientY - dragStartRef.current.startY) / rect.height) * 100;
+
+      const { initialX, initialY, initialW, initialH } = dragStartRef.current;
+
+      if (activeDragHandle === "move") {
+        const newX = Math.max(0, Math.min(100 - initialW, initialX + deltaXPct));
+        const newY = Math.max(0, Math.min(100 - initialH, initialY + deltaYPct));
+        setCropX(Math.round(newX));
+        setCropY(Math.round(newY));
+      } else {
+        let newX = initialX;
+        let newY = initialY;
+        let newW = initialW;
+        let newH = initialH;
+
+        if (activeDragHandle.includes("e")) {
+          newW = Math.max(5, Math.min(100 - initialX, initialW + deltaXPct));
+        }
+        if (activeDragHandle.includes("s")) {
+          newH = Math.max(5, Math.min(100 - initialY, initialH + deltaYPct));
+        }
+        if (activeDragHandle.includes("w")) {
+          const maxDelta = initialW - 5;
+          const clampedDelta = Math.max(-initialX, Math.min(maxDelta, deltaXPct));
+          newX = initialX + clampedDelta;
+          newW = initialW - clampedDelta;
+        }
+        if (activeDragHandle.includes("n")) {
+          const maxDelta = initialH - 5;
+          const clampedDelta = Math.max(-initialY, Math.min(maxDelta, deltaYPct));
+          newY = initialY + clampedDelta;
+          newH = initialH - clampedDelta;
+        }
+
+        setCropX(Math.round(newX));
+        setCropY(Math.round(newY));
+        setCropW(Math.round(newW));
+        setCropH(Math.round(newH));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setActiveDragHandle(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [activeDragHandle]);
+
+  const applyCropPreset = (preset: string) => {
+    setCropPreset(preset);
+    if (preset === "full") {
+      setCropX(0); setCropY(0); setCropW(100); setCropH(100);
+    } else if (preset === "margins_10") {
+      setCropX(10); setCropY(10); setCropW(80); setCropH(80);
+    } else if (preset === "margins_20") {
+      setCropX(20); setCropY(20); setCropW(60); setCropH(60);
+    } else if (preset === "square") {
+      setCropX(15); setCropY(15); setCropW(70); setCropH(70);
+    } else if (preset === "a4") {
+      setCropX(15); setCropY(10); setCropW(70); setCropH(80);
+    } else if (preset === "landscape") {
+      setCropX(5); setCropY(25); setCropW(90); setCropH(50);
+    }
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
@@ -1988,8 +2157,276 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     <option value="bottom-left">Bottom Left</option>
                     <option value="top-center">Top Center</option>
                     <option value="top-right">Top Right</option>
-                    <option value="top-left">Top Left</option>
-                  </select>
+              {/* Visual Mouse-Based Crop PDF / Crop Image Editor */}
+              {(tool.id === "crop-pdf" || tool.id === "crop-image") && (
+                <div className="space-y-4">
+                  {/* Mode Switcher: Free Mode vs Normal Mode */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Crop className="w-4 h-4 text-indigo-600" />
+                        <span>Interactive Page Crop Tool</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {cropMode === "free"
+                          ? "Free Mode: Click & drag mouse to cut or adjust handles freely."
+                          : "Normal Mode: Choose standard aspect ratio presets & margins."}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center bg-slate-100 p-1 rounded-xl w-fit">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCropMode("free");
+                          setCropPreset("free");
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          cropMode === "free"
+                            ? "bg-white text-indigo-700 shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <Move className="w-3.5 h-3.5" />
+                        Free Mode
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCropMode("normal");
+                          if (cropPreset === "free") applyCropPreset("margins_10");
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          cropMode === "normal"
+                            ? "bg-white text-indigo-700 shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
+                        Normal Mode
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Normal Mode Aspect Ratio / Margin Presets */}
+                  {cropMode === "normal" && (
+                    <div className="space-y-2 animate-in fade-in">
+                      <label className="block text-xs font-bold text-slate-700">Preset Ratios & Margins</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { id: "full", label: "Full Page", desc: "Reset (100%)" },
+                          { id: "margins_10", label: "10% Margins", desc: "Trim edges" },
+                          { id: "margins_20", label: "20% Margins", desc: "Trim borders" },
+                          { id: "a4", label: "A4 / Letter", desc: "1:1.41 Portrait" },
+                          { id: "square", label: "Square", desc: "1:1 Ratio" },
+                          { id: "landscape", label: "Landscape", desc: "16:9 Widescreen" },
+                        ].map((preset) => (
+                          <button
+                            type="button"
+                            key={preset.id}
+                            onClick={() => applyCropPreset(preset.id)}
+                            className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                              cropPreset === preset.id
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className="text-xs font-bold">{preset.label}</div>
+                            <div className={`text-[10px] mt-0.5 ${cropPreset === preset.id ? "text-indigo-200" : "text-slate-400"}`}>
+                              {preset.desc}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Interactive Visual Mouse Crop Canvas */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-semibold text-slate-700">Visual Page Crop Preview</span>
+                      <span>Use mouse to drag handles or move the crop box</span>
+                    </div>
+
+                    <div
+                      ref={cropContainerRef}
+                      onMouseDown={(e) => {
+                        if (cropMode === "free") {
+                          handleCropMouseDown(e, "new");
+                        }
+                      }}
+                      className="relative w-full max-w-lg mx-auto bg-slate-900/90 rounded-2xl overflow-hidden shadow-inner border border-slate-300 select-none flex items-center justify-center min-h-[380px] max-h-[500px] cursor-crosshair group"
+                    >
+                      {cropLoadingPreview ? (
+                        <div className="flex flex-col items-center justify-center p-8 text-white/70 space-y-2">
+                          <RefreshCw className="w-8 h-8 animate-spin text-indigo-400" />
+                          <span className="text-xs font-semibold">Generating document preview...</span>
+                        </div>
+                      ) : cropPreviewUrl ? (
+                        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                          {/* Page Image */}
+                          <img
+                            src={cropPreviewUrl}
+                            alt="PDF Crop Page Preview"
+                            className="max-h-[460px] w-auto object-contain pointer-events-none"
+                          />
+
+                          {/* Active Crop Box with Shadow Mask */}
+                          <div
+                            style={{
+                              left: `${cropX}%`,
+                              top: `${cropY}%`,
+                              width: `${cropW}%`,
+                              height: `${cropH}%`,
+                              boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.65)",
+                            }}
+                            className="absolute border-2 border-indigo-500 rounded-xs pointer-events-auto"
+                          >
+                            {/* Rule of Thirds Grid */}
+                            <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-40">
+                              <div className="border-r border-b border-white/60 border-dashed" />
+                              <div className="border-r border-b border-white/60 border-dashed" />
+                              <div className="border-b border-white/60 border-dashed" />
+                              <div className="border-r border-b border-white/60 border-dashed" />
+                              <div className="border-r border-b border-white/60 border-dashed" />
+                              <div className="border-b border-white/60 border-dashed" />
+                              <div className="border-r border-white/60 border-dashed" />
+                              <div className="border-r border-white/60 border-dashed" />
+                              <div />
+                            </div>
+
+                            {/* Center Drag to Move Area */}
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "move")}
+                              className="absolute inset-4 flex items-center justify-center cursor-move group/move"
+                            >
+                              <div className="bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-md flex items-center gap-1 opacity-90 group-hover/move:scale-105 transition-transform pointer-events-none">
+                                <Move className="w-3 h-3" />
+                                <span>{cropW}% × {cropH}%</span>
+                              </div>
+                            </div>
+
+                            {/* 8 Interactive Corner & Edge Resize Handles */}
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "nw")}
+                              className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full shadow-md cursor-nw-resize hover:scale-125 transition-transform"
+                            />
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "n")}
+                              className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full shadow-md cursor-n-resize hover:scale-125 transition-transform"
+                            />
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "ne")}
+                              className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full shadow-md cursor-ne-resize hover:scale-125 transition-transform"
+                            />
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "e")}
+                              className="absolute top-1/2 -translate-y-1/2 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full shadow-md cursor-e-resize hover:scale-125 transition-transform"
+                            />
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "se")}
+                              className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full shadow-md cursor-se-resize hover:scale-125 transition-transform"
+                            />
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "s")}
+                              className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full shadow-md cursor-s-resize hover:scale-125 transition-transform"
+                            />
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "sw")}
+                              className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full shadow-md cursor-sw-resize hover:scale-125 transition-transform"
+                            />
+                            <div
+                              onMouseDown={(e) => handleCropMouseDown(e, "w")}
+                              className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-indigo-600 rounded-full shadow-md cursor-w-resize hover:scale-125 transition-transform"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center p-8 text-white/70 space-y-2">
+                          <FileText className="w-10 h-10 mx-auto text-indigo-400 opacity-80" />
+                          <p className="text-xs font-bold">Document Loaded</p>
+                          <p className="text-[11px] text-white/50">Crop area: {cropW}% width × {cropH}% height</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Manual Coordinates & Fine Tuning */}
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <span>Exact Crop Coordinates (%)</span>
+                      <button
+                        type="button"
+                        onClick={() => applyCropPreset("full")}
+                        className="text-indigo-600 hover:text-indigo-700 font-semibold cursor-pointer"
+                      >
+                        Reset to Full
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Left (X)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max="90"
+                            value={cropX}
+                            onChange={(e) => setCropX(Math.max(0, Math.min(90, Number(e.target.value) || 0)))}
+                            className="w-full pl-3 pr-7 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Top (Y)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max="90"
+                            value={cropY}
+                            onChange={(e) => setCropY(Math.max(0, Math.min(90, Number(e.target.value) || 0)))}
+                            className="w-full pl-3 pr-7 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Width</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="10"
+                            max="100"
+                            value={cropW}
+                            onChange={(e) => setCropW(Math.max(10, Math.min(100 - cropX, Number(e.target.value) || 10)))}
+                            className="w-full pl-3 pr-7 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1">Height</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="10"
+                            max="100"
+                            value={cropH}
+                            onChange={(e) => setCropH(Math.max(10, Math.min(100 - cropY, Number(e.target.value) || 10)))}
+                            className="w-full pl-3 pr-7 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
