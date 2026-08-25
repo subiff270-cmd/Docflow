@@ -513,6 +513,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [cropScope, setCropScope] = useState<"all" | "current">("all");
   const [cropCurrentPageIndex, setCropCurrentPageIndex] = useState<number>(0);
   const [cropThumbnails, setCropThumbnails] = useState<Array<{ page_num: number; thumbnail: string }>>([]);
+  const [pageCrops, setPageCrops] = useState<Record<number, { x: number; y: number; w: number; h: number; shape?: string }>>({});
   const [lassoPoints, setLassoPoints] = useState<Array<{ x: number; y: number }>>([]);
   const [isDrawingLasso, setIsDrawingLasso] = useState(false);
   const [cropPreset, setCropPreset] = useState<string>("free");
@@ -542,6 +543,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               setCropThumbnails(res.thumbnails);
               setCropPreviewUrl(res.thumbnails[0].thumbnail);
               setCropCurrentPageIndex(0);
+              setPageCrops({});
             }
           })
           .catch((err) => console.warn("Failed to load PDF crop preview:", err))
@@ -550,6 +552,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           });
       } else {
         setCropThumbnails([]);
+        setPageCrops({});
         const reader = new FileReader();
         reader.onload = (e) => {
           if (isMounted && e.target?.result) {
@@ -567,15 +570,53 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       setCropPreviewUrl(null);
       setCropThumbnails([]);
       setCropCurrentPageIndex(0);
+      setPageCrops({});
     }
   }, [files, tool.id]);
 
   const handleSwitchCropPage = (idx: number) => {
     if (idx < 0 || idx >= cropThumbnails.length) return;
+    
+    // Save active page coordinates first
+    setPageCrops((prev) => ({
+      ...prev,
+      [cropCurrentPageIndex]: { x: cropX, y: cropY, w: cropW, h: cropH, shape: cropShape },
+    }));
+
     setCropCurrentPageIndex(idx);
     if (cropThumbnails[idx]?.thumbnail) {
       setCropPreviewUrl(cropThumbnails[idx].thumbnail);
     }
+
+    // Load next page crop if customized, else retain current
+    if (pageCrops[idx]) {
+      const saved = pageCrops[idx];
+      setCropX(saved.x);
+      setCropY(saved.y);
+      setCropW(saved.w);
+      setCropH(saved.h);
+      if (saved.shape) setCropShape(saved.shape as any);
+    }
+  };
+
+  const applyCurrentCropToAllPages = () => {
+    const updated: Record<number, { x: number; y: number; w: number; h: number; shape?: string }> = {};
+    const count = cropThumbnails.length || 1;
+    for (let i = 0; i < count; i++) {
+      updated[i] = { x: cropX, y: cropY, w: cropW, h: cropH, shape: cropShape };
+    }
+    setPageCrops(updated);
+  };
+
+  const resetCurrentPageCrop = () => {
+    setCropX(0);
+    setCropY(0);
+    setCropW(100);
+    setCropH(100);
+    setPageCrops((prev) => ({
+      ...prev,
+      [cropCurrentPageIndex]: { x: 0, y: 0, w: 100, h: 100, shape: "rectangle" },
+    }));
   };
 
   const handleCropMouseDown = (e: React.MouseEvent, handle: string) => {
@@ -648,10 +689,21 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           const minY = Math.min(...ys);
           const maxY = Math.max(...ys);
 
-          setCropX(Math.max(0, minX));
-          setCropY(Math.max(0, minY));
-          setCropW(Math.max(5, maxX - minX));
-          setCropH(Math.max(5, maxY - minY));
+          const finalX = Math.max(0, minX);
+          const finalY = Math.max(0, minY);
+          const finalW = Math.max(5, maxX - minX);
+          const finalH = Math.max(5, maxY - minY);
+
+          setCropX(finalX);
+          setCropY(finalY);
+          setCropW(finalW);
+          setCropH(finalH);
+
+          setPageCrops((prevP) => ({
+            ...prevP,
+            [cropCurrentPageIndex]: { x: finalX, y: finalY, w: finalW, h: finalH, shape: "lasso" },
+          }));
+
           return next;
         });
         return;
@@ -662,16 +714,19 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
       const { initialX, initialY, initialW, initialH } = dragStartRef.current;
 
+      let newX = cropX;
+      let newY = cropY;
+      let newW = cropW;
+      let newH = cropH;
+
       if (activeDragHandle === "move") {
-        const newX = Math.max(0, Math.min(100 - initialW, initialX + deltaXPct));
-        const newY = Math.max(0, Math.min(100 - initialH, initialY + deltaYPct));
-        setCropX(Math.round(newX));
-        setCropY(Math.round(newY));
+        newX = Math.max(0, Math.min(100 - initialW, initialX + deltaXPct));
+        newY = Math.max(0, Math.min(100 - initialH, initialY + deltaYPct));
       } else {
-        let newX = initialX;
-        let newY = initialY;
-        let newW = initialW;
-        let newH = initialH;
+        newX = initialX;
+        newY = initialY;
+        newW = initialW;
+        newH = initialH;
 
         if (activeDragHandle?.includes("e")) {
           newW = Math.max(5, Math.min(100 - initialX, initialW + deltaXPct));
@@ -691,12 +746,22 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           newY = initialY + clampedDelta;
           newH = initialH - clampedDelta;
         }
-
-        setCropX(Math.round(newX));
-        setCropY(Math.round(newY));
-        setCropW(Math.round(newW));
-        setCropH(Math.round(newH));
       }
+
+      const rx = Math.round(newX);
+      const ry = Math.round(newY);
+      const rw = Math.round(newW);
+      const rh = Math.round(newH);
+
+      setCropX(rx);
+      setCropY(ry);
+      setCropW(rw);
+      setCropH(rh);
+
+      setPageCrops((prevP) => ({
+        ...prevP,
+        [cropCurrentPageIndex]: { x: rx, y: ry, w: rw, h: rh, shape: cropShape },
+      }));
     };
 
     const handleMouseUp = () => {
@@ -710,23 +775,25 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [activeDragHandle, isDrawingLasso]);
+  }, [activeDragHandle, isDrawingLasso, cropCurrentPageIndex, cropShape]);
 
   const applyCropPreset = (preset: string) => {
     setCropPreset(preset);
-    if (preset === "full") {
-      setCropX(0); setCropY(0); setCropW(100); setCropH(100);
-    } else if (preset === "margins_10") {
-      setCropX(10); setCropY(10); setCropW(80); setCropH(80);
-    } else if (preset === "margins_20") {
-      setCropX(20); setCropY(20); setCropW(60); setCropH(60);
-    } else if (preset === "square") {
-      setCropX(15); setCropY(15); setCropW(70); setCropH(70);
-    } else if (preset === "a4") {
-      setCropX(15); setCropY(10); setCropW(70); setCropH(80);
-    } else if (preset === "landscape") {
-      setCropX(5); setCropY(25); setCropW(90); setCropH(50);
-    }
+    let x = 0, y = 0, w = 100, h = 100;
+    if (preset === "margins_10") { x = 10; y = 10; w = 80; h = 80; }
+    else if (preset === "margins_20") { x = 20; y = 20; w = 60; h = 60; }
+    else if (preset === "square") { x = 15; y = 15; w = 70; h = 70; }
+    else if (preset === "a4") { x = 15; y = 10; w = 70; h = 80; }
+    else if (preset === "landscape") { x = 5; y = 25; w = 90; h = 50; }
+
+    setCropX(x);
+    setCropY(y);
+    setCropW(w);
+    setCropH(h);
+    setPageCrops((prev) => ({
+      ...prev,
+      [cropCurrentPageIndex]: { x, y, w, h, shape: "rectangle" },
+    }));
   };
 
   const formatFileSize = (bytes: number) => {
@@ -879,7 +946,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       } else if (tool.id === "add-watermark" && files[0]) {
         clientRes = await clientAddWatermark(files[0], watermarkText || "CONFIDENTIAL", watermarkPosition);
       } else if (tool.id === "crop-pdf" && files[0]) {
-        clientRes = await clientCropPdf(files[0], { x: cropX, y: cropY, w: cropW, h: cropH }, cropScope, cropCurrentPageIndex);
+        clientRes = await clientCropPdf(files[0], { x: cropX, y: cropY, w: cropW, h: cropH }, pageCrops);
       } else if ((tool.id === "jpg-to-pdf" || tool.id === "scan-to-pdf") && files.length > 0) {
         clientRes = await clientImageToPdf(files);
       } else if (tool.id === "resize-image" && files[0]) {
@@ -956,6 +1023,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       formData.append("crop_h", String(cropH));
       formData.append("crop_scope", cropScope);
       formData.append("current_page", String(cropCurrentPageIndex + 1));
+      formData.append("page_crops_json", JSON.stringify(pageCrops));
     }
 
     try {
@@ -2412,51 +2480,95 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     </div>
                   </div>
 
-                  {/* Multi-Page Carousel Navigator */}
+                  {/* Multi-Page Carousel Navigator with Per-Page Sync Actions */}
                   {cropThumbnails.length > 1 && (
-                    <div className="p-3 bg-slate-100/90 rounded-2xl border border-slate-200 space-y-2 animate-in fade-in">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                          <span>Previewing Page {cropCurrentPageIndex + 1} of {cropThumbnails.length}</span>
-                        </span>
-                        <div className="flex items-center gap-1.5">
+                    <div className="p-3.5 bg-slate-100/90 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800">
+                            Editing Page {cropCurrentPageIndex + 1} of {cropThumbnails.length}
+                          </span>
+                          {pageCrops[cropCurrentPageIndex] ? (
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-md">
+                              ✂️ Custom Crop
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-slate-200 text-slate-600 text-[10px] font-bold rounded-md">
+                              Default
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Page-Specific Action Buttons */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <button
                             type="button"
-                            disabled={cropCurrentPageIndex === 0}
-                            onClick={() => handleSwitchCropPage(cropCurrentPageIndex - 1)}
-                            className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed transition"
+                            onClick={applyCurrentCropToAllPages}
+                            className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 shadow-xs"
+                            title="Copy this page's crop box to every page in the PDF"
                           >
-                            ← Prev
+                            <Copy className="w-3 h-3" />
+                            <span>Copy to All Pages</span>
                           </button>
+
                           <button
                             type="button"
-                            disabled={cropCurrentPageIndex === cropThumbnails.length - 1}
-                            onClick={() => handleSwitchCropPage(cropCurrentPageIndex + 1)}
-                            className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed transition"
+                            onClick={resetCurrentPageCrop}
+                            className="px-2 py-1 bg-white hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-lg text-xs font-semibold transition cursor-pointer"
+                            title="Reset this page to 100% full page"
                           >
-                            Next →
+                            Reset Page
                           </button>
+
+                          <div className="flex items-center gap-1 ml-1">
+                            <button
+                              type="button"
+                              disabled={cropCurrentPageIndex === 0}
+                              onClick={() => handleSwitchCropPage(cropCurrentPageIndex - 1)}
+                              className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed transition"
+                            >
+                              ← Prev
+                            </button>
+                            <button
+                              type="button"
+                              disabled={cropCurrentPageIndex === cropThumbnails.length - 1}
+                              onClick={() => handleSwitchCropPage(cropCurrentPageIndex + 1)}
+                              className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed transition"
+                            >
+                              Next →
+                            </button>
+                          </div>
                         </div>
                       </div>
 
+                      {/* Interactive Thumbnail Carousel Strip */}
                       <div className="flex items-center gap-2.5 overflow-x-auto pb-1.5 pt-1 scrollbar-thin">
-                        {cropThumbnails.map((t, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => handleSwitchCropPage(idx)}
-                            className={`shrink-0 relative rounded-xl border overflow-hidden transition cursor-pointer ${
-                              cropCurrentPageIndex === idx
-                                ? "ring-3 ring-indigo-600 border-indigo-600 shadow-md scale-105"
-                                : "border-slate-300 opacity-70 hover:opacity-100 bg-white"
-                            }`}
-                          >
-                            <img src={t.thumbnail} alt={`Page ${t.page_num}`} className="w-14 h-20 object-contain bg-white" />
-                            <span className="absolute bottom-0 inset-x-0 bg-slate-900/85 text-white text-[10px] font-bold text-center py-0.5">
-                              Page {t.page_num}
-                            </span>
-                          </button>
-                        ))}
+                        {cropThumbnails.map((t, idx) => {
+                          const isCustomized = !!pageCrops[idx];
+                          const isActive = cropCurrentPageIndex === idx;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleSwitchCropPage(idx)}
+                              className={`shrink-0 relative rounded-xl border overflow-hidden transition cursor-pointer group ${
+                                isActive
+                                  ? "ring-3 ring-indigo-600 border-indigo-600 shadow-md scale-105"
+                                  : "border-slate-300 opacity-75 hover:opacity-100 bg-white"
+                              }`}
+                            >
+                              <img src={t.thumbnail} alt={`Page ${t.page_num}`} className="w-14 h-20 object-contain bg-white" />
+                              {isCustomized && (
+                                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white shadow-xs" title="Custom crop set for this page" />
+                              )}
+                              <span className={`absolute bottom-0 inset-x-0 text-[10px] font-bold text-center py-0.5 ${
+                                isActive ? "bg-indigo-600 text-white" : isCustomized ? "bg-emerald-700 text-white" : "bg-slate-900/85 text-white"
+                              }`}>
+                                Page {t.page_num}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

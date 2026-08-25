@@ -251,22 +251,20 @@ export async function clientAddWatermark(
 export async function clientCropPdf(
   file: File,
   cropPct: { x: number; y: number; w: number; h: number },
-  scope: "all" | "current" = "all",
-  pageIndex: number = 0
+  perPageCrops?: Record<number, { x: number; y: number; w: number; h: number }>
 ): Promise<ClientProcessResult> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
   const pages = pdf.getPages();
 
   pages.forEach((page, idx) => {
-    if (scope === "current" && idx !== pageIndex) {
-      return;
-    }
+    // Check if there is an individual customized crop for this page, else use default cropPct
+    const c = perPageCrops && perPageCrops[idx] ? perPageCrops[idx] : cropPct;
     const { width, height } = page.getSize();
-    const x = Math.max(0, (cropPct.x / 100) * width);
-    const w = Math.max(10, Math.min(width - x, (cropPct.w / 100) * width));
-    const h = Math.max(10, Math.min(height, (cropPct.h / 100) * height));
-    const y = Math.max(0, height - ((cropPct.y + cropPct.h) / 100) * height);
+    const x = Math.max(0, (c.x / 100) * width);
+    const w = Math.max(10, Math.min(width - x, (c.w / 100) * width));
+    const h = Math.max(10, Math.min(height, (c.h / 100) * height));
+    const y = Math.max(0, height - ((c.y + c.h) / 100) * height);
     page.setCropBox(x, y, w, h);
   });
 

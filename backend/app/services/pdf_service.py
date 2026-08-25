@@ -536,18 +536,31 @@ def add_watermark(file_bytes: bytes, text: str = "CONFIDENTIAL", opacity: float 
     doc.close()
     return out
 
-def crop_pdf(file_bytes: bytes, crop_x: float, crop_y: float, crop_w: float, crop_h: float, crop_scope: str = "all", current_page: int = 1) -> bytes:
-    """Crop bounds provided in normalized percentages (0-100) or points."""
+def crop_pdf(file_bytes: bytes, crop_x: float, crop_y: float, crop_w: float, crop_h: float, crop_scope: str = "all", current_page: int = 1, page_crops_json: Optional[str] = None) -> bytes:
+    """Crop bounds provided in normalized percentages (0-100) with per-page customization."""
     doc = fitz.open(stream=file_bytes, filetype="pdf")
+    page_crops: dict = {}
+    if page_crops_json:
+        try:
+            page_crops = json.loads(page_crops_json)
+        except Exception:
+            page_crops = {}
+
     for idx, page in enumerate(doc):
         if crop_scope == "current" and (idx + 1) != current_page:
             continue
         rect = page.rect
-        # convert normalized 0-100 to actual coordinates
-        x0 = (crop_x / 100.0) * rect.width
-        y0 = (crop_y / 100.0) * rect.height
-        x1 = x0 + (crop_w / 100.0) * rect.width
-        y1 = y0 + (crop_h / 100.0) * rect.height
+        # Look up per-page custom crop if present, else fallback to global
+        c = page_crops.get(str(idx), page_crops.get(idx, {"x": crop_x, "y": crop_y, "w": crop_w, "h": crop_h}))
+        px = float(c.get("x", crop_x))
+        py = float(c.get("y", crop_y))
+        pw = float(c.get("w", crop_w))
+        ph = float(c.get("h", crop_h))
+
+        x0 = (px / 100.0) * rect.width
+        y0 = (py / 100.0) * rect.height
+        x1 = x0 + (pw / 100.0) * rect.width
+        y1 = y0 + (ph / 100.0) * rect.height
         page.set_cropbox(fitz.Rect(x0, y0, x1, y1))
         
     out = doc.tobytes()
