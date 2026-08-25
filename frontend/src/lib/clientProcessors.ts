@@ -248,11 +248,20 @@ export async function clientAddWatermark(
 }
 
 // 8. CROP PDF (Client-side)
-export async function clientCropPdf(file: File, cropPct: { x: number; y: number; w: number; h: number }): Promise<ClientProcessResult> {
+export async function clientCropPdf(
+  file: File,
+  cropPct: { x: number; y: number; w: number; h: number },
+  scope: "all" | "current" = "all",
+  pageIndex: number = 0
+): Promise<ClientProcessResult> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const pages = pdf.getPages();
 
-  pdf.getPages().forEach((page) => {
+  pages.forEach((page, idx) => {
+    if (scope === "current" && idx !== pageIndex) {
+      return;
+    }
     const { width, height } = page.getSize();
     const x = Math.max(0, (cropPct.x / 100) * width);
     const w = Math.max(10, Math.min(width - x, (cropPct.w / 100) * width));

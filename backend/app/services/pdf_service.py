@@ -536,10 +536,12 @@ def add_watermark(file_bytes: bytes, text: str = "CONFIDENTIAL", opacity: float 
     doc.close()
     return out
 
-def crop_pdf(file_bytes: bytes, crop_x: float, crop_y: float, crop_w: float, crop_h: float) -> bytes:
+def crop_pdf(file_bytes: bytes, crop_x: float, crop_y: float, crop_w: float, crop_h: float, crop_scope: str = "all", current_page: int = 1) -> bytes:
     """Crop bounds provided in normalized percentages (0-100) or points."""
     doc = fitz.open(stream=file_bytes, filetype="pdf")
-    for page in doc:
+    for idx, page in enumerate(doc):
+        if crop_scope == "current" and (idx + 1) != current_page:
+            continue
         rect = page.rect
         # convert normalized 0-100 to actual coordinates
         x0 = (crop_x / 100.0) * rect.width

@@ -642,6 +642,8 @@ async def api_crop_pdf(
     crop_y: float = Form(10),
     crop_w: float = Form(80),
     crop_h: float = Form(80),
+    crop_scope: str = Form("all"),
+    current_page: int = Form(1),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -652,7 +654,7 @@ async def api_crop_pdf(
         raise HTTPException(status_code=403, detail=msg)
 
     try:
-        cropped = pdf_service.crop_pdf(content, crop_x, crop_y, crop_w, crop_h)
+        cropped = pdf_service.crop_pdf(content, crop_x, crop_y, crop_w, crop_h, crop_scope=crop_scope, current_page=current_page)
         out_name = f"cropped_{file.filename}"
         item = save_generated_bytes(db, cropped, out_name, "application/pdf", uid)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
