@@ -2157,6 +2157,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     <option value="bottom-left">Bottom Left</option>
                     <option value="top-center">Top Center</option>
                     <option value="top-right">Top Right</option>
+                    <option value="top-left">Top Left</option>
+                  </select>
+                </div>
+              )}
+
               {/* Visual Mouse-Based Crop PDF / Crop Image Editor */}
               {(tool.id === "crop-pdf" || tool.id === "crop-image") && (
                 <div className="space-y-4">
