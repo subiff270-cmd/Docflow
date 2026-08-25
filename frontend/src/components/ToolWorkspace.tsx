@@ -60,10 +60,12 @@ import {
   GripVertical,
   ZoomIn,
   ZoomOut,
-  Eye,
-  History,
   Crop,
   Move,
+  Circle,
+  PenTool,
+  Eye,
+  History,
 } from "lucide-react";
 
 interface ToolWorkspaceProps {
@@ -507,6 +509,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [cropW, setCropW] = useState(80);
   const [cropH, setCropH] = useState(80);
   const [cropMode, setCropMode] = useState<"free" | "normal">("free");
+  const [cropShape, setCropShape] = useState<"rectangle" | "circle" | "lasso">("rectangle");
+  const [lassoPoints, setLassoPoints] = useState<Array<{ x: number; y: number }>>([]);
+  const [isDrawingLasso, setIsDrawingLasso] = useState(false);
   const [cropPreset, setCropPreset] = useState<string>("free");
   const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
   const [cropLoadingPreview, setCropLoadingPreview] = useState(false);
@@ -565,10 +570,21 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     const rect = cropContainerRef.current.getBoundingClientRect();
     const clientX = e.clientX;
     const clientY = e.clientY;
+    const xPct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const yPct = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+
+    if (cropMode === "free" && cropShape === "lasso" && handle === "new") {
+      setIsDrawingLasso(true);
+      setLassoPoints([{ x: Math.round(xPct), y: Math.round(yPct) }]);
+      setCropX(Math.round(xPct));
+      setCropY(Math.round(yPct));
+      setCropW(5);
+      setCropH(5);
+      return;
+    }
 
     if (handle === "new") {
-      const xPct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-      const yPct = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+      setLassoPoints([]);
       setCropX(Math.round(xPct));
       setCropY(Math.round(yPct));
       setCropW(5);
@@ -597,11 +613,34 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   };
 
   useEffect(() => {
-    if (!activeDragHandle) return;
+    if (!activeDragHandle && !isDrawingLasso) return;
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!cropContainerRef.current) return;
       const rect = cropContainerRef.current.getBoundingClientRect();
+
+      if (isDrawingLasso) {
+        const xPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        const yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+
+        setLassoPoints((prev) => {
+          const next = [...prev, { x: Math.round(xPct), y: Math.round(yPct) }];
+          const xs = next.map((p) => p.x);
+          const ys = next.map((p) => p.y);
+          const minX = Math.min(...xs);
+          const maxX = Math.max(...xs);
+          const minY = Math.min(...ys);
+          const maxY = Math.max(...ys);
+
+          setCropX(Math.max(0, minX));
+          setCropY(Math.max(0, minY));
+          setCropW(Math.max(5, maxX - minX));
+          setCropH(Math.max(5, maxY - minY));
+          return next;
+        });
+        return;
+      }
+
       const deltaXPct = ((e.clientX - dragStartRef.current.startX) / rect.width) * 100;
       const deltaYPct = ((e.clientY - dragStartRef.current.startY) / rect.height) * 100;
 
@@ -618,19 +657,19 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         let newW = initialW;
         let newH = initialH;
 
-        if (activeDragHandle.includes("e")) {
+        if (activeDragHandle?.includes("e")) {
           newW = Math.max(5, Math.min(100 - initialX, initialW + deltaXPct));
         }
-        if (activeDragHandle.includes("s")) {
+        if (activeDragHandle?.includes("s")) {
           newH = Math.max(5, Math.min(100 - initialY, initialH + deltaYPct));
         }
-        if (activeDragHandle.includes("w")) {
+        if (activeDragHandle?.includes("w")) {
           const maxDelta = initialW - 5;
           const clampedDelta = Math.max(-initialX, Math.min(maxDelta, deltaXPct));
           newX = initialX + clampedDelta;
           newW = initialW - clampedDelta;
         }
-        if (activeDragHandle.includes("n")) {
+        if (activeDragHandle?.includes("n")) {
           const maxDelta = initialH - 5;
           const clampedDelta = Math.max(-initialY, Math.min(maxDelta, deltaYPct));
           newY = initialY + clampedDelta;
@@ -646,6 +685,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
     const handleMouseUp = () => {
       setActiveDragHandle(null);
+      setIsDrawingLasso(false);
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -654,7 +694,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [activeDragHandle]);
+  }, [activeDragHandle, isDrawingLasso]);
 
   const applyCropPreset = (preset: string) => {
     setCropPreset(preset);
@@ -2202,6 +2242,75 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         Normal Mode
                       </button>
                     </div>
+
+                    {/* Free Mode Shape Selector (Freehand Lasso / Circle / Rectangle) */}
+                    {cropMode === "free" && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-2xl animate-in fade-in">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                          <span>Free Mode Tool:</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCropShape("lasso");
+                              setLassoPoints([]);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                              cropShape === "lasso"
+                                ? "bg-indigo-600 text-white shadow-xs"
+                                : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                            }`}
+                          >
+                            <PenTool className="w-3.5 h-3.5" />
+                            <span>Draw / Circle (Lasso)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCropShape("circle");
+                              setLassoPoints([]);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                              cropShape === "circle"
+                                ? "bg-indigo-600 text-white shadow-xs"
+                                : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                            }`}
+                          >
+                            <Circle className="w-3.5 h-3.5" />
+                            <span>Circle / Oval</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCropShape("rectangle");
+                              setLassoPoints([]);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                              cropShape === "rectangle"
+                                ? "bg-indigo-600 text-white shadow-xs"
+                                : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                            }`}
+                          >
+                            <Square className="w-3.5 h-3.5" />
+                            <span>Rectangle Box</span>
+                          </button>
+
+                          {lassoPoints.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setLassoPoints([])}
+                              className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-red-600 hover:bg-red-50 transition cursor-pointer"
+                            >
+                              Clear Path
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Normal Mode Aspect Ratio / Margin Presets */}
@@ -2241,7 +2350,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span className="font-semibold text-slate-700">Visual Page Crop Preview</span>
-                      <span>Use mouse to drag handles or move the crop box</span>
+                      <span>
+                        {cropShape === "lasso"
+                          ? "Click & drag anywhere on the page to circle or draw your crop path"
+                          : "Use mouse to drag handles or move the crop box"}
+                      </span>
                     </div>
 
                     <div
@@ -2267,6 +2380,21 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                             className="max-h-[460px] w-auto object-contain pointer-events-none"
                           />
 
+                          {/* Freehand Lasso SVG Path Overlay */}
+                          {cropShape === "lasso" && lassoPoints.length > 1 && (
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                              <polygon
+                                points={lassoPoints.map((p) => `${(p.x / 100) * (cropContainerRef.current?.clientWidth || 500)},${(p.y / 100) * (cropContainerRef.current?.clientHeight || 500)}`).join(" ")}
+                                fill="rgba(99, 102, 241, 0.25)"
+                                stroke="#6366f1"
+                                strokeWidth="3"
+                                strokeDasharray="5 5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+
                           {/* Active Crop Box with Shadow Mask */}
                           <div
                             style={{
@@ -2274,30 +2402,35 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               top: `${cropY}%`,
                               width: `${cropW}%`,
                               height: `${cropH}%`,
+                              borderRadius: cropShape === "circle" ? "9999px" : "4px",
                               boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.65)",
                             }}
-                            className="absolute border-2 border-indigo-500 rounded-xs pointer-events-auto"
+                            className={`absolute border-2 ${
+                              cropShape === "lasso" ? "border-indigo-400 border-dashed opacity-70" : "border-indigo-500"
+                            } pointer-events-auto transition-[border-radius]`}
                           >
-                            {/* Rule of Thirds Grid */}
-                            <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-40">
-                              <div className="border-r border-b border-white/60 border-dashed" />
-                              <div className="border-r border-b border-white/60 border-dashed" />
-                              <div className="border-b border-white/60 border-dashed" />
-                              <div className="border-r border-b border-white/60 border-dashed" />
-                              <div className="border-r border-b border-white/60 border-dashed" />
-                              <div className="border-b border-white/60 border-dashed" />
-                              <div className="border-r border-white/60 border-dashed" />
-                              <div className="border-r border-white/60 border-dashed" />
-                              <div />
-                            </div>
+                            {/* Rule of Thirds Grid (for Rectangle) */}
+                            {cropShape === "rectangle" && (
+                              <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-40">
+                                <div className="border-r border-b border-white/60 border-dashed" />
+                                <div className="border-r border-b border-white/60 border-dashed" />
+                                <div className="border-b border-white/60 border-dashed" />
+                                <div className="border-r border-b border-white/60 border-dashed" />
+                                <div className="border-r border-b border-white/60 border-dashed" />
+                                <div className="border-b border-white/60 border-dashed" />
+                                <div className="border-r border-white/60 border-dashed" />
+                                <div className="border-r border-white/60 border-dashed" />
+                                <div />
+                              </div>
+                            )}
 
                             {/* Center Drag to Move Area */}
                             <div
                               onMouseDown={(e) => handleCropMouseDown(e, "move")}
-                              className="absolute inset-4 flex items-center justify-center cursor-move group/move"
+                              className="absolute inset-3 flex items-center justify-center cursor-move group/move"
                             >
                               <div className="bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-md flex items-center gap-1 opacity-90 group-hover/move:scale-105 transition-transform pointer-events-none">
-                                <Move className="w-3 h-3" />
+                                {cropShape === "circle" ? <Circle className="w-3 h-3" /> : cropShape === "lasso" ? <PenTool className="w-3 h-3" /> : <Move className="w-3 h-3" />}
                                 <span>{cropW}% × {cropH}%</span>
                               </div>
                             </div>
