@@ -120,24 +120,6 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* AI Tools Dropdown */}
-            <div className="relative group" onMouseLeave={() => setActiveDropdown(null)}>
-              <button
-                onMouseEnter={() => setActiveDropdown("ai")}
-                className="px-3.5 py-2 rounded-lg hover:text-indigo-600 flex items-center gap-1 transition"
-              >
-                AI Tools
-                <ChevronDown className="w-4 h-4 text-slate-400" />
-              </button>
-              {activeDropdown === "ai" && (
-                <div className="absolute top-full left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-500/5 border border-indigo-100/50 p-3 space-y-1 z-50 animate-in fade-in">
-                  <Link href="/voice-to-document" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Voice → Document</Link>
-                  <Link href="/ai-pdf-summarizer" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">AI PDF Summarizer</Link>
-                  <Link href="/translate-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Translate PDF</Link>
-                </div>
-              )}
-            </div>
-
             <Link
               href="/pricing"
               className={`px-3.5 py-2 rounded-lg transition ${
@@ -324,24 +306,6 @@ export default function Navbar() {
                   <Link href="/ocr-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
                   <Link href="/indian-language-documents" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Indian Language Documents</Link>
                   <Link href="/image-to-text" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to Text</Link>
-                </div>
-              )}
-            </div>
-
-            {/* AI Tools Section */}
-            <div>
-              <button
-                onClick={() => toggleMobileSection("ai")}
-                className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
-              >
-                AI Tools
-                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpanded === "ai" ? "rotate-180" : ""}`} />
-              </button>
-              {mobileExpanded === "ai" && (
-                <div className="pl-6 space-y-0.5 pb-2 animate-in">
-                  <Link href="/voice-to-document" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Voice → Document</Link>
-                  <Link href="/ai-pdf-summarizer" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">AI PDF Summarizer</Link>
-                  <Link href="/translate-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Translate PDF</Link>
                 </div>
               )}
             </div>

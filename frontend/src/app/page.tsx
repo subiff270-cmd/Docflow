@@ -21,6 +21,7 @@ import {
   Globe,
   Lock,
   LayoutGrid,
+  FileCheck2,
 } from "lucide-react";
 
 /* ──────────────────────────────────────────
@@ -83,20 +84,20 @@ const FEATURED_TOOLS = [
     glowClass: "",
   },
   {
-    id: "ai-pdf-summarizer",
-    name: "AI PDF",
-    desc: "Understand your documents with AI-powered analysis.",
-    icon: Brain,
-    href: "/ai-pdf-summarizer",
-    glowClass: "tool-card-ai",
+    id: "split-pdf",
+    name: "Split PDF",
+    desc: "Separate pages or extract specific page ranges easily.",
+    icon: FileMinus,
+    href: "/split-pdf",
+    glowClass: "",
   },
   {
-    id: "voice-to-document",
-    name: "Voice → Document",
-    desc: "Speak. We'll build the document.",
-    icon: Mic,
-    href: "/voice-to-document",
-    glowClass: "tool-card-voice",
+    id: "add-page-numbers",
+    name: "Page Numbers",
+    desc: "Insert customizable page numbers with 6 position presets.",
+    icon: FileCheck2,
+    href: "/add-page-numbers",
+    glowClass: "",
   },
 ];
 
@@ -149,8 +150,7 @@ export default function HomePage() {
   const TAB_CATEGORY_MAP: Record<string, string[]> = {
     CONVERT: ["CONVERT FROM PDF", "CONVERT TO PDF"],
     PDF_TOOLS: ["ORGANIZE PDF", "OPTIMIZE PDF", "EDIT PDF", "PDF SECURITY"],
-    OCR: ["PDF INTELLIGENCE", "INDIAN LANGUAGE DOCUMENTS"],
-    AI_VOICE: ["VOICE & DOCUMENT"],
+    OCR: ["INDIAN LANGUAGE DOCUMENTS"],
     IMAGE: ["IMAGE TOOLS"],
   };
 
@@ -263,8 +263,7 @@ export default function HomePage() {
           {/* Description */}
           <p className="hero-desc-anim text-sm sm:text-base lg:text-lg text-slate-500 max-w-2xl mx-auto font-medium px-2 sm:px-0 leading-relaxed">
             Merge, split, compress, edit, convert, protect, sign, redact PDFs,
-            record Voice to Document, and extract text from Indian Language
-            documents.
+            and extract text from Indian Language documents.
           </p>
 
           {/* Premium Search Bar */}
@@ -365,7 +364,6 @@ export default function HomePage() {
               { label: "Convert", value: "CONVERT" },
               { label: "PDF Tools", value: "PDF_TOOLS" },
               { label: "OCR & Languages", value: "OCR" },
-              { label: "AI & Voice", value: "AI_VOICE" },
               { label: "Image Tools", value: "IMAGE" },
             ].map((tab) => (
               <button
@@ -471,27 +469,27 @@ export default function HomePage() {
                 POWERFUL CAPABILITIES
               </span>
               <h2 className="text-xl sm:text-3xl font-extrabold">
-                Voice to Document & Indian Language OCR
+                Indian Language OCR & Smart PDF Processing
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Record voice notes directly with your browser microphone to
-                format formal reports, or extract text from Hindi, Tamil, Telugu,
-                Malayalam, Bengali, and Marathi documents.
+                Extract editable text from Hindi, Tamil, Telugu, Malayalam, Bengali,
+                and Marathi documents with high-precision optical character recognition,
+                or optimize and organize large PDFs with zero quality loss.
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Link
-                  href="/voice-to-document"
+                  href="/indian-language-documents"
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition"
                 >
-                  <Mic className="w-4 h-4" />
-                  Try Voice → Document
+                  <Languages className="w-4 h-4" />
+                  Try Indian Languages OCR
                 </Link>
                 <Link
-                  href="/indian-language-documents"
+                  href="/organize-pdf"
                   className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition backdrop-blur-sm"
                 >
-                  <Languages className="w-4 h-4" />
-                  Indian Languages OCR
+                  <LayoutGrid className="w-4 h-4" />
+                  Organize PDF
                 </Link>
               </div>
             </div>
@@ -499,7 +497,7 @@ export default function HomePage() {
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 space-y-3 font-mono text-[10px] sm:text-xs text-indigo-200 overflow-hidden">
               <div className="flex items-center gap-2 text-emerald-400">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Microphone MediaRecorder Ready</span>
+                <span>High-Speed Local & Cloud PDF Processing</span>
               </div>
               <div className="flex items-center gap-2 text-emerald-400">
                 <CheckCircle2 className="w-4 h-4" />

@@ -18,9 +18,7 @@ export const CATEGORIES = [
   "OPTIMIZE PDF",
   "EDIT PDF",
   "PDF SECURITY",
-  "PDF INTELLIGENCE",
   "INDIAN LANGUAGE DOCUMENTS",
-  "VOICE & DOCUMENT",
   "IMAGE TOOLS"
 ] as const;
 
@@ -361,39 +359,16 @@ export const TOOLS: ToolItem[] = [
     popular: true,
   },
 
-  // PDF INTELLIGENCE & AI
   {
     id: "compare-pdf",
     name: "Compare PDF",
-    category: "PDF INTELLIGENCE",
+    category: "EDIT PDF",
     description: "Compare two PDF files side-by-side to highlight text differences.",
     iconName: "GitCompare",
     href: "/compare-pdf",
     endpoint: "compare-pdf",
     accept: ".pdf",
     multiple: true,
-  },
-  {
-    id: "ai-pdf-summarizer",
-    name: "AI PDF Summarizer",
-    category: "PDF INTELLIGENCE",
-    description: "Summarize multi-page documents and extract key bullet insights with AI.",
-    iconName: "Sparkles",
-    href: "/ai-pdf-summarizer",
-    endpoint: "ai-pdf-summarizer",
-    accept: ".pdf",
-    multiple: false,
-  },
-  {
-    id: "translate-pdf",
-    name: "Translate PDF",
-    category: "PDF INTELLIGENCE",
-    description: "Translate PDF content across languages while retaining original layout.",
-    iconName: "Globe",
-    href: "/translate-pdf",
-    endpoint: "translate-pdf",
-    accept: ".pdf",
-    multiple: false,
   },
 
   // INDIAN LANGUAGE DOCUMENTS & OCR
@@ -419,20 +394,6 @@ export const TOOLS: ToolItem[] = [
     endpoint: "image-to-text",
     accept: "image/*",
     multiple: false,
-  },
-
-  // VOICE & DOCUMENT
-  {
-    id: "voice-to-document",
-    name: "Voice to Document",
-    category: "VOICE & DOCUMENT",
-    description: "Record voice notes with browser microphone to format formal PDF/DOCX reports.",
-    iconName: "Mic",
-    href: "/voice-to-document",
-    endpoint: "voice-to-document",
-    accept: "audio/*",
-    multiple: false,
-    popular: true,
   },
 
   // IMAGE TOOLS

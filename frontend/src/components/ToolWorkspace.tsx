@@ -1045,15 +1045,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
       {/* 5. Main Workspace Container */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-8 shadow-xl shadow-slate-100/50 relative overflow-hidden">
-        {/* Special Notice for AI & Translation modular features */}
-        {(tool.id === "ai-pdf-summarizer" || tool.id === "translate-pdf") && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs sm:text-sm flex items-center gap-3">
-            <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
-            <div>
-              <strong>Modular Demo:</strong> External AI provider configuration is required in server settings for full automated batch execution.
-            </div>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Upload Area (Shown when no files are chosen) */}
@@ -1827,8 +1818,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             "split-pdf", "remove-pages", "extract-pages", "compress-pdf",
             "rotate-pdf", "unlock-pdf", "protect-pdf", "add-watermark",
             "ocr-pdf", "indian-language-documents", "image-to-text", "crop-pdf",
-            "translate-pdf", "ai-pdf-summarizer", "resize-image", "crop-image",
-            "convert-image", "add-page-numbers", "redact-pdf"
+            "resize-image", "crop-image", "convert-image", "add-page-numbers", "redact-pdf"
           ].includes(tool.id) && (
             <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -2448,32 +2438,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
-              {/* Translate PDF */}
-              {tool.id === "translate-pdf" && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                    <Globe className="w-3.5 h-3.5 text-indigo-600" />
-                    Target Language
-                  </label>
-                  <select
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
-                    defaultValue="Spanish"
-                  >
-                    <option value="Spanish">Spanish (Español)</option>
-                    <option value="French">French (Français)</option>
-                    <option value="German">German (Deutsch)</option>
-                    <option value="Hindi">Hindi (हिन्दी)</option>
-                    <option value="Tamil">Tamil (தமிழ்)</option>
-                    <option value="Telugu">Telugu (తెలుగు)</option>
-                    <option value="Italian">Italian (Italiano)</option>
-                    <option value="Portuguese">Portuguese (Português)</option>
-                    <option value="Russian">Russian (Русский)</option>
-                    <option value="Chinese">Chinese (中文)</option>
-                    <option value="Japanese">Japanese (日本語)</option>
-                    <option value="Arabic">Arabic (العربية)</option>
-                  </select>
-                </div>
-              )}
 
               {/* OCR & Indian Languages */}
               {(tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") && (
