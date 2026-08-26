@@ -818,6 +818,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [sigColor, setSigColor] = useState<string>("#0f172a");
   const [sigSelectedFontIndex, setSigSelectedFontIndex] = useState<number>(0);
   const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
+  const [drawnSigDataUrl, setDrawnSigDataUrl] = useState<string | null>(null);
   const [initialsDataUrl, setInitialsDataUrl] = useState<string | null>(null);
   const [companyStampDataUrl, setCompanyStampDataUrl] = useState<string | null>(null);
 
@@ -1151,6 +1152,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const stopDrawingSig = () => {
     if (!isDrawingSig) return;
     setIsDrawingSig(false);
+    const canvas = sigCanvasRef.current;
+    if (canvas) {
+      const data = canvas.toDataURL("image/png");
+      setDrawnSigDataUrl(data);
+      setSigDataUrl(data);
+      setPlacedFields((prev) =>
+        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: data, color: sigColor } : f))
+      );
+    }
   };
 
   const clearSigCanvas = () => {
@@ -1159,6 +1169,12 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       const ctx = canvas.getContext("2d");
       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+    setDrawnSigDataUrl(null);
+    const typedSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, sigColor);
+    setSigDataUrl(typedSig);
+    setPlacedFields((prev) =>
+      prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: typedSig, color: sigColor } : f))
+    );
   };
 
   const applySignatureModalConfig = () => {
@@ -3256,15 +3272,54 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     </div>
                   </div>
 
-                  {/* Section 1: Signature Generator (Type Name & 10 Font Styles) */}
+                  {/* Section 1: Signature Generator (Type Name, Draw Pad, and 10 Font Styles) */}
                   <div className="p-4 bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-2xl border border-indigo-100/80 shadow-xs space-y-3.5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <Type className="w-4 h-4 text-indigo-600" />
-                        <span>1. Type Name to Generate 10 Signature Styles:</span>
-                      </label>
+                    {/* Top Mode Selector Tabs + Ink Color Picker */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      {/* Creation Mode Tabs */}
+                      <div className="flex items-center gap-1 p-1 bg-slate-200/70 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setSigCreationMode("type")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                            sigCreationMode === "type"
+                              ? "bg-white text-indigo-700 shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Type className="w-3.5 h-3.5" />
+                          <span>Type Name</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSigCreationMode("draw")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                            sigCreationMode === "draw"
+                              ? "bg-white text-indigo-700 shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <PenTool className="w-3.5 h-3.5" />
+                          <span>Draw Pad</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSigCreationMode("upload")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                            sigCreationMode === "upload"
+                              ? "bg-white text-indigo-700 shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <UploadCloud className="w-3.5 h-3.5" />
+                          <span>Upload</span>
+                        </button>
+                      </div>
+
+                      {/* Ink Color Selector */}
                       <div className="flex items-center gap-2">
-                        {/* Ink Color Selector */}
                         <span className="text-[11px] font-bold text-slate-500">Ink Color:</span>
                         {[
                           { hex: "#0f172a", label: "Ink Black" },
@@ -3280,11 +3335,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               setSigColor(c.hex);
                               const newSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, c.hex);
                               const newInit = generateSignatureImage(sigInitials, sigSelectedFontIndex, c.hex);
-                              setSigDataUrl(newSig);
+                              if (sigCreationMode === "type" || !drawnSigDataUrl) {
+                                setSigDataUrl(newSig);
+                                setPlacedFields((prev) =>
+                                  prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig, color: c.hex } : f))
+                                );
+                              }
                               setInitialsDataUrl(newInit);
-                              setPlacedFields((prev) =>
-                                prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig, color: c.hex } : f))
-                              );
                             }}
                             className={`w-4 h-4 rounded-full transition cursor-pointer ${
                               sigColor === c.hex
@@ -3298,55 +3355,164 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      <div className="sm:col-span-2 relative">
-                        <input
-                          type="text"
-                          value={sigFullName}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSigFullName(val);
-                            const newSig = generateSignatureImage(val, sigSelectedFontIndex, sigColor);
-                            setSigDataUrl(newSig);
-                            setPlacedFields((prev) =>
-                              prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig } : f.type === "name" ? { ...f, content: val } : f))
-                            );
-                          }}
-                          placeholder="Type your full name (e.g. Subish M)..."
-                          className="w-full pl-3 pr-24 py-2.5 bg-white border-2 border-indigo-200 focus:border-indigo-600 rounded-xl text-sm font-bold text-slate-900 outline-hidden shadow-xs"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-indigo-600">
-                          Live Preview
-                        </span>
-                      </div>
+                    {/* Mode 1: Type Name Inputs */}
+                    {sigCreationMode === "type" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 animate-in fade-in">
+                        <div className="sm:col-span-2 relative">
+                          <input
+                            type="text"
+                            value={sigFullName}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSigFullName(val);
+                              const newSig = generateSignatureImage(val, sigSelectedFontIndex, sigColor);
+                              setSigDataUrl(newSig);
+                              setPlacedFields((prev) =>
+                                prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig } : f.type === "name" ? { ...f, content: val } : f))
+                              );
+                            }}
+                            placeholder="Type your full name (e.g. Subish M)..."
+                            className="w-full pl-3 pr-24 py-2.5 bg-white border-2 border-indigo-200 focus:border-indigo-600 rounded-xl text-sm font-bold text-slate-900 outline-hidden shadow-xs"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-indigo-600">
+                            Live Preview
+                          </span>
+                        </div>
 
-                      <div>
-                        <input
-                          type="text"
-                          value={sigInitials}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSigInitials(val);
-                            const newInit = generateSignatureImage(val, sigSelectedFontIndex, sigColor);
-                            setInitialsDataUrl(newInit);
-                            setPlacedFields((prev) =>
-                              prev.map((f) => (f.type === "initials" ? { ...f, dataUrl: newInit } : f))
-                            );
-                          }}
-                          placeholder="Initials (e.g. SM)"
-                          className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-sm font-bold text-slate-900 outline-hidden"
-                        />
+                        <div>
+                          <input
+                            type="text"
+                            value={sigInitials}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSigInitials(val);
+                              const newInit = generateSignatureImage(val, sigSelectedFontIndex, sigColor);
+                              setInitialsDataUrl(newInit);
+                              setPlacedFields((prev) =>
+                                prev.map((f) => (f.type === "initials" ? { ...f, dataUrl: newInit } : f))
+                              );
+                            }}
+                            placeholder="Initials (e.g. SM)"
+                            className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-sm font-bold text-slate-900 outline-hidden"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* 10 Signature Fonts Showcase Grid */}
+                    {/* Mode 2: Interactive Draw Pad */}
+                    {sigCreationMode === "draw" && (
+                      <div className="space-y-2 animate-in fade-in">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-bold text-slate-600">
+                            ✍️ Draw your signature below with mouse, trackpad, or finger:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={clearSigCanvas}
+                            className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded-md transition cursor-pointer"
+                          >
+                            Clear Pad
+                          </button>
+                        </div>
+
+                        <div className="relative w-full h-32 bg-white rounded-xl border-2 border-dashed border-indigo-300 overflow-hidden touch-none cursor-crosshair shadow-inner flex items-center justify-center">
+                          <canvas
+                            ref={sigCanvasRef}
+                            width={600}
+                            height={128}
+                            onMouseDown={startDrawingSig}
+                            onMouseMove={drawSig}
+                            onMouseUp={stopDrawingSig}
+                            onMouseLeave={stopDrawingSig}
+                            onTouchStart={startDrawingSig}
+                            onTouchMove={drawSig}
+                            onTouchEnd={stopDrawingSig}
+                            className="w-full h-full"
+                          />
+                          {!drawnSigDataUrl && !isDrawingSig && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-300 text-xs font-semibold">
+                              ✍️ Click and draw your signature here
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mode 3: Image Upload */}
+                    {sigCreationMode === "upload" && (
+                      <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center bg-white relative cursor-pointer animate-in fade-in">
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                if (ev.target?.result) {
+                                  const data = ev.target.result as string;
+                                  setDrawnSigDataUrl(data);
+                                  setSigDataUrl(data);
+                                  setPlacedFields((prev) =>
+                                    prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: data } : f))
+                                  );
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <UploadCloud className="w-6 h-6 mx-auto text-indigo-500 mb-1" />
+                        <p className="text-xs font-bold text-slate-700">Upload signature file (PNG/JPG)</p>
+                        <p className="text-[10px] text-slate-400">Transparent PNG recommended</p>
+                      </div>
+                    )}
+
+                    {/* 10 Signature Fonts Showcase Grid (Works for both Drawing and Typing!) */}
                     <div className="space-y-1.5">
-                      <span className="text-[11px] font-bold text-slate-600 block">
-                        Choose from 10 Signature Font Styles (Click to apply):
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-700 block">
+                          Change Signature Style Anytime (Click any font or your drawing):
+                        </span>
+                        {drawnSigDataUrl && (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            ✓ Hand Drawing Saved
+                          </span>
+                        )}
+                      </div>
+
                       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 max-h-56 overflow-y-auto p-1 scrollbar-thin">
+                        {/* If user has drawn a signature, show the "My Hand Drawing" card as well! */}
+                        {drawnSigDataUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSigDataUrl(drawnSigDataUrl);
+                              setPlacedFields((prev) =>
+                                prev.map((field) =>
+                                  field.type === "signature" ? { ...field, dataUrl: drawnSigDataUrl } : field
+                                )
+                              );
+                            }}
+                            className={`p-2.5 rounded-xl border text-center transition cursor-pointer flex flex-col justify-between h-20 group ${
+                              sigDataUrl === drawnSigDataUrl
+                                ? "bg-white border-indigo-600 ring-2 ring-indigo-600/30 shadow-md scale-102"
+                                : "bg-white/80 border-slate-200 hover:border-indigo-300 hover:bg-white"
+                            }`}
+                          >
+                            <div className="h-10 w-full flex items-center justify-center">
+                              <img src={drawnSigDataUrl} alt="My Drawing" className="max-h-9 w-auto object-contain" />
+                            </div>
+                            <span className={`text-[10px] font-bold block truncate mt-0.5 ${sigDataUrl === drawnSigDataUrl ? "text-indigo-700" : "text-slate-500"}`}>
+                              ✍️ My Hand Drawing
+                            </span>
+                          </button>
+                        )}
+
+                        {/* All 10 Signature Fonts */}
                         {signatureFonts.map((f, idx) => {
-                          const isSelected = sigSelectedFontIndex === idx;
+                          const isSelected = sigSelectedFontIndex === idx && sigDataUrl !== drawnSigDataUrl;
                           return (
                             <button
                               key={f.id}
@@ -3360,9 +3526,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                 setPlacedFields((prev) =>
                                   prev.map((field) =>
                                     field.type === "signature"
-                                      ? { ...field, dataUrl: newSig }
+                                      ? { ...field, dataUrl: newSig, color: sigColor }
                                       : field.type === "initials"
-                                      ? { ...field, dataUrl: newInit }
+                                      ? { ...field, dataUrl: newInit, color: sigColor }
                                       : field
                                   )
                                 );
@@ -3389,22 +3555,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           );
                         })}
                       </div>
-                    </div>
-
-                    {/* Quick Draw / Upload Alternatives */}
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-100/60">
-                      <span className="text-slate-500 text-[11px]">Need handwritten drawing or logo stamp?</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSigModalTab("signature");
-                          setIsSigConfigModalOpen(true);
-                        }}
-                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
-                      >
-                        <PenTool className="w-3 h-3" />
-                        <span>Draw Pad or Upload File...</span>
-                      </button>
                     </div>
                   </div>
 
