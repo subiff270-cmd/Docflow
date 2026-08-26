@@ -3853,15 +3853,35 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
                     {/* 10 Signature Fonts Showcase Grid (Works for both Drawing and Typing!) */}
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <span className="text-[11px] font-bold text-slate-700 block">
                           Change Signature Style Anytime (Click any font or your drawing):
                         </span>
-                        {drawnSigDataUrl && (
-                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            ✓ Hand Drawing Saved
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-[10px] font-bold text-slate-500">Signer Name:</label>
+                          <input
+                            type="text"
+                            value={sigFullName}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSigFullName(val);
+                              const newSig = generateSignatureImage(val, sigSelectedFontIndex, sigColor);
+                              if (!drawnSigDataUrl || sigDataUrl !== drawnSigDataUrl) {
+                                setSigDataUrl(newSig);
+                                setPlacedFields((prev) =>
+                                  prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig } : f.type === "name" ? { ...f, content: val } : f))
+                                );
+                              }
+                            }}
+                            placeholder="Type Name..."
+                            className="px-2.5 py-1 bg-white border border-indigo-200 focus:border-indigo-600 rounded-lg text-xs font-bold text-slate-800 outline-hidden w-32 sm:w-40 shadow-2xs"
+                          />
+                          {drawnSigDataUrl && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 whitespace-nowrap">
+                              ✓ Drawing Saved
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 max-h-56 overflow-y-auto p-1 scrollbar-thin">
