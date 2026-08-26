@@ -5126,7 +5126,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               handleSearchAndRedactMatches();
                             }
                           }}
-                          placeholder="Type word, name, or phrase to wipe across all pages (e.g. Varma, Confidential, 98765)..."
+                          placeholder="Type word, name, or phrase to wipe across all pages (e.g. Confidential, SSN, Account Number)..."
                           className="w-full pl-3 pr-20 py-2.5 bg-slate-50 border-2 border-indigo-200 focus:border-indigo-600 rounded-xl text-xs font-bold text-slate-900 outline-hidden shadow-2xs"
                         />
                         {redactSearchText && (
