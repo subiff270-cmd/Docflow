@@ -376,6 +376,87 @@ export async function clientSignPdf(
   };
 }
 
+export interface RedactBox {
+  id: string;
+  page: number; // 1-indexed
+  x: number; // 0-100 percentage
+  y: number; // 0-100 percentage
+  w: number; // 0-100 percentage
+  h: number; // 0-100 percentage
+  label?: string;
+}
+
+// 8.2 REDACT PDF (Client-side)
+export async function clientRedactPdf(
+  file: File,
+  boxes: RedactBox[],
+  color: string = "#000000",
+  wipeMetadata: boolean = true
+): Promise<ClientProcessResult> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const pages = pdf.getPages();
+  const font = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  let r = 0, g = 0, b = 0;
+  try {
+    if (color.startsWith("#") && color.length >= 7) {
+      r = parseInt(color.slice(1, 3), 16) / 255;
+      g = parseInt(color.slice(3, 5), 16) / 255;
+      b = parseInt(color.slice(5, 7), 16) / 255;
+    }
+  } catch {
+    r = 0; g = 0; b = 0;
+  }
+
+  for (const box of boxes) {
+    const pageIndex = Math.max(0, Math.min(pages.length - 1, (box.page || 1) - 1));
+    const page = pages[pageIndex];
+    const { width, height } = page.getSize();
+
+    const x = (box.x / 100) * width;
+    const w = (box.w / 100) * width;
+    const h = (box.h / 100) * height;
+    const y = Math.max(0, height - ((box.y + box.h) / 100) * height);
+
+    page.drawRectangle({
+      x,
+      y,
+      width: w,
+      height: h,
+      color: rgb(r, g, b),
+    });
+
+    if (box.label) {
+      const fontSize = Math.max(8, Math.min(14, h * 0.4));
+      page.drawText(box.label, {
+        x: x + 4,
+        y: y + (h - fontSize) / 2,
+        size: fontSize,
+        font,
+        color: rgb(1 - r, 1 - g, 1 - b),
+      });
+    }
+  }
+
+  if (wipeMetadata) {
+    pdf.setTitle("");
+    pdf.setAuthor("");
+    pdf.setSubject("");
+    pdf.setKeywords([]);
+    pdf.setProducer("");
+    pdf.setCreator("");
+  }
+
+  const outBytes = await pdf.save();
+  const blob = new Blob([outBytes as BlobPart], { type: "application/pdf" });
+  return {
+    blob,
+    filename: `redacted_${file.name}`,
+    size: blob.size,
+  };
+}
+
 // 9. JPG / IMAGE TO PDF (Client-side with Canvas Auto-Conversion)
 export async function clientImageToPdf(files: File[]): Promise<ClientProcessResult> {
   const pdf = await PDFDocument.create();

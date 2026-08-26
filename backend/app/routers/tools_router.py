@@ -740,6 +740,8 @@ async def api_redact_pdf(
     file: UploadFile = File(...),
     search_text: str = Form(""),
     redact_rects_json: str = Form("[]"),
+    color: str = Form("#000000"),
+    wipe_metadata: bool = Form(True),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -751,7 +753,7 @@ async def api_redact_pdf(
 
     try:
         rects = json.loads(redact_rects_json)
-        redacted = pdf_service.redact_pdf(content, search_text, rects)
+        redacted = pdf_service.redact_pdf(content, search_text, rects, color, wipe_metadata)
         out_name = f"redacted_{file.filename}"
         item = save_generated_bytes(db, redacted, out_name, "application/pdf", uid)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}

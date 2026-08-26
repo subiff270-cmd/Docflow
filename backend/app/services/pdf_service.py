@@ -642,29 +642,50 @@ def sign_pdf(file_bytes: bytes, signature_image_bytes: bytes = b"", page_num: in
     doc.close()
     return out
 
-def redact_pdf(file_bytes: bytes, search_text: str = "", redact_rects: list[dict] = None) -> bytes:
-    """True PDF redaction removing underlying text/content streams."""
+def redact_pdf(
+    file_bytes: bytes,
+    search_text: str = "",
+    redact_rects: list[dict] = None,
+    color: str = "#000000",
+    wipe_metadata: bool = True
+) -> bytes:
+    """True PDF redaction permanently wiping underlying text/content streams and metadata."""
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     
+    # Parse redaction fill color
+    r, g, b = 0.0, 0.0, 0.0
+    if color and color.startswith("#") and len(color) >= 7:
+        try:
+            r = int(color[1:3], 16) / 255.0
+            g = int(color[3:5], 16) / 255.0
+            b = int(color[5:7], 16) / 255.0
+        except Exception:
+            r, g, b = 0.0, 0.0, 0.0
+
     for page in doc:
         if search_text:
-            text_instances = page.search_for(search_text)
-            for inst in text_instances:
-                page.add_redact_annot(inst, text="[REDACTED]", fill=(0, 0, 0))
+            phrases = [p.strip() for p in search_text.split(",") if p.strip()] or [search_text]
+            for phrase in phrases:
+                text_instances = page.search_for(phrase)
+                for inst in text_instances:
+                    page.add_redact_annot(inst, fill=(r, g, b))
         
         if redact_rects:
             rect = page.rect
-            for r in redact_rects:
-                if r.get("page", 1) == page.number + 1:
-                    rx0 = (r["x"] / 100.0) * rect.width
-                    ry0 = (r["y"] / 100.0) * rect.height
-                    rx1 = rx0 + (r["w"] / 100.0) * rect.width
-                    ry1 = ry0 + (r["h"] / 100.0) * rect.height
-                    page.add_redact_annot(fitz.Rect(rx0, ry0, rx1, ry1), fill=(0, 0, 0))
+            for box in redact_rects:
+                if box.get("page", 1) == page.number + 1:
+                    rx0 = (box["x"] / 100.0) * rect.width
+                    ry0 = (box["y"] / 100.0) * rect.height
+                    rx1 = rx0 + (box["w"] / 100.0) * rect.width
+                    ry1 = ry0 + (box["h"] / 100.0) * rect.height
+                    page.add_redact_annot(fitz.Rect(rx0, ry0, rx1, ry1), fill=(r, g, b))
 
         page.apply_redactions()
 
-    out = doc.tobytes()
+    if wipe_metadata:
+        doc.set_metadata({})
+
+    out = doc.tobytes(deflate=True, garbage=4, clean=True)
     doc.close()
     return out
 

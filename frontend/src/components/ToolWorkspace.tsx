@@ -16,6 +16,8 @@ import {
   clientCropPdf,
   clientSignPdf,
   PlacedSignField,
+  clientRedactPdf,
+  RedactBox,
   clientImageToPdf,
   clientResizeImage,
   clientCropImage,
@@ -868,6 +870,30 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     fieldId: string;
   }>({ startX: 0, startY: 0, initialX: 0, initialY: 0, initialW: 0, initialH: 0, fieldId: "" });
 
+  // =========================================================================
+  // ADVANCED REDACT PDF STUDIO STATE & ENGINE
+  // =========================================================================
+  const [redactSearchText, setRedactSearchText] = useState<string>("");
+  const [redactBoxes, setRedactBoxes] = useState<RedactBox[]>([]);
+  const [activeRedactBoxId, setActiveRedactBoxId] = useState<string | null>(null);
+  const [redactColor, setRedactColor] = useState<string>("#000000");
+  const [redactLabelText, setRedactLabelText] = useState<string>("[REDACTED]");
+  const [redactWipeMetadata, setRedactWipeMetadata] = useState<boolean>(true);
+  const [redactPageNum, setRedactPageNum] = useState<number>(1);
+  const [redactThumbnails, setRedactThumbnails] = useState<Array<{ page_num: number; thumbnail: string }>>([]);
+  const [redactPreviewUrl, setRedactPreviewUrl] = useState<string | null>(null);
+  const redactContainerRef = useRef<HTMLDivElement>(null);
+  const [activeRedactDragHandle, setActiveRedactDragHandle] = useState<string | null>(null);
+  const redactDragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    initialW: number;
+    initialH: number;
+    boxId: string;
+  }>({ startX: 0, startY: 0, initialX: 0, initialY: 0, initialW: 0, initialH: 0, boxId: "" });
+
   const signatureFonts = [
     { id: "dancing-script", name: "1. Dancing Script (Classic Cursive)", style: "'Dancing Script', cursive", size: 66 },
     { id: "caveat", name: "2. Modern Caveat (Natural Flow)", style: "'Caveat', cursive", size: 70 },
@@ -1004,6 +1030,38 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     }
   }, [files, tool.id]);
 
+  useEffect(() => {
+    if (tool.id === "redact-pdf" && files.length > 0 && files[0]) {
+      let isMounted = true;
+      fetchPdfThumbnails(files[0])
+        .then((res) => {
+          if (isMounted && res.success && Array.isArray(res.thumbnails) && res.thumbnails.length > 0) {
+            setRedactThumbnails(res.thumbnails);
+            setRedactPreviewUrl(res.thumbnails[0].thumbnail);
+            setRedactPageNum(1);
+            setRedactBoxes([
+              {
+                id: "redact-1",
+                page: 1,
+                x: 20,
+                y: 30,
+                w: 50,
+                h: 6,
+                label: "[REDACTED]",
+              },
+            ]);
+          }
+        })
+        .catch((err) => console.warn("Failed to load PDF redact preview:", err));
+      return () => { isMounted = false; };
+    } else if (tool.id === "redact-pdf") {
+      setRedactThumbnails([]);
+      setRedactPreviewUrl(null);
+      setRedactPageNum(1);
+      setRedactBoxes([]);
+    }
+  }, [files, tool.id]);
+
   const handleSwitchSigPage = (pageNum: number) => {
     setSigPageNum(pageNum);
     const targetThumb = sigThumbnails.find((t) => t.page_num === pageNum);
@@ -1011,6 +1069,104 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       setSigPreviewUrl(targetThumb.thumbnail);
     }
   };
+
+  const handleSwitchRedactPage = (pageNum: number) => {
+    setRedactPageNum(pageNum);
+    const targetThumb = redactThumbnails.find((t) => t.page_num === pageNum);
+    if (targetThumb) {
+      setRedactPreviewUrl(targetThumb.thumbnail);
+    }
+  };
+
+  const addRedactBox = (preset?: "custom" | "line" | "box") => {
+    const id = `redact-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    const newBox: RedactBox = {
+      id,
+      page: redactPageNum,
+      x: preset === "line" ? 15 : 25,
+      y: preset === "line" ? 40 : 35,
+      w: preset === "line" ? 70 : 40,
+      h: preset === "line" ? 5 : 12,
+      label: redactLabelText || undefined,
+    };
+    setRedactBoxes((prev) => [...prev, newBox]);
+    setActiveRedactBoxId(id);
+  };
+
+  const deleteRedactBox = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setRedactBoxes((prev) => prev.filter((b) => b.id !== id));
+    if (activeRedactBoxId === id) setActiveRedactBoxId(null);
+  };
+
+  const duplicateRedactBox = (box: RedactBox, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const newBox: RedactBox = {
+      ...box,
+      id: `redact-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      x: Math.min(75, box.x + 4),
+      y: Math.min(80, box.y + 4),
+    };
+    setRedactBoxes((prev) => [...prev, newBox]);
+    setActiveRedactBoxId(newBox.id);
+  };
+
+  const handleRedactBoxMouseDown = (e: React.MouseEvent, box: RedactBox, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveRedactBoxId(box.id);
+    setActiveRedactDragHandle(handle);
+    redactDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: box.x,
+      initialY: box.y,
+      initialW: box.w,
+      initialH: box.h,
+      boxId: box.id,
+    };
+  };
+
+  useEffect(() => {
+    if (!activeRedactDragHandle) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const { startX, startY, initialX, initialY, initialW, initialH, boxId } = redactDragStartRef.current;
+      const container = redactContainerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const deltaXPct = ((e.clientX - startX) / rect.width) * 100;
+      const deltaYPct = ((e.clientY - startY) / rect.height) * 100;
+
+      setRedactBoxes((prev) =>
+        prev.map((b) => {
+          if (b.id !== boxId) return b;
+          if (activeRedactDragHandle === "move") {
+            const newX = Math.max(0, Math.min(100 - b.w, Math.round(initialX + deltaXPct)));
+            const newY = Math.max(0, Math.min(100 - b.h, Math.round(initialY + deltaYPct)));
+            return { ...b, x: newX, y: newY };
+          } else if (activeRedactDragHandle === "se") {
+            const newW = Math.max(6, Math.min(100 - b.x, Math.round(initialW + deltaXPct)));
+            const newH = Math.max(3, Math.min(100 - b.y, Math.round(initialH + deltaYPct)));
+            return { ...b, w: newW, h: newH };
+          }
+          return b;
+        })
+      );
+    };
+
+    const handleMouseUp = () => {
+      setActiveRedactDragHandle(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [activeRedactDragHandle]);
 
   const addPlacedField = (type: "signature" | "initials" | "name" | "date" | "text" | "stamp") => {
     const id = `field-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
@@ -1734,6 +1890,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           dataUrl: sigDataUrl || generateSignatureImage(sigFullName, sigSelectedFontIndex, sigColor)
         }];
         clientRes = await clientSignPdf(files[0], fieldsToProcess, sigDataUrl || undefined);
+      } else if (tool.id === "redact-pdf" && files[0]) {
+        clientRes = await clientRedactPdf(files[0], redactBoxes, redactColor, redactWipeMetadata);
       } else if (tool.id === "convert-image" && files[0]) {
         clientRes = await clientConvertImage(files[0], "webp");
       } else if (tool.id === "organize-pdf" && files.length > 0 && organizePages.length > 0) {
@@ -1795,6 +1953,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       formData.append("rotation", watermarkPosition === "center" ? "0" : "45");
     } else if (tool.id === "add-page-numbers") {
       formData.append("position", pageNumberPosition);
+    } else if (tool.id === "redact-pdf") {
+      formData.append("search_text", redactSearchText);
+      formData.append("redact_rects_json", JSON.stringify(redactBoxes));
+      formData.append("color", redactColor);
+      formData.append("wipe_metadata", String(redactWipeMetadata));
     } else if (tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") {
       formData.append("language", ocrLanguage);
     } else if (tool.id === "crop-pdf") {
@@ -4804,16 +4967,300 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
-              {/* Redact PDF */}
+              {/* Redact PDF Studio (Interactive Multi-Page Redactor) */}
               {tool.id === "redact-pdf" && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Text to Permanently Redact</label>
-                  <input
-                    type="text"
-                    placeholder="Enter sensitive word or phrase (e.g. Confidential, SSN, Account Number)"
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                    defaultValue="CONFIDENTIAL"
-                  />
+                <div className="space-y-4">
+                  {/* Top Bar: Redaction Actions & Color Selector */}
+                  <div className="p-4 bg-slate-900 text-white rounded-2xl shadow-lg space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center font-bold text-xs">
+                          🛡️
+                        </span>
+                        <div>
+                          <h4 className="text-xs font-bold text-white">Interactive Redaction Studio</h4>
+                          <p className="text-[10px] text-slate-400">
+                            Draw & place black bars over sensitive areas to permanently erase them
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick Add Buttons */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => addRedactBox("custom")}
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-md shadow-red-500/20 flex items-center gap-1"
+                        >
+                          <span>+ Redaction Box</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addRedactBox("line")}
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                        >
+                          <span>+ Full Line</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Redaction Style, Label & Metadata Options */}
+                    <div className="pt-2.5 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+                      {/* Color Options */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-400">Style:</span>
+                        {[
+                          { hex: "#000000", label: "⬛ Black Bar" },
+                          { hex: "#ffffff", label: "⬜ Whiteout" },
+                          { hex: "#334155", label: "🔲 Dark Slate" },
+                        ].map((c) => (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            onClick={() => setRedactColor(c.hex)}
+                            className={`px-2 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                              redactColor === c.hex
+                                ? "bg-slate-700 text-white ring-1 ring-white/40"
+                                : "text-slate-400 hover:text-white hover:bg-slate-800"
+                            }`}
+                          >
+                            <span>{c.label}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Label Stamp */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-400">Stamp:</span>
+                        <input
+                          type="text"
+                          value={redactLabelText}
+                          onChange={(e) => setRedactLabelText(e.target.value)}
+                          placeholder="None (Solid)"
+                          className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-mono w-28 outline-hidden focus:border-red-500"
+                        />
+                      </div>
+
+                      {/* Metadata Wiping */}
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300 font-medium select-none">
+                        <input
+                          type="checkbox"
+                          checked={redactWipeMetadata}
+                          onChange={(e) => setRedactWipeMetadata(e.target.checked)}
+                          className="rounded-sm accent-red-600 cursor-pointer"
+                        />
+                        <span>Wipe Document Metadata (Author, History)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Search & Redact All Feature */}
+                  <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Search & Redact All Occurrences (Across All Pages):</span>
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={redactSearchText}
+                        onChange={(e) => setRedactSearchText(e.target.value)}
+                        placeholder="Type word, name, or phrase to wipe across all pages (e.g. Confidential, Jane Doe, 98765)..."
+                        className="w-full pl-3 pr-24 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-semibold text-slate-900 outline-hidden"
+                      />
+                      {redactSearchText && (
+                        <button
+                          type="button"
+                          onClick={() => setRedactSearchText("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Quick Pattern Presets */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold text-slate-400">Quick Presets:</span>
+                      {[
+                        { label: "CONFIDENTIAL", val: "CONFIDENTIAL" },
+                        { label: "SECRET", val: "SECRET" },
+                        { label: "SSN / ID Number", val: "SSN, Social Security, ID Number" },
+                        { label: "Bank Account", val: "Account Number, Routing Number, IBAN" },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setRedactSearchText(preset.val)}
+                          className="px-2 py-0.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 rounded-lg text-[10px] font-semibold transition cursor-pointer"
+                        >
+                          + {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Multi-Page Visual Redactor Canvas */}
+                  <div className="p-3.5 bg-slate-100/80 rounded-2xl border border-slate-200/80 space-y-2.5">
+                    {/* Document Page Navigation Toolbar */}
+                    <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200/80 shadow-2xs">
+                      {/* Left: Page Stepper */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={redactPageNum <= 1}
+                          onClick={() => handleSwitchRedactPage(redactPageNum - 1)}
+                          className="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                          title="Previous Page"
+                        >
+                          ←
+                        </button>
+
+                        <div className="flex items-center gap-1 text-xs font-bold text-slate-800">
+                          <span>Page</span>
+                          <select
+                            value={redactPageNum}
+                            onChange={(e) => handleSwitchRedactPage(Number(e.target.value))}
+                            className="bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5 text-xs font-bold text-indigo-700 cursor-pointer outline-hidden"
+                          >
+                            {(redactThumbnails.length > 0 ? redactThumbnails : [{ page_num: 1 }]).map((t) => (
+                              <option key={t.page_num} value={t.page_num}>
+                                {t.page_num}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-slate-400 font-normal">/ {redactThumbnails.length || 1}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={redactPageNum >= redactThumbnails.length}
+                          onClick={() => handleSwitchRedactPage(redactPageNum + 1)}
+                          className="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                          title="Next Page"
+                        >
+                          →
+                        </button>
+                      </div>
+
+                      {/* Right: Page Redaction Count & Clear */}
+                      <div className="flex items-center gap-2">
+                        {redactBoxes.filter((b) => b.page === redactPageNum).length > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+                              🛡️ {redactBoxes.filter((b) => b.page === redactPageNum).length} Marked for Redaction
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRedactBoxes((prev) => prev.filter((b) => b.page !== redactPageNum))}
+                              className="px-2 py-1 text-[11px] font-bold text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer flex items-center gap-1"
+                              title="Remove redaction boxes from this page"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Clear Page</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                            No manual boxes on this page
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Interactive Canvas Viewport */}
+                    <div
+                      ref={redactContainerRef}
+                      className="relative w-full bg-slate-900/90 rounded-2xl overflow-hidden shadow-inner border border-slate-300 select-none flex items-center justify-center min-h-[420px] max-h-[520px]"
+                    >
+                      {redactPreviewUrl ? (
+                        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                          {/* Document Page Image */}
+                          <img
+                            src={redactPreviewUrl}
+                            alt={`Redact Page ${redactPageNum}`}
+                            className="max-h-[480px] w-auto object-contain pointer-events-none"
+                          />
+
+                          {/* Render All Redaction Boxes for Current Page */}
+                          {redactBoxes
+                            .filter((b) => b.page === redactPageNum)
+                            .map((box) => {
+                              const isSelected = activeRedactBoxId === box.id;
+                              return (
+                                <div
+                                  key={box.id}
+                                  style={{
+                                    left: `${box.x}%`,
+                                    top: `${box.y}%`,
+                                    width: `${box.w}%`,
+                                    height: `${box.h}%`,
+                                    backgroundColor: redactColor,
+                                  }}
+                                  onMouseDown={(e) => handleRedactBoxMouseDown(e, box, "move")}
+                                  className={`absolute rounded-xs cursor-move pointer-events-auto select-none flex items-center justify-center transition-shadow group/box ${
+                                    isSelected
+                                      ? "border-2 border-red-500 shadow-xl ring-2 ring-red-500/30"
+                                      : "border border-red-400/80 hover:border-red-600"
+                                  }`}
+                                >
+                                  {/* Floating Toolbar on Selected Redaction Box */}
+                                  {isSelected && (
+                                    <div className="absolute -top-7 left-0 flex items-center gap-1 bg-slate-950 text-white rounded-md px-1.5 py-0.5 text-[10px] font-bold shadow-md z-30 pointer-events-auto">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => duplicateRedactBox(box, e)}
+                                        className="hover:text-red-300 p-0.5 cursor-pointer"
+                                        title="Duplicate box"
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => deleteRedactBox(box.id, e)}
+                                        className="hover:text-red-400 p-0.5 cursor-pointer ml-1"
+                                        title="Remove box"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Optional Label inside Redaction Box */}
+                                  {box.label && (
+                                    <span
+                                      className={`text-[9px] font-mono font-bold select-none truncate px-1 ${
+                                        redactColor === "#ffffff" ? "text-slate-900" : "text-white/80"
+                                      }`}
+                                    >
+                                      {box.label}
+                                    </span>
+                                  )}
+
+                                  {/* Resize Corner Handle */}
+                                  {isSelected && (
+                                    <div
+                                      onMouseDown={(e) => handleRedactBoxMouseDown(e, box, "se")}
+                                      className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-red-600 border-2 border-white rounded-full shadow-md cursor-se-resize hover:scale-125 transition-transform"
+                                      title="Drag corner to resize"
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })}
+                        </div>
+                      ) : (
+                        <div className="text-center p-8 text-white/70 space-y-2">
+                          <FileText className="w-10 h-10 mx-auto text-red-400 opacity-80" />
+                          <p className="text-xs font-bold">Document Loaded</p>
+                          <p className="text-[11px] text-white/50">{redactBoxes.length} redaction box(es) placed</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -4936,7 +5383,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               ) : (
                 <>
-                  <span>{tool.id === "organize-pdf" ? "Save & Download Organized PDF" : `Process ${tool.name}`}</span>
+                  <span>
+                    {tool.id === "organize-pdf"
+                      ? "Save & Download Organized PDF"
+                      : tool.id === "sign-pdf"
+                      ? `Sign & Download PDF (${placedFields.length} placed)`
+                      : tool.id === "redact-pdf"
+                      ? `Permanently Redact PDF (${redactBoxes.length} marked area${redactBoxes.length === 1 ? "" : "s"})`
+                      : `Process ${tool.name}`}
+                  </span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
