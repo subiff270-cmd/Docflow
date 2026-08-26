@@ -2370,7 +2370,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             "split-pdf", "remove-pages", "extract-pages", "compress-pdf",
             "rotate-pdf", "unlock-pdf", "protect-pdf", "add-watermark",
             "ocr-pdf", "indian-language-documents", "image-to-text", "crop-pdf",
-            "resize-image", "crop-image", "convert-image", "add-page-numbers", "redact-pdf"
+            "resize-image", "crop-image", "convert-image", "add-page-numbers", "redact-pdf", "sign-pdf"
           ].includes(tool.id) && (
             <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
