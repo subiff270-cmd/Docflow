@@ -277,39 +277,93 @@ export async function clientCropPdf(
   };
 }
 
+export interface PlacedSignField {
+  id: string;
+  type: "signature" | "initials" | "name" | "date" | "text" | "stamp";
+  page: number; // 1-indexed
+  x: number; // 0-100 percentage
+  y: number; // 0-100 percentage
+  w: number; // 0-100 percentage
+  h: number; // 0-100 percentage
+  content?: string;
+  dataUrl?: string;
+  color?: string;
+}
+
 // 8.1 SIGN PDF (Client-side)
 export async function clientSignPdf(
   file: File,
-  signatureDataUrl: string,
-  pageNum: number = 1,
-  pctX: number = 10,
-  pctY: number = 10,
-  pctW: number = 25,
-  pctH: number = 10
+  placedFields: PlacedSignField[],
+  fallbackSigDataUrl?: string
 ): Promise<ClientProcessResult> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
   const pages = pdf.getPages();
-  const targetIndex = Math.max(0, Math.min(pages.length - 1, pageNum - 1));
-  const page = pages[targetIndex];
+  const font = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  const sigBytes = await fetch(signatureDataUrl).then((res) => res.arrayBuffer());
-  const sigImage = signatureDataUrl.includes("image/jpeg") || signatureDataUrl.includes("image/jpg")
-    ? await pdf.embedJpg(sigBytes)
-    : await pdf.embedPng(sigBytes);
+  const fields: PlacedSignField[] = placedFields.length > 0 ? placedFields : fallbackSigDataUrl ? [{
+    id: "default-sig",
+    type: "signature" as const,
+    page: 1,
+    x: 35,
+    y: 75,
+    w: 28,
+    h: 12,
+    dataUrl: fallbackSigDataUrl
+  }] : [];
 
-  const { width, height } = page.getSize();
-  const x = (pctX / 100) * width;
-  const w = (pctW / 100) * width;
-  const h = (pctH / 100) * height;
-  const y = Math.max(0, height - ((pctY + pctH) / 100) * height);
+  for (const field of fields) {
+    const pageIndex = Math.max(0, Math.min(pages.length - 1, (field.page || 1) - 1));
+    const page = pages[pageIndex];
+    const { width, height } = page.getSize();
 
-  page.drawImage(sigImage, {
-    x,
-    y,
-    width: w,
-    height: h,
-  });
+    const x = (field.x / 100) * width;
+    const w = (field.w / 100) * width;
+    const h = (field.h / 100) * height;
+    const y = Math.max(0, height - ((field.y + field.h) / 100) * height);
+
+    if (field.dataUrl && (field.type === "signature" || field.type === "initials" || field.type === "stamp")) {
+      try {
+        const sigBytes = await fetch(field.dataUrl).then((res) => res.arrayBuffer());
+        const sigImage = field.dataUrl.includes("image/jpeg") || field.dataUrl.includes("image/jpg")
+          ? await pdf.embedJpg(sigBytes)
+          : await pdf.embedPng(sigBytes);
+
+        page.drawImage(sigImage, {
+          x,
+          y,
+          width: w,
+          height: h,
+        });
+      } catch (err) {
+        console.warn("Failed to embed image signature field:", err);
+      }
+    } else {
+      const textToDraw = field.content || (field.type === "date" ? new Date().toLocaleDateString("en-GB") : field.type === "name" ? "Signer Name" : "Sample Text");
+      if (textToDraw) {
+        const fontSize = Math.max(11, Math.min(22, (h * 0.45)));
+        const hexColor = field.color || "#0f172a";
+        let r = 0, g = 0, b = 0;
+        try {
+          if (hexColor.startsWith("#") && hexColor.length >= 7) {
+            r = parseInt(hexColor.slice(1, 3), 16) / 255;
+            g = parseInt(hexColor.slice(3, 5), 16) / 255;
+            b = parseInt(hexColor.slice(5, 7), 16) / 255;
+          }
+        } catch {
+          r = 0; g = 0; b = 0;
+        }
+
+        page.drawText(textToDraw, {
+          x: x + 4,
+          y: y + (h * 0.25),
+          size: fontSize,
+          font,
+          color: rgb(r, g, b),
+        });
+      }
+    }
+  }
 
   const outBytes = await pdf.save();
   const blob = new Blob([outBytes as BlobPart], { type: "application/pdf" });

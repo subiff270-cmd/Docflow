@@ -709,25 +709,26 @@ async def api_protect_pdf(
 @router.post("/sign-pdf")
 async def api_sign_pdf(
     file: UploadFile = File(...),
-    signature: UploadFile = File(...),
+    signature: Optional[UploadFile] = File(None),
     page: int = Form(1),
     x: float = Form(10),
     y: float = Form(10),
     w: float = Form(20),
     h: float = Form(10),
+    placed_fields_json: Optional[str] = Form(None),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     uid = get_uid_from_header(x_firebase_uid)
     pdf_b = await file.read()
-    sig_b = await signature.read()
+    sig_b = await signature.read() if signature else b""
 
     allowed, msg = check_user_quota(db, uid, (len(pdf_b) + len(sig_b)) / (1024*1024))
     if not allowed:
         raise HTTPException(status_code=403, detail=msg)
 
     try:
-        signed = pdf_service.sign_pdf(pdf_b, sig_b, page, x, y, w, h)
+        signed = pdf_service.sign_pdf(pdf_b, sig_b, page, x, y, w, h, placed_fields_json=placed_fields_json)
         out_name = f"signed_{file.filename}"
         item = save_generated_bytes(db, signed, out_name, "application/pdf", uid)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}

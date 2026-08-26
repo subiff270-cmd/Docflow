@@ -589,20 +589,54 @@ def protect_pdf(file_bytes: bytes, password: str) -> bytes:
     doc.close()
     return out
 
-def sign_pdf(file_bytes: bytes, signature_image_bytes: bytes, page_num: int, x: float, y: float, w: float, h: float) -> bytes:
+def sign_pdf(file_bytes: bytes, signature_image_bytes: bytes = b"", page_num: int = 1, x: float = 10, y: float = 10, w: float = 20, h: float = 10, placed_fields_json: Optional[str] = None) -> bytes:
     doc = fitz.open(stream=file_bytes, filetype="pdf")
-    if 1 <= page_num <= len(doc):
-        page = doc[page_num - 1]
-        rect = page.rect
-        
-        # Coordinates in points
-        rx0 = (x / 100.0) * rect.width
-        ry0 = (y / 100.0) * rect.height
-        rx1 = rx0 + (w / 100.0) * rect.width
-        ry1 = ry0 + (h / 100.0) * rect.height
-        
-        img_rect = fitz.Rect(rx0, ry0, rx1, ry1)
-        page.insert_image(img_rect, stream=signature_image_bytes)
+    fields = []
+    if placed_fields_json:
+        try:
+            fields = json.loads(placed_fields_json)
+        except Exception:
+            fields = []
+
+    if not fields and signature_image_bytes:
+        fields = [{
+            "type": "signature",
+            "page": page_num,
+            "x": x, "y": y, "w": w, "h": h,
+            "raw_bytes": signature_image_bytes
+        }]
+
+    for f in fields:
+        p_num = int(f.get("page", 1))
+        if 1 <= p_num <= len(doc):
+            page = doc[p_num - 1]
+            rect = page.rect
+            fx = float(f.get("x", 10))
+            fy = float(f.get("y", 10))
+            fw = float(f.get("w", 20))
+            fh = float(f.get("h", 10))
+
+            rx0 = (fx / 100.0) * rect.width
+            ry0 = (fy / 100.0) * rect.height
+            rx1 = rx0 + (fw / 100.0) * rect.width
+            ry1 = ry0 + (fh / 100.0) * rect.height
+            stamp_rect = fitz.Rect(rx0, ry0, rx1, ry1)
+
+            data_url = f.get("dataUrl", "")
+            field_type = f.get("type", "signature")
+
+            if data_url and (field_type in ["signature", "initials", "stamp"]):
+                try:
+                    header, encoded = data_url.split(",", 1)
+                    img_bytes = base64.b64decode(encoded)
+                    page.insert_image(stamp_rect, stream=img_bytes)
+                except Exception as err:
+                    print("Error inserting signature image in fitz:", err)
+            elif f.get("raw_bytes"):
+                page.insert_image(stamp_rect, stream=f["raw_bytes"])
+            else:
+                txt = f.get("content") or ("Signer Name" if field_type == "name" else "Text")
+                page.insert_textbox(stamp_rect, txt, fontsize=12, color=(0.1, 0.1, 0.15))
 
     out = doc.tobytes()
     doc.close()
