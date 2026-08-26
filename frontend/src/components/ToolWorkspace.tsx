@@ -3417,22 +3417,30 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       </span>
 
                       {/* Multi-Page Placement Actions */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => applyPlacementPreset("bottom-right")}
+                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-xs"
+                          title="Place signature on the current viewing page"
+                        >
+                          ✍️ Place on Page {sigPageNum}
+                        </button>
                         <button
                           type="button"
                           onClick={copySignaturesToLastPage}
                           className="px-2.5 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs"
                           title="Place signature on the last page of document"
                         >
-                          📜 Apply to Last Page (Contracts)
+                          📜 Sign Last Page (Contracts)
                         </button>
                         <button
                           type="button"
                           onClick={copySignaturesToAllPages}
-                          className="px-2.5 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs"
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-xs"
                           title="Stamp this signature onto every page in PDF"
                         >
-                          📑 Apply to ALL Pages
+                          📑 Sign ALL {sigThumbnails.length || ""} Pages
                         </button>
                       </div>
                     </div>
@@ -3463,10 +3471,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     {/* Left Sidebar: Multi-Page Thumbnails */}
                     {sigThumbnails.length > 0 && (
-                      <div className="lg:col-span-2 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto max-h-[500px] p-2 bg-slate-50 rounded-2xl border border-slate-200 scrollbar-thin">
-                        <span className="hidden lg:block text-[10px] font-bold text-slate-400 uppercase px-1 mb-1">
-                          Pages ({sigThumbnails.length})
-                        </span>
+                      <div className="lg:col-span-2 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto max-h-[520px] p-2 bg-slate-50 rounded-2xl border border-slate-200 scrollbar-thin">
+                        <div className="hidden lg:flex items-center justify-between px-1 mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">
+                            Pages ({sigThumbnails.length})
+                          </span>
+                          <span className="text-[9px] text-slate-400">Click to switch</span>
+                        </div>
                         {sigThumbnails.map((t) => {
                           const pageFieldsCount = placedFields.filter((f) => f.page === t.page_num).length;
                           const isActive = sigPageNum === t.page_num;
@@ -3477,19 +3488,26 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               onClick={() => handleSwitchSigPage(t.page_num)}
                               className={`shrink-0 relative rounded-xl border transition cursor-pointer p-1 group text-left ${
                                 isActive
-                                  ? "border-indigo-600 ring-2 ring-indigo-600/30 bg-white shadow-sm"
+                                  ? "border-indigo-600 ring-3 ring-indigo-600/30 bg-white shadow-md scale-102"
+                                  : pageFieldsCount > 0
+                                  ? "border-emerald-300 bg-emerald-50/40 hover:border-emerald-400"
                                   : "border-slate-200 hover:border-slate-300 bg-white opacity-80 hover:opacity-100"
                               }`}
                             >
-                              <div className="w-16 h-22 lg:w-full lg:h-28 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center">
+                              <div className="w-16 h-22 lg:w-full lg:h-28 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center relative">
                                 <img src={t.thumbnail} alt={`Page ${t.page_num}`} className="w-full h-full object-contain pointer-events-none" />
+                                {pageFieldsCount > 0 && (
+                                  <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold shadow-xs flex items-center gap-0.5">
+                                    ✓ {pageFieldsCount}
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center justify-between text-[10px] font-bold mt-1 px-0.5">
-                                <span className={isActive ? "text-indigo-600" : "text-slate-700"}>Page {t.page_num}</span>
-                                {pageFieldsCount > 0 && (
-                                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] flex items-center justify-center font-bold">
-                                    {pageFieldsCount}
-                                  </span>
+                                <span className={isActive ? "text-indigo-600 font-extrabold" : pageFieldsCount > 0 ? "text-emerald-700" : "text-slate-700"}>
+                                  Page {t.page_num}
+                                </span>
+                                {isActive && (
+                                  <span className="text-[9px] text-indigo-600 font-bold">Active</span>
                                 )}
                               </div>
                             </button>
@@ -3500,28 +3518,53 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
                     {/* Center Document Placement Canvas */}
                     <div className={`${sigThumbnails.length > 0 ? "lg:col-span-6" : "lg:col-span-8"} space-y-2`}>
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span className="font-bold text-slate-700">Document Canvas (Page {sigPageNum})</span>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 bg-slate-100/70 p-2 rounded-xl border border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800">Signing Page:</span>
+                          <select
+                            value={sigPageNum}
+                            onChange={(e) => handleSwitchSigPage(Number(e.target.value))}
+                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
+                          >
+                            {sigThumbnails.map((t) => (
+                              <option key={t.page_num} value={t.page_num}>
+                                Page {t.page_num} {placedFields.some((f) => f.page === t.page_num) ? "✓ (Signed)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             disabled={sigPageNum <= 1}
                             onClick={() => handleSwitchSigPage(sigPageNum - 1)}
-                            className="px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[11px] font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed"
+                            className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed"
                           >
-                            ← Prev
+                            ← Prev Page
                           </button>
-                          <span className="text-[11px] font-bold text-slate-600">
+                          <span className="text-[11px] font-bold text-slate-600 px-1">
                             {sigPageNum} / {sigThumbnails.length || 1}
                           </span>
                           <button
                             type="button"
                             disabled={sigPageNum >= sigThumbnails.length}
                             onClick={() => handleSwitchSigPage(sigPageNum + 1)}
-                            className="px-2 py-0.5 bg-white border border-slate-200 rounded-md text-[11px] font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed"
+                            className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed"
                           >
-                            Next →
+                            Next Page →
                           </button>
+
+                          {placedFields.some((f) => f.page === sigPageNum) && (
+                            <button
+                              type="button"
+                              onClick={() => setPlacedFields((prev) => prev.filter((f) => f.page !== sigPageNum))}
+                              className="ml-1 text-[11px] font-bold text-red-600 hover:bg-red-50 px-2 py-1 rounded-md transition cursor-pointer"
+                              title="Remove all signatures on this page"
+                            >
+                              Clear Page
+                            </button>
+                          )}
                         </div>
                       </div>
 
