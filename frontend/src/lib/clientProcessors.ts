@@ -277,6 +277,49 @@ export async function clientCropPdf(
   };
 }
 
+// 8.1 SIGN PDF (Client-side)
+export async function clientSignPdf(
+  file: File,
+  signatureDataUrl: string,
+  pageNum: number = 1,
+  pctX: number = 10,
+  pctY: number = 10,
+  pctW: number = 25,
+  pctH: number = 10
+): Promise<ClientProcessResult> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const pages = pdf.getPages();
+  const targetIndex = Math.max(0, Math.min(pages.length - 1, pageNum - 1));
+  const page = pages[targetIndex];
+
+  const sigBytes = await fetch(signatureDataUrl).then((res) => res.arrayBuffer());
+  const sigImage = signatureDataUrl.includes("image/jpeg") || signatureDataUrl.includes("image/jpg")
+    ? await pdf.embedJpg(sigBytes)
+    : await pdf.embedPng(sigBytes);
+
+  const { width, height } = page.getSize();
+  const x = (pctX / 100) * width;
+  const w = (pctW / 100) * width;
+  const h = (pctH / 100) * height;
+  const y = Math.max(0, height - ((pctY + pctH) / 100) * height);
+
+  page.drawImage(sigImage, {
+    x,
+    y,
+    width: w,
+    height: h,
+  });
+
+  const outBytes = await pdf.save();
+  const blob = new Blob([outBytes as BlobPart], { type: "application/pdf" });
+  return {
+    blob,
+    filename: `signed_${file.name}`,
+    size: blob.size,
+  };
+}
+
 // 9. JPG / IMAGE TO PDF (Client-side with Canvas Auto-Conversion)
 export async function clientImageToPdf(files: File[]): Promise<ClientProcessResult> {
   const pdf = await PDFDocument.create();

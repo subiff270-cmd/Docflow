@@ -14,6 +14,7 @@ import {
   clientAddPageNumbers,
   clientAddWatermark,
   clientCropPdf,
+  clientSignPdf,
   clientImageToPdf,
   clientResizeImage,
   clientCropImage,
@@ -66,6 +67,9 @@ import {
   PenTool,
   Eye,
   History,
+  Edit3,
+  Type,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface ToolWorkspaceProps {
@@ -796,6 +800,215 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     }));
   };
 
+  // =========================================================================
+  // SIGN PDF STATE & HANDLERS
+  // =========================================================================
+  const [sigTab, setSigTab] = useState<"draw" | "type" | "upload">("draw");
+  const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
+  const [sigColor, setSigColor] = useState<string>("#0f172a");
+  const [typedName, setTypedName] = useState<string>("");
+  const [typedFont, setTypedFont] = useState<string>("font-cursive-1");
+  const [sigPageNum, setSigPageNum] = useState<number>(1);
+  const [sigX, setSigX] = useState<number>(35);
+  const [sigY, setSigY] = useState<number>(75);
+  const [sigW, setSigW] = useState<number>(28);
+  const [sigH, setSigH] = useState<number>(12);
+  const [isDrawingSig, setIsDrawingSig] = useState(false);
+  const [sigThumbnails, setSigThumbnails] = useState<Array<{ page_num: number; thumbnail: string }>>([]);
+  const [sigPreviewUrl, setSigPreviewUrl] = useState<string | null>(null);
+  const sigCanvasRef = useRef<HTMLCanvasElement>(null);
+  const sigContainerRef = useRef<HTMLDivElement>(null);
+  const [activeSigDrag, setActiveSigDrag] = useState<string | null>(null);
+  const sigDragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number; initialW: number; initialH: number }>({
+    startX: 0, startY: 0, initialX: 35, initialY: 75, initialW: 28, initialH: 12
+  });
+
+  useEffect(() => {
+    if (tool.id === "sign-pdf" && files.length > 0 && files[0]) {
+      let isMounted = true;
+      fetchPdfThumbnails(files[0])
+        .then((res) => {
+          if (isMounted && res.success && Array.isArray(res.thumbnails) && res.thumbnails.length > 0) {
+            setSigThumbnails(res.thumbnails);
+            setSigPreviewUrl(res.thumbnails[0].thumbnail);
+            setSigPageNum(1);
+          }
+        })
+        .catch((err) => console.warn("Failed to load PDF sign preview:", err));
+      return () => { isMounted = false; };
+    } else if (tool.id === "sign-pdf") {
+      setSigThumbnails([]);
+      setSigPreviewUrl(null);
+      setSigPageNum(1);
+    }
+  }, [files, tool.id]);
+
+  const handleSwitchSigPage = (pageNum: number) => {
+    setSigPageNum(pageNum);
+    const targetThumb = sigThumbnails.find((t) => t.page_num === pageNum);
+    if (targetThumb) {
+      setSigPreviewUrl(targetThumb.thumbnail);
+    }
+  };
+
+  const startDrawingSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+    setIsDrawingSig(true);
+    ctx.strokeStyle = sigColor;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+  };
+
+  const drawSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawingSig) return;
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const stopDrawingSig = () => {
+    if (!isDrawingSig) return;
+    setIsDrawingSig(false);
+    const canvas = sigCanvasRef.current;
+    if (canvas) {
+      setSigDataUrl(canvas.toDataURL("image/png"));
+    }
+  };
+
+  const clearSigCanvas = () => {
+    const canvas = sigCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+    setSigDataUrl(null);
+  };
+
+  const generateTypedSignature = (text: string, fontName: string, color: string) => {
+    if (!text.trim()) {
+      setSigDataUrl(null);
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 200;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = color;
+    ctx.font = fontName === "font-cursive-1" 
+      ? "italic 64px 'Dancing Script', 'Brush Script MT', cursive"
+      : fontName === "font-cursive-2"
+      ? "italic 68px 'Caveat', 'Great Vibes', cursive"
+      : fontName === "font-cursive-3"
+      ? "italic 60px 'Lucida Handwriting', 'Segoe Script', cursive"
+      : "italic 62px 'Brush Script MT', cursive";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    setSigDataUrl(canvas.toDataURL("image/png"));
+  };
+
+  const handleUploadSignatureImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setSigDataUrl(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSigMouseDown = (e: React.MouseEvent, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!sigContainerRef.current) return;
+
+    const rect = sigContainerRef.current.getBoundingClientRect();
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    if (handle === "new") {
+      const xPct = Math.max(0, Math.min(80, ((clientX - rect.left) / rect.width) * 100));
+      const yPct = Math.max(0, Math.min(85, ((clientY - rect.top) / rect.height) * 100));
+      setSigX(Math.round(xPct));
+      setSigY(Math.round(yPct));
+      return;
+    }
+
+    sigDragStartRef.current = {
+      startX: clientX,
+      startY: clientY,
+      initialX: sigX,
+      initialY: sigY,
+      initialW: sigW,
+      initialH: sigH,
+    };
+    setActiveSigDrag(handle);
+  };
+
+  useEffect(() => {
+    if (!activeSigDrag) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!sigContainerRef.current) return;
+      const rect = sigContainerRef.current.getBoundingClientRect();
+      const deltaXPct = ((e.clientX - sigDragStartRef.current.startX) / rect.width) * 100;
+      const deltaYPct = ((e.clientY - sigDragStartRef.current.startY) / rect.height) * 100;
+
+      const { initialX, initialY, initialW, initialH } = sigDragStartRef.current;
+
+      if (activeSigDrag === "move") {
+        const newX = Math.max(0, Math.min(100 - initialW, initialX + deltaXPct));
+        const newY = Math.max(0, Math.min(100 - initialH, initialY + deltaYPct));
+        setSigX(Math.round(newX));
+        setSigY(Math.round(newY));
+      } else if (activeSigDrag === "se") {
+        const newW = Math.max(10, Math.min(100 - initialX, initialW + deltaXPct));
+        const newH = Math.max(5, Math.min(100 - initialY, initialH + deltaYPct));
+        setSigW(Math.round(newW));
+        setSigH(Math.round(newH));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setActiveSigDrag(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [activeSigDrag]);
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -953,6 +1166,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         clientRes = await clientResizeImage(files[0], { percentage: 50 });
       } else if (tool.id === "crop-image" && files[0]) {
         clientRes = await clientCropImage(files[0], { x: cropX, y: cropY, w: cropW, h: cropH });
+      } else if (tool.id === "sign-pdf" && files[0]) {
+        if (!sigDataUrl) {
+          setError("Please draw, type, or upload a signature before processing.");
+          setLoading(false);
+          return;
+        }
+        clientRes = await clientSignPdf(files[0], sigDataUrl, sigPageNum, sigX, sigY, sigW, sigH);
       } else if (tool.id === "convert-image" && files[0]) {
         clientRes = await clientConvertImage(files[0], "webp");
       } else if (tool.id === "organize-pdf" && files.length > 0 && organizePages.length > 0) {
@@ -1024,6 +1244,24 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       formData.append("crop_scope", cropScope);
       formData.append("current_page", String(cropCurrentPageIndex + 1));
       formData.append("page_crops_json", JSON.stringify(pageCrops));
+    } else if (tool.id === "sign-pdf") {
+      if (!sigDataUrl) {
+        setError("Please draw, type, or upload a signature before processing.");
+        setLoading(false);
+        return;
+      }
+      try {
+        const sigRes = await fetch(sigDataUrl);
+        const sigBlob = await sigRes.blob();
+        formData.append("signature", sigBlob, "signature.png");
+        formData.append("page", String(sigPageNum));
+        formData.append("x", String(sigX));
+        formData.append("y", String(sigY));
+        formData.append("w", String(sigW));
+        formData.append("h", String(sigH));
+      } catch (err: any) {
+        console.warn("Failed to encode signature blob:", err);
+      }
     }
 
     try {
@@ -2779,6 +3017,335 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Interactive Sign PDF Studio */}
+              {tool.id === "sign-pdf" && (
+                <div className="space-y-5 animate-in fade-in">
+                  {/* Step 1: Create Signature */}
+                  <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3.5 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Edit3 className="w-4 h-4 text-indigo-600" />
+                        <span>Step 1: Create Your Signature</span>
+                      </label>
+                      {sigDataUrl ? (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Signature Ready
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                          Signature Required
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Mode Selector Tabs: Draw / Type / Upload */}
+                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-200/70 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setSigTab("draw")}
+                        className={`py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                          sigTab === "draw"
+                            ? "bg-white text-indigo-700 shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <PenTool className="w-3.5 h-3.5" />
+                        <span>Draw</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSigTab("type");
+                          if (typedName) generateTypedSignature(typedName, typedFont, sigColor);
+                        }}
+                        className={`py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                          sigTab === "type"
+                            ? "bg-white text-indigo-700 shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <Type className="w-3.5 h-3.5" />
+                        <span>Type</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSigTab("upload")}
+                        className={`py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                          sigTab === "upload"
+                            ? "bg-white text-indigo-700 shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <span>Upload</span>
+                      </button>
+                    </div>
+
+                    {/* Draw Signature Canvas */}
+                    {sigTab === "draw" && (
+                      <div className="space-y-2.5 animate-in fade-in">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-semibold text-slate-500">Draw with your mouse, trackpad, or finger:</span>
+                          <div className="flex items-center gap-2">
+                            {/* Ink Color Picker */}
+                            <div className="flex items-center gap-1">
+                              {[
+                                { color: "#0f172a", label: "Black" },
+                                { color: "#1e3a8a", label: "Navy" },
+                                { color: "#475569", label: "Slate" },
+                              ].map((c) => (
+                                <button
+                                  key={c.color}
+                                  type="button"
+                                  onClick={() => setSigColor(c.color)}
+                                  className={`w-4 h-4 rounded-full transition cursor-pointer ${
+                                    sigColor === c.color ? "ring-2 ring-indigo-600 ring-offset-1 scale-110" : "opacity-80 hover:opacity-100"
+                                  }`}
+                                  style={{ backgroundColor: c.color }}
+                                  title={c.label}
+                                />
+                              ))}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={clearSigCanvas}
+                              className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded-md transition cursor-pointer"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="relative w-full h-36 bg-white rounded-xl border-2 border-dashed border-slate-300 overflow-hidden touch-none cursor-crosshair shadow-inner flex items-center justify-center">
+                          <canvas
+                            ref={sigCanvasRef}
+                            width={500}
+                            height={144}
+                            onMouseDown={startDrawingSig}
+                            onMouseMove={drawSig}
+                            onMouseUp={stopDrawingSig}
+                            onMouseLeave={stopDrawingSig}
+                            onTouchStart={startDrawingSig}
+                            onTouchMove={drawSig}
+                            onTouchEnd={stopDrawingSig}
+                            className="w-full h-full"
+                          />
+                          {!sigDataUrl && !isDrawingSig && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-300 text-xs font-semibold">
+                              ✍️ Click and draw your signature here
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Type Signature */}
+                    {sigTab === "type" && (
+                      <div className="space-y-3 animate-in fade-in">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Enter Your Full Name / Initials</label>
+                          <input
+                            type="text"
+                            value={typedName}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTypedName(val);
+                              generateTypedSignature(val, typedFont, sigColor);
+                            }}
+                            placeholder="e.g. Subish M"
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 outline-hidden"
+                          />
+                        </div>
+
+                        {/* Cursive Font Style Selection */}
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-slate-600">Choose Signature Style</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { id: "font-cursive-1", name: "Calligraphic", style: { fontFamily: "'Dancing Script', 'Brush Script MT', cursive" } },
+                              { id: "font-cursive-2", name: "Modern Flow", style: { fontFamily: "'Caveat', 'Great Vibes', cursive" } },
+                              { id: "font-cursive-3", name: "Handwritten", style: { fontFamily: "'Lucida Handwriting', 'Segoe Script', cursive" } },
+                              { id: "font-cursive-4", name: "Executive Script", style: { fontFamily: "'Brush Script MT', cursive" } },
+                            ].map((f) => (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => {
+                                  setTypedFont(f.id);
+                                  generateTypedSignature(typedName || "Signature", f.id, sigColor);
+                                }}
+                                className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                                  typedFont === f.id
+                                    ? "bg-indigo-50 border-indigo-600 ring-2 ring-indigo-600/30 text-indigo-950 shadow-xs"
+                                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                                }`}
+                              >
+                                <div className="text-sm font-semibold truncate" style={f.style}>
+                                  {typedName || "Signature"}
+                                </div>
+                                <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{f.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Upload Signature Image */}
+                    {sigTab === "upload" && (
+                      <div className="space-y-2 animate-in fade-in">
+                        <label className="block text-[11px] font-bold text-slate-600">Upload Signature Image (PNG with transparent background recommended)</label>
+                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center bg-white hover:bg-slate-50 transition cursor-pointer relative">
+                          <input
+                            type="file"
+                            accept="image/png, image/jpeg, image/jpg, image/webp"
+                            onChange={handleUploadSignatureImage}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <UploadCloud className="w-7 h-7 mx-auto text-indigo-500 mb-1" />
+                          <p className="text-xs font-bold text-slate-700">Click to select signature file</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">PNG, JPG, or WEBP up to 5 MB</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 2: Interactive Document Placement & Preview */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-indigo-600" />
+                        <span>Step 2: Position Signature on Page</span>
+                      </label>
+                      <span className="text-[11px] text-slate-500">Drag or click on page to place</span>
+                    </div>
+
+                    {/* Multi-Page Navigation Bar */}
+                    {sigThumbnails.length > 1 && (
+                      <div className="p-3 bg-slate-100 rounded-2xl border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800">
+                            Signing Page {sigPageNum} of {sigThumbnails.length}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={sigPageNum <= 1}
+                              onClick={() => handleSwitchSigPage(sigPageNum - 1)}
+                              className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer transition"
+                            >
+                              ← Prev
+                            </button>
+                            <button
+                              type="button"
+                              disabled={sigPageNum >= sigThumbnails.length}
+                              onClick={() => handleSwitchSigPage(sigPageNum + 1)}
+                              className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer transition"
+                            >
+                              Next →
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                          {sigThumbnails.map((t) => (
+                            <button
+                              key={t.page_num}
+                              type="button"
+                              onClick={() => handleSwitchSigPage(t.page_num)}
+                              className={`shrink-0 relative rounded-xl border overflow-hidden transition cursor-pointer ${
+                                sigPageNum === t.page_num
+                                  ? "ring-2 ring-indigo-600 border-indigo-600 shadow-md scale-105"
+                                  : "border-slate-300 opacity-70 hover:opacity-100 bg-white"
+                              }`}
+                            >
+                              <img src={t.thumbnail} alt={`Page ${t.page_num}`} className="w-12 h-16 object-contain bg-white" />
+                              <span className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-white text-[9px] font-bold text-center py-0.5">
+                                Page {t.page_num}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Visual Placement Canvas */}
+                    <div
+                      ref={sigContainerRef}
+                      onMouseDown={(e) => handleSigMouseDown(e, "new")}
+                      className="relative w-full max-w-lg mx-auto bg-slate-900/90 rounded-2xl overflow-hidden shadow-inner border border-slate-300 select-none flex items-center justify-center min-h-[380px] max-h-[500px] cursor-crosshair group"
+                    >
+                      {sigPreviewUrl ? (
+                        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                          {/* Page Background */}
+                          <img
+                            src={sigPreviewUrl}
+                            alt="Sign Page Preview"
+                            className="max-h-[460px] w-auto object-contain pointer-events-none"
+                          />
+
+                          {/* Draggable Signature Stamp */}
+                          <div
+                            style={{
+                              left: `${sigX}%`,
+                              top: `${sigY}%`,
+                              width: `${sigW}%`,
+                              height: `${sigH}%`,
+                            }}
+                            onMouseDown={(e) => handleSigMouseDown(e, "move")}
+                            className="absolute border-2 border-indigo-600 bg-indigo-50/70 backdrop-blur-xs rounded-lg shadow-lg cursor-move flex items-center justify-center pointer-events-auto group/sig select-none"
+                          >
+                            {sigDataUrl ? (
+                              <img
+                                src={sigDataUrl}
+                                alt="Active Signature Stamp"
+                                className="w-full h-full object-contain p-1 pointer-events-none"
+                              />
+                            ) : (
+                              <span className="text-[10px] font-bold text-indigo-700 px-1 truncate pointer-events-none">
+                                ✍️ Signature Area
+                              </span>
+                            )}
+
+                            {/* Bottom-Right Resize Handle */}
+                            <div
+                              onMouseDown={(e) => handleSigMouseDown(e, "se")}
+                              className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-indigo-600 rounded-full border-2 border-white shadow-md cursor-se-resize hover:scale-125 transition-transform"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center p-8 text-white/70 space-y-2">
+                          <FileText className="w-10 h-10 mx-auto text-indigo-400 opacity-80" />
+                          <p className="text-xs font-bold">Document Loaded</p>
+                          <p className="text-[11px] text-white/50">Position: {sigX}% X, {sigY}% Y</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Fine Tuning Position */}
+                    <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl grid grid-cols-3 gap-2 text-center text-xs">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">Page</span>
+                        <span className="font-bold text-slate-700">Page {sigPageNum}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">Position</span>
+                        <span className="font-bold text-slate-700">{sigX}% X, {sigY}% Y</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block mb-0.5">Stamp Size</span>
+                        <span className="font-bold text-slate-700">{sigW}% × {sigH}%</span>
                       </div>
                     </div>
                   </div>
