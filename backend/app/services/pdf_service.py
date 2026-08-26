@@ -689,6 +689,39 @@ def redact_pdf(
     doc.close()
     return out
 
+def search_pdf_text_boxes(file_bytes: bytes, search_text: str) -> list[dict]:
+    """Finds all occurrences of search_text across all pages and returns bounding boxes as percentages."""
+    if not search_text or not search_text.strip():
+        return []
+    
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    matches = []
+    phrases = [p.strip() for p in search_text.split(",") if p.strip()] or [search_text.strip()]
+
+    for page_idx, page in enumerate(doc):
+        rect = page.rect
+        for phrase in phrases:
+            instances = page.search_for(phrase, flags=fitz.TEXT_DEHYPHENATE)
+            for inst in instances:
+                x_pct = max(0, min(100, (inst.x0 / rect.width) * 100))
+                y_pct = max(0, min(100, (inst.y0 / rect.height) * 100))
+                w_pct = max(2, min(100, ((inst.x1 - inst.x0) / rect.width) * 100))
+                h_pct = max(1.5, min(100, ((inst.y1 - inst.y0) / rect.height) * 100))
+
+                matches.append({
+                    "id": f"search-{page_idx + 1}-{len(matches) + 1}",
+                    "page": page_idx + 1,
+                    "x": round(x_pct, 1),
+                    "y": round(y_pct, 1),
+                    "w": round(w_pct, 1),
+                    "h": round(h_pct, 1),
+                    "label": "[REDACTED]",
+                    "text": phrase
+                })
+
+    doc.close()
+    return matches
+
 def compare_pdfs(pdf_a_bytes: bytes, pdf_b_bytes: bytes) -> dict:
     doc_a = fitz.open(stream=pdf_a_bytes, filetype="pdf")
     doc_b = fitz.open(stream=pdf_b_bytes, filetype="pdf")

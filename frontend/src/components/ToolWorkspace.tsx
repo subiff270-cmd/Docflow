@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ToolItem } from "../lib/toolsData";
 import { useAuth } from "../context/AuthContext";
-import { processToolApi, getDownloadUrl, fetchPdfThumbnails } from "../lib/api";
+import { processToolApi, getDownloadUrl, fetchPdfThumbnails, searchPdfMatches } from "../lib/api";
 import {
   clientMergePdf,
   clientSplitPdf,
@@ -1167,6 +1167,48 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [activeRedactDragHandle]);
+
+  const [isSearchingRedactMatches, setIsSearchingRedactMatches] = useState<boolean>(false);
+  const [redactSearchMatchMsg, setRedactSearchMatchMsg] = useState<string | null>(null);
+
+  const handleSearchAndRedactMatches = async (textToSearch?: string) => {
+    const query = textToSearch !== undefined ? textToSearch : redactSearchText;
+    if (!query || !query.trim() || files.length === 0 || !files[0]) return;
+
+    setIsSearchingRedactMatches(true);
+    setRedactSearchMatchMsg(null);
+    try {
+      const res = await searchPdfMatches(files[0], query);
+      if (res && res.success && Array.isArray(res.matches)) {
+        if (res.matches.length > 0) {
+          setRedactBoxes((prev) => {
+            const existingIds = new Set(prev.map((b) => b.id));
+            const newBoxes: RedactBox[] = res.matches.map((m: any) => ({
+              id: m.id || `redact-match-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              page: m.page,
+              x: m.x,
+              y: m.y,
+              w: m.w,
+              h: m.h,
+              label: redactLabelText || undefined,
+            }));
+            const filteredNew = newBoxes.filter((b) => !existingIds.has(b.id));
+            return [...prev, ...filteredNew];
+          });
+          const pagesCount = new Set(res.matches.map((m: any) => m.page)).size;
+          setRedactSearchMatchMsg(`✓ Found & placed ${res.matches.length} redaction box(es) across ${pagesCount} page(s) for "${query}"!`);
+        } else {
+          setRedactSearchMatchMsg(`No occurrences of "${query}" found in document.`);
+        }
+      } else {
+        setRedactSearchMatchMsg(`No occurrences of "${query}" found in document.`);
+      }
+    } catch (err) {
+      console.warn("Search text error:", err);
+    } finally {
+      setIsSearchingRedactMatches(false);
+    }
+  };
 
   const addPlacedField = (type: "signature" | "initials" | "name" | "date" | "text" | "stamp") => {
     const id = `field-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
@@ -5056,30 +5098,64 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
                   {/* Search & Redact All Feature */}
                   <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                       <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
                         <span>Search & Redact All Occurrences (Across All Pages):</span>
                       </span>
+                      {redactSearchMatchMsg && (
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                          redactSearchMatchMsg.startsWith("✓")
+                            ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
+                            : "text-slate-500 bg-slate-50 border border-slate-200"
+                        }`}>
+                          {redactSearchMatchMsg}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={redactSearchText}
-                        onChange={(e) => setRedactSearchText(e.target.value)}
-                        placeholder="Type word, name, or phrase to wipe across all pages (e.g. Confidential, Jane Doe, 98765)..."
-                        className="w-full pl-3 pr-24 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-semibold text-slate-900 outline-hidden"
-                      />
-                      {redactSearchText && (
-                        <button
-                          type="button"
-                          onClick={() => setRedactSearchText("")}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
-                        >
-                          Clear
-                        </button>
-                      )}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={redactSearchText}
+                          onChange={(e) => setRedactSearchText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSearchAndRedactMatches();
+                            }
+                          }}
+                          placeholder="Type word, name, or phrase to wipe across all pages (e.g. Varma, Confidential, 98765)..."
+                          className="w-full pl-3 pr-20 py-2.5 bg-slate-50 border-2 border-indigo-200 focus:border-indigo-600 rounded-xl text-xs font-bold text-slate-900 outline-hidden shadow-2xs"
+                        />
+                        {redactSearchText && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRedactSearchText("");
+                              setRedactSearchMatchMsg(null);
+                            }}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isSearchingRedactMatches || !redactSearchText.trim()}
+                        onClick={() => handleSearchAndRedactMatches()}
+                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-md shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
+                      >
+                        {isSearchingRedactMatches ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <span>🔍</span>
+                        )}
+                        <span>{isSearchingRedactMatches ? "Searching..." : "Search & Redact All Pages"}</span>
+                      </button>
                     </div>
 
                     {/* Quick Pattern Presets */}
@@ -5094,7 +5170,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         <button
                           key={preset.label}
                           type="button"
-                          onClick={() => setRedactSearchText(preset.val)}
+                          onClick={() => {
+                            setRedactSearchText(preset.val);
+                            handleSearchAndRedactMatches(preset.val);
+                          }}
                           className="px-2 py-0.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 rounded-lg text-[10px] font-semibold transition cursor-pointer"
                         >
                           + {preset.label}

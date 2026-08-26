@@ -760,6 +760,18 @@ async def api_redact_pdf(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Redact PDF failed: {str(e)}")
 
+@router.post("/search-pdf-matches")
+async def api_search_pdf_matches(
+    file: UploadFile = File(...),
+    search_text: str = Form(""),
+):
+    try:
+        content = await file.read()
+        matches = pdf_service.search_pdf_text_boxes(content, search_text)
+        return {"success": True, "matches": matches, "total": len(matches)}
+    except Exception as e:
+        return {"success": False, "matches": [], "error": str(e)}
+
 @router.post("/compare-pdf")
 async def api_compare_pdf(
     file_a: UploadFile = File(...),

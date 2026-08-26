@@ -80,6 +80,24 @@ export async function processToolApi(endpoint: string, formData: FormData, fireb
   return data;
 }
 
+export async function searchPdfMatches(file: File, searchText: string) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("search_text", searchText);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/tools/search-pdf-matches`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) return { success: false, matches: [] };
+    const data = await res.json();
+    return data;
+  } catch {
+    return { success: false, matches: [] };
+  }
+}
+
 export async function createRazorpayOrder(plan: string, firebaseUid: string) {
   const res = await fetch(`${API_BASE_URL}/api/payment/create-order`, {
     method: "POST",
