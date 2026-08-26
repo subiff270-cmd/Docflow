@@ -1164,7 +1164,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     };
   }, [activeFieldDragHandle]);
 
-  // Advanced Calligraphy Ink Drawing Engine with Smoothing, Velocity Taper, and Undo/Redo
+  // Advanced Authentic Ink Drawing Engine: Fountain Pen (Chisel Nib), Ballpoint (Spline), Brush (Taper)
   const renderSignatureStrokes = (
     canvas: HTMLCanvasElement,
     strokeList: Array<{
@@ -1189,12 +1189,43 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
       if (pts.length === 1) {
         ctx.beginPath();
-        ctx.arc(pts[0].x, pts[0].y, stroke.thickness / 2, 0, Math.PI * 2);
+        ctx.arc(pts[0].x, pts[0].y, Math.max(1, stroke.thickness / 2), 0, Math.PI * 2);
         ctx.fill();
         return;
       }
 
-      if (stroke.style === "ballpoint") {
+      if (stroke.style === "fountain") {
+        // Authentic Chisel Nib Calligraphy ribbon rendering (42-degree angle)
+        const angle = (42 * Math.PI) / 180;
+        const baseW = stroke.thickness;
+
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p1 = pts[i];
+          const p2 = pts[i + 1];
+          const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          const dt = Math.max(8, p2.time - p1.time);
+          const velocity = dist / dt;
+          const speedScale = Math.max(0.55, Math.min(1.45, 1.25 - velocity * 0.2));
+          const w = Math.max(1.5, baseW * speedScale);
+
+          const dx = Math.cos(angle) * (w / 2);
+          const dy = -Math.sin(angle) * (w / 2);
+
+          ctx.beginPath();
+          ctx.moveTo(p1.x - dx, p1.y - dy);
+          ctx.lineTo(p1.x + dx, p1.y + dy);
+          ctx.lineTo(p2.x + dx, p2.y + dy);
+          ctx.lineTo(p2.x - dx, p2.y - dy);
+          ctx.closePath();
+          ctx.fill();
+
+          // Round junction cap
+          ctx.beginPath();
+          ctx.arc(p2.x, p2.y, w / 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (stroke.style === "ballpoint") {
+        // Ultra-Smooth Rollerball spline
         ctx.lineWidth = stroke.thickness;
         ctx.beginPath();
         ctx.moveTo(pts[0].x, pts[0].y);
@@ -1206,22 +1237,14 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
         ctx.stroke();
       } else {
-        // Fountain Pen & Brush: Dynamic velocity/pressure tapered stroke segments
+        // Signature Brush: Organic pressure & start/end tapering
         for (let i = 0; i < pts.length - 1; i++) {
           const p1 = pts[i];
           const p2 = pts[i + 1];
-          const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-          const dt = Math.max(10, p2.time - p1.time);
-          const velocity = dist / dt;
-
-          let width = stroke.thickness;
-          if (stroke.style === "fountain") {
-            const speedFactor = Math.max(0.4, Math.min(1.7, 1.3 - velocity * 0.35));
-            width = stroke.thickness * speedFactor;
-          } else if (stroke.style === "brush") {
-            const pressure = p2.pressure ?? 0.5;
-            width = stroke.thickness * (0.6 + pressure * 0.8);
-          }
+          const progress = i / Math.max(1, pts.length - 1);
+          const taper = Math.sin(progress * Math.PI);
+          const pressure = p2.pressure ?? 0.5;
+          const width = Math.max(1, stroke.thickness * (0.35 + 0.7 * pressure + 0.45 * taper));
 
           ctx.lineWidth = width;
           ctx.beginPath();
@@ -1231,6 +1254,62 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         }
       }
     });
+  };
+
+  const handleUpdatePenStyle = (style: "fountain" | "ballpoint" | "brush") => {
+    setSigPenStyle(style);
+    const updated = sigStrokes.map((s) => ({ ...s, style }));
+    setSigStrokes(updated);
+    const canvas = sigCanvasRef.current;
+    if (canvas && updated.length > 0) {
+      renderSignatureStrokes(canvas, updated);
+      const trimmed = cropCanvasWhitespace(canvas);
+      setDrawnSigDataUrl(trimmed);
+      setSigDataUrl(trimmed);
+      setPlacedFields((prev) =>
+        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmed } : f))
+      );
+    }
+  };
+
+  const handleUpdatePenThickness = (thickness: number) => {
+    setSigPenThickness(thickness);
+    const updated = sigStrokes.map((s) => ({ ...s, thickness: thickness * 2 }));
+    setSigStrokes(updated);
+    const canvas = sigCanvasRef.current;
+    if (canvas && updated.length > 0) {
+      renderSignatureStrokes(canvas, updated);
+      const trimmed = cropCanvasWhitespace(canvas);
+      setDrawnSigDataUrl(trimmed);
+      setSigDataUrl(trimmed);
+      setPlacedFields((prev) =>
+        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmed } : f))
+      );
+    }
+  };
+
+  const handleUpdateInkColor = (color: string) => {
+    setSigColor(color);
+    const updated = sigStrokes.map((s) => ({ ...s, color }));
+    setSigStrokes(updated);
+    const canvas = sigCanvasRef.current;
+    if (canvas && updated.length > 0) {
+      renderSignatureStrokes(canvas, updated);
+      const trimmed = cropCanvasWhitespace(canvas);
+      setDrawnSigDataUrl(trimmed);
+      setSigDataUrl(trimmed);
+      setPlacedFields((prev) =>
+        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmed, color } : f))
+      );
+    } else {
+      const newSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, color);
+      const newInit = generateSignatureImage(sigInitials, sigSelectedFontIndex, color);
+      setSigDataUrl(newSig);
+      setInitialsDataUrl(newInit);
+      setPlacedFields((prev) =>
+        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig, color } : f))
+      );
+    }
   };
 
   const cropCanvasWhitespace = (canvas: HTMLCanvasElement): string => {
@@ -3575,18 +3654,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             key={c.hex}
                             type="button"
-                            onClick={() => {
-                              setSigColor(c.hex);
-                              const newSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, c.hex);
-                              const newInit = generateSignatureImage(sigInitials, sigSelectedFontIndex, c.hex);
-                              if (sigCreationMode === "type" || !drawnSigDataUrl) {
-                                setSigDataUrl(newSig);
-                                setPlacedFields((prev) =>
-                                  prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig, color: c.hex } : f))
-                                );
-                              }
-                              setInitialsDataUrl(newInit);
-                            }}
+                            onClick={() => handleUpdateInkColor(c.hex)}
                             className={`w-4 h-4 rounded-full transition cursor-pointer ${
                               sigColor === c.hex
                                 ? "ring-2 ring-indigo-600 ring-offset-1 scale-110"
@@ -3658,7 +3726,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               <button
                                 key={p.id}
                                 type="button"
-                                onClick={() => setSigPenStyle(p.id as any)}
+                                onClick={() => handleUpdatePenStyle(p.id as any)}
                                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                                   sigPenStyle === p.id
                                     ? "bg-indigo-600 text-white shadow-2xs"
@@ -3681,7 +3749,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               <button
                                 key={t.val}
                                 type="button"
-                                onClick={() => setSigPenThickness(t.val)}
+                                onClick={() => handleUpdatePenThickness(t.val)}
                                 className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
                                   sigPenThickness === t.val
                                     ? "bg-indigo-100 text-indigo-700 font-extrabold"
