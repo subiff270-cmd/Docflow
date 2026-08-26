@@ -819,6 +819,22 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [sigSelectedFontIndex, setSigSelectedFontIndex] = useState<number>(0);
   const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
   const [drawnSigDataUrl, setDrawnSigDataUrl] = useState<string | null>(null);
+  const [sigPenStyle, setSigPenStyle] = useState<"fountain" | "ballpoint" | "brush">("fountain");
+  const [sigPenThickness, setSigPenThickness] = useState<number>(2.5);
+  const [sigStrokes, setSigStrokes] = useState<Array<{
+    points: Array<{ x: number; y: number; time: number; pressure?: number }>;
+    color: string;
+    style: "fountain" | "ballpoint" | "brush";
+    thickness: number;
+  }>>([]);
+  const [sigRedoStack, setSigRedoStack] = useState<Array<{
+    points: Array<{ x: number; y: number; time: number; pressure?: number }>;
+    color: string;
+    style: "fountain" | "ballpoint" | "brush";
+    thickness: number;
+  }>>([]);
+  const currentStrokePointsRef = useRef<Array<{ x: number; y: number; time: number; pressure?: number }>>([]);
+
   const [initialsDataUrl, setInitialsDataUrl] = useState<string | null>(null);
   const [companyStampDataUrl, setCompanyStampDataUrl] = useState<string | null>(null);
 
@@ -1116,49 +1132,243 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     };
   }, [activeFieldDragHandle]);
 
-  // Drawing pad handlers for modal
-  const startDrawingSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const canvas = sigCanvasRef.current;
-    if (!canvas) return;
+  // Advanced Calligraphy Ink Drawing Engine with Smoothing, Velocity Taper, and Undo/Redo
+  const renderSignatureStrokes = (
+    canvas: HTMLCanvasElement,
+    strokeList: Array<{
+      points: Array<{ x: number; y: number; time: number; pressure?: number }>;
+      color: string;
+      style: "fountain" | "ballpoint" | "brush";
+      thickness: number;
+    }>
+  ) => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    strokeList.forEach((stroke) => {
+      const pts = stroke.points;
+      if (pts.length === 0) return;
+
+      ctx.strokeStyle = stroke.color;
+      ctx.fillStyle = stroke.color;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      if (pts.length === 1) {
+        ctx.beginPath();
+        ctx.arc(pts[0].x, pts[0].y, stroke.thickness / 2, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+
+      if (stroke.style === "ballpoint") {
+        ctx.lineWidth = stroke.thickness;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length - 1; i++) {
+          const midX = (pts[i].x + pts[i + 1].x) / 2;
+          const midY = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+        }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        ctx.stroke();
+      } else {
+        // Fountain Pen & Brush: Dynamic velocity/pressure tapered stroke segments
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p1 = pts[i];
+          const p2 = pts[i + 1];
+          const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          const dt = Math.max(10, p2.time - p1.time);
+          const velocity = dist / dt;
+
+          let width = stroke.thickness;
+          if (stroke.style === "fountain") {
+            const speedFactor = Math.max(0.4, Math.min(1.7, 1.3 - velocity * 0.35));
+            width = stroke.thickness * speedFactor;
+          } else if (stroke.style === "brush") {
+            const pressure = p2.pressure ?? 0.5;
+            width = stroke.thickness * (0.6 + pressure * 0.8);
+          }
+
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+    });
+  };
+
+  const cropCanvasWhitespace = (canvas: HTMLCanvasElement): string => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return canvas.toDataURL("image/png");
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    let hasPixels = false;
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const alpha = data[(y * w + x) * 4 + 3];
+        if (alpha > 10) {
+          hasPixels = true;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (!hasPixels) return canvas.toDataURL("image/png");
+
+    const padding = 16;
+    minX = Math.max(0, minX - padding);
+    minY = Math.max(0, minY - padding);
+    maxX = Math.min(w, maxX + padding);
+    maxY = Math.min(h, maxY + padding);
+
+    const cropW = Math.max(60, maxX - minX);
+    const cropH = Math.max(25, maxY - minY);
+
+    const cropCanvas = document.createElement("canvas");
+    cropCanvas.width = cropW;
+    cropCanvas.height = cropH;
+    const cropCtx = cropCanvas.getContext("2d");
+    if (!cropCtx) return canvas.toDataURL("image/png");
+
+    cropCtx.drawImage(canvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+    return cropCanvas.toDataURL("image/png");
+  };
+
+  const startDrawingSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement> | React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    const pressure = "pressure" in e && e.pressure ? e.pressure : 0.5;
+
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const point = {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+      time: Date.now(),
+      pressure,
+    };
 
     setIsDrawingSig(true);
-    ctx.strokeStyle = sigColor;
-    ctx.lineWidth = 3;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+    currentStrokePointsRef.current = [point];
   };
 
-  const drawSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const drawSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement> | React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawingSig) return;
     const canvas = sigCanvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
     const rect = canvas.getBoundingClientRect();
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    const pressure = "pressure" in e && e.pressure ? e.pressure : 0.5;
 
-    ctx.lineTo(clientX - rect.left, clientY - rect.top);
-    ctx.stroke();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const point = {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+      time: Date.now(),
+      pressure,
+    };
+
+    currentStrokePointsRef.current.push(point);
+
+    const tempStroke = {
+      points: currentStrokePointsRef.current,
+      color: sigColor,
+      style: sigPenStyle,
+      thickness: sigPenThickness * 2,
+    };
+
+    renderSignatureStrokes(canvas, [...sigStrokes, tempStroke]);
   };
 
   const stopDrawingSig = () => {
     if (!isDrawingSig) return;
     setIsDrawingSig(false);
     const canvas = sigCanvasRef.current;
+    if (!canvas || currentStrokePointsRef.current.length === 0) return;
+
+    const newStroke = {
+      points: [...currentStrokePointsRef.current],
+      color: sigColor,
+      style: sigPenStyle,
+      thickness: sigPenThickness * 2,
+    };
+
+    const nextStrokes = [...sigStrokes, newStroke];
+    setSigStrokes(nextStrokes);
+    setSigRedoStack([]);
+    currentStrokePointsRef.current = [];
+
+    renderSignatureStrokes(canvas, nextStrokes);
+    const trimmedData = cropCanvasWhitespace(canvas);
+    setDrawnSigDataUrl(trimmedData);
+    setSigDataUrl(trimmedData);
+    setPlacedFields((prev) =>
+      prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
+    );
+  };
+
+  const undoSignatureStroke = () => {
+    if (sigStrokes.length === 0) return;
+    const last = sigStrokes[sigStrokes.length - 1];
+    const nextStrokes = sigStrokes.slice(0, -1);
+    setSigStrokes(nextStrokes);
+    setSigRedoStack((prev) => [...prev, last]);
+
+    const canvas = sigCanvasRef.current;
     if (canvas) {
-      const data = canvas.toDataURL("image/png");
-      setDrawnSigDataUrl(data);
-      setSigDataUrl(data);
+      renderSignatureStrokes(canvas, nextStrokes);
+      if (nextStrokes.length > 0) {
+        const trimmedData = cropCanvasWhitespace(canvas);
+        setDrawnSigDataUrl(trimmedData);
+        setSigDataUrl(trimmedData);
+        setPlacedFields((prev) =>
+          prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
+        );
+      } else {
+        setDrawnSigDataUrl(null);
+        const typedSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, sigColor);
+        setSigDataUrl(typedSig);
+        setPlacedFields((prev) =>
+          prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: typedSig, color: sigColor } : f))
+        );
+      }
+    }
+  };
+
+  const redoSignatureStroke = () => {
+    if (sigRedoStack.length === 0) return;
+    const restored = sigRedoStack[sigRedoStack.length - 1];
+    const nextRedo = sigRedoStack.slice(0, -1);
+    const nextStrokes = [...sigStrokes, restored];
+    setSigStrokes(nextStrokes);
+    setSigRedoStack(nextRedo);
+
+    const canvas = sigCanvasRef.current;
+    if (canvas) {
+      renderSignatureStrokes(canvas, nextStrokes);
+      const trimmedData = cropCanvasWhitespace(canvas);
+      setDrawnSigDataUrl(trimmedData);
+      setSigDataUrl(trimmedData);
       setPlacedFields((prev) =>
-        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: data, color: sigColor } : f))
+        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
       );
     }
   };
@@ -1169,6 +1379,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       const ctx = canvas.getContext("2d");
       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+    setSigStrokes([]);
+    setSigRedoStack([]);
     setDrawnSigDataUrl(null);
     const typedSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, sigColor);
     setSigDataUrl(typedSig);
@@ -3399,39 +3611,109 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       </div>
                     )}
 
-                    {/* Mode 2: Interactive Draw Pad */}
+                    {/* Mode 2: Interactive High-Precision Calligraphy Draw Pad */}
                     {sigCreationMode === "draw" && (
-                      <div className="space-y-2 animate-in fade-in">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-[11px] font-bold text-slate-600">
-                            ✍️ Draw your signature below with mouse, trackpad, or finger:
-                          </span>
-                          <button
-                            type="button"
-                            onClick={clearSigCanvas}
-                            className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded-md transition cursor-pointer"
-                          >
-                            Clear Pad
-                          </button>
+                      <div className="space-y-2.5 animate-in fade-in">
+                        {/* Top Toolbar: Pen Style + Thickness + Undo / Redo / Clear */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          {/* Pen Style Presets */}
+                          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                            {[
+                              { id: "fountain", label: "🖋️ Fountain Pen" },
+                              { id: "ballpoint", label: "🖊️ Ballpoint" },
+                              { id: "brush", label: "🖌️ Brush" },
+                            ].map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setSigPenStyle(p.id as any)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                                  sigPenStyle === p.id
+                                    ? "bg-indigo-600 text-white shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                                }`}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Thickness Presets */}
+                          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                            <span className="text-[10px] font-bold text-slate-400 px-1">Width:</span>
+                            {[
+                              { val: 1.5, label: "Fine" },
+                              { val: 2.5, label: "Med" },
+                              { val: 4, label: "Thick" },
+                            ].map((t) => (
+                              <button
+                                key={t.val}
+                                type="button"
+                                onClick={() => setSigPenThickness(t.val)}
+                                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                                  sigPenThickness === t.val
+                                    ? "bg-indigo-100 text-indigo-700 font-extrabold"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Action Buttons: Undo, Redo, Clear */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={undoSignatureStroke}
+                              disabled={sigStrokes.length === 0}
+                              className="px-2 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold disabled:opacity-35 disabled:cursor-not-allowed hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+                              title="Undo last stroke (Ctrl+Z)"
+                            >
+                              ↩ Undo
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={redoSignatureStroke}
+                              disabled={sigRedoStack.length === 0}
+                              className="px-2 py-1 bg-white text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold disabled:opacity-35 disabled:cursor-not-allowed hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+                              title="Redo stroke"
+                            >
+                              ↪ Redo
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={clearSigCanvas}
+                              className="px-2.5 py-1 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer border border-transparent hover:border-red-200"
+                            >
+                              🗑️ Clear
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="relative w-full h-32 bg-white rounded-xl border-2 border-dashed border-indigo-300 overflow-hidden touch-none cursor-crosshair shadow-inner flex items-center justify-center">
+                        {/* Interactive Smooth Canvas with Baseline Guide */}
+                        <div className="relative w-full h-36 bg-white rounded-2xl border-2 border-dashed border-indigo-300 overflow-hidden touch-none cursor-crosshair shadow-inner flex items-center justify-center">
+                          {/* Subtle Signature Baseline */}
+                          <div className="absolute left-8 right-8 bottom-7 border-b border-dashed border-indigo-200/80 pointer-events-none flex justify-between">
+                            <span className="text-[9px] font-bold text-indigo-300 -translate-y-3">Sign on line ✕</span>
+                          </div>
+
                           <canvas
                             ref={sigCanvasRef}
-                            width={600}
-                            height={128}
-                            onMouseDown={startDrawingSig}
-                            onMouseMove={drawSig}
-                            onMouseUp={stopDrawingSig}
-                            onMouseLeave={stopDrawingSig}
-                            onTouchStart={startDrawingSig}
-                            onTouchMove={drawSig}
-                            onTouchEnd={stopDrawingSig}
-                            className="w-full h-full"
+                            width={800}
+                            height={180}
+                            onPointerDown={startDrawingSig}
+                            onPointerMove={drawSig}
+                            onPointerUp={stopDrawingSig}
+                            onPointerLeave={stopDrawingSig}
+                            className="w-full h-full relative z-10"
                           />
+
                           {!drawnSigDataUrl && !isDrawingSig && (
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-300 text-xs font-semibold">
-                              ✍️ Click and draw your signature here
+                              ✍️ Draw your signature here using mouse, trackpad, or stylus
                             </div>
                           )}
                         </div>
