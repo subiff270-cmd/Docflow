@@ -1275,9 +1275,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       const trimmed = cropCanvasWhitespace(canvas);
       setDrawnSigDataUrl(trimmed);
       setSigDataUrl(trimmed);
-      setPlacedFields((prev) =>
-        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmed } : f))
-      );
+      if (activePlacedFieldId) {
+        setPlacedFields((prev) =>
+          prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: trimmed } : f))
+        );
+      }
     }
   };
 
@@ -1291,9 +1293,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       const trimmed = cropCanvasWhitespace(canvas);
       setDrawnSigDataUrl(trimmed);
       setSigDataUrl(trimmed);
-      setPlacedFields((prev) =>
-        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmed } : f))
-      );
+      if (activePlacedFieldId) {
+        setPlacedFields((prev) =>
+          prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: trimmed } : f))
+        );
+      }
     }
   };
 
@@ -1307,17 +1311,21 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       const trimmed = cropCanvasWhitespace(canvas);
       setDrawnSigDataUrl(trimmed);
       setSigDataUrl(trimmed);
-      setPlacedFields((prev) =>
-        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmed, color } : f))
-      );
+      if (activePlacedFieldId) {
+        setPlacedFields((prev) =>
+          prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: trimmed, color } : f))
+        );
+      }
     } else {
       const newSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, color);
       const newInit = generateSignatureImage(sigInitials, sigSelectedFontIndex, color);
       setSigDataUrl(newSig);
       setInitialsDataUrl(newInit);
-      setPlacedFields((prev) =>
-        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig, color } : f))
-      );
+      if (activePlacedFieldId) {
+        setPlacedFields((prev) =>
+          prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: newSig, color } : f))
+        );
+      }
     }
   };
 
@@ -1440,9 +1448,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     const trimmedData = cropCanvasWhitespace(canvas);
     setDrawnSigDataUrl(trimmedData);
     setSigDataUrl(trimmedData);
-    setPlacedFields((prev) =>
-      prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
-    );
+    if (activePlacedFieldId) {
+      setPlacedFields((prev) =>
+        prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
+      );
+    }
   };
 
   const undoSignatureStroke = () => {
@@ -1459,16 +1469,20 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         const trimmedData = cropCanvasWhitespace(canvas);
         setDrawnSigDataUrl(trimmedData);
         setSigDataUrl(trimmedData);
-        setPlacedFields((prev) =>
-          prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
-        );
+        if (activePlacedFieldId) {
+          setPlacedFields((prev) =>
+            prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
+          );
+        }
       } else {
         setDrawnSigDataUrl(null);
         const typedSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, sigColor);
         setSigDataUrl(typedSig);
-        setPlacedFields((prev) =>
-          prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: typedSig, color: sigColor } : f))
-        );
+        if (activePlacedFieldId) {
+          setPlacedFields((prev) =>
+            prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: typedSig, color: sigColor } : f))
+          );
+        }
       }
     }
   };
@@ -1487,9 +1501,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       const trimmedData = cropCanvasWhitespace(canvas);
       setDrawnSigDataUrl(trimmedData);
       setSigDataUrl(trimmedData);
-      setPlacedFields((prev) =>
-        prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
-      );
+      if (activePlacedFieldId) {
+        setPlacedFields((prev) =>
+          prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: trimmedData, color: sigColor } : f))
+        );
+      }
     }
   };
 
@@ -1504,9 +1520,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     setDrawnSigDataUrl(null);
     const typedSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, sigColor);
     setSigDataUrl(typedSig);
-    setPlacedFields((prev) =>
-      prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: typedSig, color: sigColor } : f))
-    );
+    if (activePlacedFieldId) {
+      setPlacedFields((prev) =>
+        prev.map((f) => (f.id === activePlacedFieldId ? { ...f, dataUrl: typedSig, color: sigColor } : f))
+      );
+    }
   };
 
   const applySignatureModalConfig = () => {
@@ -1526,21 +1544,23 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     setSigDataUrl(newSig);
     setInitialsDataUrl(newInit);
 
-    // Update existing placed signature and initials fields with the newly styled dataUrl
-    setPlacedFields((prev) =>
-      prev.map((f) => {
-        if (f.type === "signature" && newSig) {
-          return { ...f, dataUrl: newSig, color: sigColor };
-        }
-        if (f.type === "initials" && newInit) {
-          return { ...f, dataUrl: newInit, color: sigColor };
-        }
-        if (f.type === "name") {
-          return { ...f, content: sigFullName, color: sigColor };
-        }
-        return f;
-      })
-    );
+    // Update only currently active placed signature and initials field if selected
+    if (activePlacedFieldId) {
+      setPlacedFields((prev) =>
+        prev.map((f) => {
+          if (f.id === activePlacedFieldId && f.type === "signature" && newSig) {
+            return { ...f, dataUrl: newSig, color: sigColor };
+          }
+          if (f.id === activePlacedFieldId && f.type === "initials" && newInit) {
+            return { ...f, dataUrl: newInit, color: sigColor };
+          }
+          if (f.id === activePlacedFieldId && f.type === "name") {
+            return { ...f, content: sigFullName, color: sigColor };
+          }
+          return f;
+        })
+      );
+    }
 
     setIsSigConfigModalOpen(false);
   };
@@ -3900,11 +3920,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                             type="button"
                             onClick={() => {
                               setSigDataUrl(drawnSigDataUrl);
-                              setPlacedFields((prev) =>
-                                prev.map((field) =>
-                                  field.type === "signature" ? { ...field, dataUrl: drawnSigDataUrl } : field
-                                )
-                              );
+                              if (activePlacedFieldId) {
+                                setPlacedFields((prev) =>
+                                  prev.map((field) =>
+                                    field.id === activePlacedFieldId ? { ...field, dataUrl: drawnSigDataUrl } : field
+                                  )
+                                );
+                              }
                             }}
                             className={`p-2.5 rounded-xl border text-center transition cursor-pointer flex flex-col justify-between h-20 group ${
                               sigDataUrl === drawnSigDataUrl
@@ -3934,15 +3956,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                 const newInit = generateSignatureImage(sigInitials, idx, sigColor);
                                 setSigDataUrl(newSig);
                                 setInitialsDataUrl(newInit);
-                                setPlacedFields((prev) =>
-                                  prev.map((field) =>
-                                    field.type === "signature"
-                                      ? { ...field, dataUrl: newSig, color: sigColor }
-                                      : field.type === "initials"
-                                      ? { ...field, dataUrl: newInit, color: sigColor }
-                                      : field
-                                  )
-                                );
+                                if (activePlacedFieldId) {
+                                  setPlacedFields((prev) =>
+                                    prev.map((field) =>
+                                      field.id === activePlacedFieldId
+                                        ? { ...field, dataUrl: field.type === "initials" ? newInit : newSig, color: sigColor }
+                                        : field
+                                    )
+                                  );
+                                }
                               }}
                               className={`p-2.5 rounded-xl border text-center transition cursor-pointer flex flex-col justify-between h-20 group ${
                                 isSelected
