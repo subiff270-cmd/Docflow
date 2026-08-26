@@ -288,6 +288,7 @@ export interface PlacedSignField {
   content?: string;
   dataUrl?: string;
   color?: string;
+  fontSize?: number;
 }
 
 // 8.1 SIGN PDF (Client-side)
@@ -341,7 +342,8 @@ export async function clientSignPdf(
     } else {
       const textToDraw = field.content || (field.type === "date" ? new Date().toLocaleDateString("en-GB") : field.type === "name" ? "Signer Name" : "Sample Text");
       if (textToDraw) {
-        const fontSize = Math.max(11, Math.min(22, (h * 0.45)));
+        const calculatedSize = Math.max(10, Math.min(36, (h * 0.45)));
+        const fontSize = field.fontSize || calculatedSize;
         const hexColor = field.color || "#0f172a";
         let r = 0, g = 0, b = 0;
         try {
@@ -356,7 +358,7 @@ export async function clientSignPdf(
 
         page.drawText(textToDraw, {
           x: x + 4,
-          y: y + (h * 0.25),
+          y: y + (h - fontSize) / 2,
           size: fontSize,
           font,
           color: rgb(r, g, b),

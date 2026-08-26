@@ -1075,6 +1075,38 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     setActivePlacedFieldId(newField.id);
   };
 
+  const changeFieldSize = (fieldId: string, scaleFactor: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setPlacedFields((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId) return f;
+        const newW = Math.max(8, Math.min(85, Math.round(f.w * scaleFactor)));
+        const newH = Math.max(4, Math.min(55, Math.round(f.h * scaleFactor)));
+        const currentFontSize = f.fontSize || 14;
+        const newFontSize = Math.max(8, Math.min(48, Math.round(currentFontSize * scaleFactor)));
+        return {
+          ...f,
+          w: newW,
+          h: newH,
+          fontSize: newFontSize,
+        };
+      })
+    );
+  };
+
+  const setFieldExactFontSize = (fieldId: string, fontSize: number) => {
+    setPlacedFields((prev) =>
+      prev.map((f) => (f.id === fieldId ? { ...f, fontSize } : f))
+    );
+  };
+
+  const setFieldColor = (fieldId: string, color: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setPlacedFields((prev) =>
+      prev.map((f) => (f.id === fieldId ? { ...f, color } : f))
+    );
+  };
+
   const handleFieldMouseDown = (e: React.MouseEvent, field: PlacedSignField, handle: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -4050,9 +4082,26 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                         : "border border-indigo-400/80 bg-white/70 hover:border-indigo-600 hover:bg-indigo-50/50"
                                     }`}
                                   >
-                                    {/* Action Buttons Top Header (Duplicate / Delete) */}
+                                    {/* Action Buttons Top Header (Size Controls + Duplicate + Delete) */}
                                     {isSelected && (
-                                      <div className="absolute -top-7 left-0 flex items-center gap-1 bg-slate-900 text-white rounded-md px-1.5 py-0.5 text-[10px] font-bold shadow-md z-30 pointer-events-auto">
+                                      <div className="absolute -top-8 left-0 flex items-center gap-1 bg-slate-900 text-white rounded-lg px-2 py-1 text-[10px] font-bold shadow-xl z-30 pointer-events-auto whitespace-nowrap">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => changeFieldSize(field.id, 0.85, e)}
+                                          className="hover:text-indigo-300 px-1 py-0.5 rounded-sm hover:bg-slate-800 cursor-pointer font-bold"
+                                          title="Shrink Size (A-)"
+                                        >
+                                          A-
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => changeFieldSize(field.id, 1.2, e)}
+                                          className="hover:text-indigo-300 px-1 py-0.5 rounded-sm hover:bg-slate-800 cursor-pointer font-bold"
+                                          title="Enlarge Size (A+)"
+                                        >
+                                          A+
+                                        </button>
+                                        <div className="h-3 w-px bg-slate-700 mx-0.5" />
                                         <button
                                           type="button"
                                           onClick={(e) => duplicatePlacedField(field, e)}
@@ -4064,7 +4113,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                         <button
                                           type="button"
                                           onClick={(e) => deletePlacedField(field.id, e)}
-                                          className="hover:text-red-400 p-0.5 cursor-pointer ml-1"
+                                          className="hover:text-red-400 p-0.5 cursor-pointer ml-0.5"
                                           title="Remove field"
                                         >
                                           <X className="w-3 h-3" />
@@ -4072,7 +4121,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                       </div>
                                     )}
 
-                                    {/* Field Content Rendering */}
+                                    {/* Field Content Rendering with Dynamic Font Size */}
                                     {field.dataUrl ? (
                                       <img
                                         src={field.dataUrl}
@@ -4089,8 +4138,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                             prev.map((f) => (f.id === field.id ? { ...f, content: val } : f))
                                           );
                                         }}
-                                        style={{ color: field.color || "#0f172a" }}
-                                        className="w-full h-full text-center bg-transparent font-bold text-xs outline-hidden px-1 border-none"
+                                        style={{
+                                          color: field.color || "#0f172a",
+                                          fontSize: field.fontSize ? `${field.fontSize}px` : "12px",
+                                        }}
+                                        className="w-full h-full text-center bg-transparent font-bold outline-hidden px-1 border-none"
                                       />
                                     )}
 
@@ -4098,7 +4150,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                     {isSelected && (
                                       <div
                                         onMouseDown={(e) => handleFieldMouseDown(e, field, "se")}
-                                        className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-indigo-600 border-2 border-white rounded-full shadow-md cursor-se-resize hover:scale-125 transition-transform"
+                                        className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-indigo-600 border-2 border-white rounded-full shadow-md cursor-se-resize hover:scale-125 transition-transform"
+                                        title="Drag corner to resize"
                                       />
                                     )}
                                   </div>
@@ -4115,8 +4168,112 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       </div>
                     </div>
 
-                    {/* Right Sidebar: Required & Optional Fields Palette */}
+                    {/* Right Sidebar: Required & Optional Fields Palette + Selected Field Customizer */}
                     <div className={`${sigThumbnails.length > 0 ? "lg:col-span-4" : "lg:col-span-4"} space-y-3.5`}>
+                      {/* Active Selected Field Properties Editor */}
+                      {activePlacedFieldId && placedFields.some((f) => f.id === activePlacedFieldId) && (
+                        <div className="p-3.5 bg-indigo-50/80 rounded-2xl border-2 border-indigo-200 shadow-xs space-y-3 animate-in fade-in">
+                          {(() => {
+                            const field = placedFields.find((f) => f.id === activePlacedFieldId)!;
+                            return (
+                              <>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-indigo-900 capitalize flex items-center gap-1.5">
+                                    <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span>Resize & Edit {field.type}</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => deletePlacedField(field.id)}
+                                    className="text-[10px] font-bold text-red-600 hover:bg-red-100 px-1.5 py-0.5 rounded cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+
+                                {/* Text content edit if applicable */}
+                                {!field.dataUrl && (
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Text Content:</label>
+                                    <input
+                                      type="text"
+                                      value={field.content || ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setPlacedFields((prev) =>
+                                          prev.map((f) => (f.id === field.id ? { ...f, content: val } : f))
+                                        );
+                                      }}
+                                      className="w-full px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-bold text-slate-800 outline-hidden"
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Size / Scale Presets */}
+                                <div className="space-y-1">
+                                  <label className="block text-[10px] font-bold text-slate-600">Quick Size Presets:</label>
+                                  <div className="grid grid-cols-4 gap-1">
+                                    {[
+                                      { label: "Small", scale: 0.75 },
+                                      { label: "Normal", scale: 1.0 },
+                                      { label: "Large", scale: 1.35 },
+                                      { label: "XL", scale: 1.75 },
+                                    ].map((s) => (
+                                      <button
+                                        key={s.label}
+                                        type="button"
+                                        onClick={() => {
+                                          // Set preset dimensions based on base type
+                                          let baseW = field.type === "signature" ? 32 : field.type === "initials" ? 18 : 24;
+                                          let baseH = field.type === "signature" ? 12 : field.type === "initials" ? 10 : 7;
+                                          let baseFont = 14;
+                                          setPlacedFields((prev) =>
+                                            prev.map((f) =>
+                                              f.id === field.id
+                                                ? {
+                                                    ...f,
+                                                    w: Math.round(baseW * s.scale),
+                                                    h: Math.round(baseH * s.scale),
+                                                    fontSize: Math.round(baseFont * s.scale),
+                                                  }
+                                                : f
+                                            )
+                                          );
+                                        }}
+                                        className="px-2 py-1 bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 rounded-lg text-[10px] font-bold transition cursor-pointer text-center"
+                                      >
+                                        {s.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Direct Font Size / Scale Stepper */}
+                                <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-100">
+                                  <span className="text-[11px] font-bold text-slate-700">Adjust Size:</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => changeFieldSize(field.id, 0.85, e)}
+                                      className="px-2.5 py-1 bg-white text-indigo-700 border border-indigo-200 rounded-lg text-xs font-extrabold hover:bg-indigo-50 transition cursor-pointer shadow-2xs"
+                                    >
+                                      - A Smaller
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => changeFieldSize(field.id, 1.2, e)}
+                                      className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-extrabold hover:bg-indigo-700 transition cursor-pointer shadow-xs"
+                                    >
+                                      + A Bigger
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+
                       {/* Required Fields Section */}
                       <div className="space-y-2">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -4165,7 +4322,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       {/* Optional Fields Section */}
                       <div className="space-y-2">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          Optional Fields
+                          Optional Fields (Click + Add then resize)
                         </span>
 
                         {/* Initials Card */}
@@ -4193,7 +4350,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               <button
                                 type="button"
                                 onClick={() => addPlacedField("initials")}
-                                className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] rounded-lg transition cursor-pointer"
+                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-bold text-[11px] rounded-lg transition cursor-pointer"
                               >
                                 + Add
                               </button>
@@ -4213,7 +4370,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             type="button"
                             onClick={() => addPlacedField("name")}
-                            className="px-2 py-0.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 font-bold text-[11px] rounded-lg transition cursor-pointer"
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 font-bold text-[11px] rounded-lg transition cursor-pointer"
                           >
                             + Add
                           </button>
@@ -4231,7 +4388,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             type="button"
                             onClick={() => addPlacedField("date")}
-                            className="px-2 py-0.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 font-bold text-[11px] rounded-lg transition cursor-pointer"
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 font-bold text-[11px] rounded-lg transition cursor-pointer"
                           >
                             + Add
                           </button>
@@ -4249,7 +4406,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             type="button"
                             onClick={() => addPlacedField("text")}
-                            className="px-2 py-0.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 font-bold text-[11px] rounded-lg transition cursor-pointer"
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 font-bold text-[11px] rounded-lg transition cursor-pointer"
                           >
                             + Add
                           </button>
