@@ -811,8 +811,17 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   // =========================================================================
   const [sigSigningMode, setSigSigningMode] = useState<"simple" | "digital">("simple");
   const [isSigConfigModalOpen, setIsSigConfigModalOpen] = useState<boolean>(false);
-  const [sigFullName, setSigFullName] = useState<string>("Subish M");
-  const [sigInitials, setSigInitials] = useState<string>("SM");
+  const [sigFullName, setSigFullName] = useState<string>(
+    profile?.display_name || user?.displayName || (user?.email ? user.email.split("@")[0] : "Your Name")
+  );
+  const [sigInitials, setSigInitials] = useState<string>(
+    (profile?.display_name || user?.displayName || "Your Name")
+      .split(" ")
+      .map((w: string) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "YN"
+  );
   const [sigModalTab, setSigModalTab] = useState<"signature" | "initials" | "stamp">("signature");
   const [sigCreationMode, setSigCreationMode] = useState<"type" | "draw" | "upload">("type");
   const [sigColor, setSigColor] = useState<string>("#0f172a");
@@ -1025,7 +1034,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     } else if (type === "name") {
       w = 24;
       h = 7;
-      content = sigFullName || "Subish M";
+      content = sigFullName || profile?.display_name || user?.displayName || "Your Name";
     } else if (type === "date") {
       w = 22;
       h = 7;
@@ -3683,7 +3692,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                                 prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig } : f.type === "name" ? { ...f, content: val } : f))
                               );
                             }}
-                            placeholder="Type your full name (e.g. Subish M)..."
+                            placeholder="Type your full name (e.g. John Doe)..."
                             className="w-full pl-3 pr-24 py-2.5 bg-white border-2 border-indigo-200 focus:border-indigo-600 rounded-xl text-sm font-bold text-slate-900 outline-hidden shadow-xs"
                           />
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-indigo-600">
