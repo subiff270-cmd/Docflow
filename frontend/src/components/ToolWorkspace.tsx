@@ -3517,53 +3517,69 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     )}
 
                     {/* Center Document Placement Canvas */}
-                    <div className={`${sigThumbnails.length > 0 ? "lg:col-span-6" : "lg:col-span-8"} space-y-2`}>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 bg-slate-100/70 p-2 rounded-xl border border-slate-200">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800">Signing Page:</span>
-                          <select
-                            value={sigPageNum}
-                            onChange={(e) => handleSwitchSigPage(Number(e.target.value))}
-                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800"
-                          >
-                            {sigThumbnails.map((t) => (
-                              <option key={t.page_num} value={t.page_num}>
-                                Page {t.page_num} {placedFields.some((f) => f.page === t.page_num) ? "✓ (Signed)" : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
+                    <div className={`${sigThumbnails.length > 0 ? "lg:col-span-6" : "lg:col-span-8"} space-y-2.5`}>
+                      {/* Ultra-Clean Document Navigation Toolbar */}
+                      <div className="flex items-center justify-between px-3 py-2 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xs gap-2">
+                        {/* Left: Compact Page Stepper */}
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             disabled={sigPageNum <= 1}
                             onClick={() => handleSwitchSigPage(sigPageNum - 1)}
-                            className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed"
+                            className="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                            title="Previous Page"
                           >
-                            ← Prev Page
+                            ←
                           </button>
-                          <span className="text-[11px] font-bold text-slate-600 px-1">
-                            {sigPageNum} / {sigThumbnails.length || 1}
-                          </span>
+
+                          <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800">
+                            <span>Page</span>
+                            <select
+                              value={sigPageNum}
+                              onChange={(e) => handleSwitchSigPage(Number(e.target.value))}
+                              className="bg-transparent font-bold text-indigo-600 outline-hidden cursor-pointer"
+                            >
+                              {sigThumbnails.map((t) => (
+                                <option key={t.page_num} value={t.page_num}>
+                                  {t.page_num}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="text-slate-400 font-normal">/ {sigThumbnails.length || 1}</span>
+                          </div>
+
                           <button
                             type="button"
                             disabled={sigPageNum >= sigThumbnails.length}
                             onClick={() => handleSwitchSigPage(sigPageNum + 1)}
-                            className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold disabled:opacity-40 hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed"
+                            className="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                            title="Next Page"
                           >
-                            Next Page →
+                            →
                           </button>
+                        </div>
 
-                          {placedFields.some((f) => f.page === sigPageNum) && (
-                            <button
-                              type="button"
-                              onClick={() => setPlacedFields((prev) => prev.filter((f) => f.page !== sigPageNum))}
-                              className="ml-1 text-[11px] font-bold text-red-600 hover:bg-red-50 px-2 py-1 rounded-md transition cursor-pointer"
-                              title="Remove all signatures on this page"
-                            >
-                              Clear Page
-                            </button>
+                        {/* Right: Page Status & Clear Button */}
+                        <div className="flex items-center gap-2">
+                          {placedFields.filter((f) => f.page === sigPageNum).length > 0 ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                ✓ {placedFields.filter((f) => f.page === sigPageNum).length} Placed
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setPlacedFields((prev) => prev.filter((f) => f.page !== sigPageNum))}
+                                className="px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer border border-transparent hover:border-red-200 flex items-center gap-1"
+                                title="Remove fields from this page"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Clear</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                              No signatures on this page
+                            </span>
                           )}
                         </div>
                       </div>
