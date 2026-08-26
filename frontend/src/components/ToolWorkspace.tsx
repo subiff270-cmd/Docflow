@@ -843,10 +843,16 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   }>({ startX: 0, startY: 0, initialX: 0, initialY: 0, initialW: 0, initialH: 0, fieldId: "" });
 
   const signatureFonts = [
-    { name: "Cursive Script", style: "'Dancing Script', 'Brush Script MT', cursive" },
-    { name: "Modern Flow", style: "'Caveat', 'Great Vibes', cursive" },
-    { name: "Handwritten", style: "'Segoe Script', 'Lucida Handwriting', cursive" },
-    { name: "Executive", style: "'Brush Script MT', cursive" },
+    { id: "dancing-script", name: "1. Dancing Script (Classic Cursive)", style: "'Dancing Script', cursive", size: 66 },
+    { id: "caveat", name: "2. Modern Caveat (Natural Flow)", style: "'Caveat', cursive", size: 70 },
+    { id: "great-vibes", name: "3. Great Vibes (Calligraphy)", style: "'Great Vibes', cursive", size: 64 },
+    { id: "alex-brush", name: "4. Alex Brush (Elegance)", style: "'Alex Brush', cursive", size: 72 },
+    { id: "allura", name: "5. Allura (Royal Script)", style: "'Allura', cursive", size: 74 },
+    { id: "sacramento", name: "6. Sacramento (Monoline)", style: "'Sacramento', cursive", size: 62 },
+    { id: "pacifico", name: "7. Pacifico (Bold Casual)", style: "'Pacifico', cursive", size: 56 },
+    { id: "satisfy", name: "8. Satisfy (Classic Flow)", style: "'Satisfy', cursive", size: 60 },
+    { id: "marck-script", name: "9. Marck Script (Vintage)", style: "'Marck Script', cursive", size: 60 },
+    { id: "homemade-apple", name: "10. Handwritten Apple", style: "'Homemade Apple', cursive", size: 48 },
   ];
 
   const generateSignatureImage = (text: string, fontIndex: number, color: string): string => {
@@ -859,12 +865,72 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = color;
-    const font = signatureFonts[fontIndex % signatureFonts.length]?.style || "'Caveat', cursive";
-    ctx.font = `italic 64px ${font}`;
+    const fontObj = signatureFonts[fontIndex % signatureFonts.length] || signatureFonts[0];
+    ctx.font = `italic ${fontObj.size}px ${fontObj.style}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(text || "Signature", canvas.width / 2, canvas.height / 2);
     return canvas.toDataURL("image/png");
+  };
+
+  const applyPlacementPreset = (preset: "bottom-right" | "bottom-left" | "bottom-center" | "top-right" | "top-left" | "center") => {
+    let x = 60, y = 78;
+    if (preset === "bottom-right") { x = 60; y = 78; }
+    else if (preset === "bottom-left") { x = 8; y = 78; }
+    else if (preset === "bottom-center") { x = 34; y = 78; }
+    else if (preset === "top-right") { x = 60; y = 12; }
+    else if (preset === "top-left") { x = 8; y = 12; }
+    else if (preset === "center") { x = 34; y = 45; }
+
+    const activeSig = sigDataUrl || generateSignatureImage(sigFullName, sigSelectedFontIndex, sigColor);
+
+    if (activePlacedFieldId) {
+      setPlacedFields((prev) =>
+        prev.map((f) => (f.id === activePlacedFieldId ? { ...f, x, y, page: sigPageNum } : f))
+      );
+    } else {
+      addPlacedField("signature");
+      setTimeout(() => {
+        setPlacedFields((prev) =>
+          prev.map((f, i) => (i === prev.length - 1 ? { ...f, x, y } : f))
+        );
+      }, 50);
+    }
+  };
+
+  const copySignaturesToAllPages = () => {
+    const currentFields = placedFields.filter((f) => f.page === sigPageNum);
+    if (currentFields.length === 0) return;
+
+    const newFields: PlacedSignField[] = [];
+    sigThumbnails.forEach((t) => {
+      currentFields.forEach((cf) => {
+        newFields.push({
+          ...cf,
+          id: `field-${t.page_num}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          page: t.page_num,
+        });
+      });
+    });
+    setPlacedFields(newFields);
+  };
+
+  const copySignaturesToLastPage = () => {
+    if (sigThumbnails.length === 0) return;
+    const lastPageNum = sigThumbnails[sigThumbnails.length - 1].page_num;
+    const currentFields = placedFields.filter((f) => f.page === sigPageNum);
+    if (currentFields.length === 0) return;
+
+    const newFields = placedFields.filter((f) => f.page !== lastPageNum);
+    currentFields.forEach((cf) => {
+      newFields.push({
+        ...cf,
+        id: `field-last-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        page: lastPageNum,
+      });
+    });
+    setPlacedFields(newFields);
+    handleSwitchSigPage(lastPageNum);
   };
 
   // Initialize default signatures
@@ -3145,10 +3211,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
-              {/* Full-Featured Sign PDF Studio (iLovePDF Style) */}
+              {/* Full-Featured Sign PDF Studio (10 Signature Fonts & Advanced Placement Options) */}
               {tool.id === "sign-pdf" && (
-                <div className="space-y-4 animate-in fade-in">
-                  {/* Top Signing Options: Simple Signature vs Digital Signature */}
+                <div className="space-y-5 animate-in fade-in">
+                  {/* Top Signing Options Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                     <div>
                       <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
@@ -3156,7 +3222,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         <span>Sign PDF Studio</span>
                       </h3>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Create your signature, drag and position fields anywhere on the document.
+                        Type your name to choose from 10 signature styles, or draw/upload, then place anywhere on the document.
                       </p>
                     </div>
 
@@ -3190,7 +3256,210 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     </div>
                   </div>
 
-                  {/* Main Studio Grid: Left Thumbnails + Center Canvas + Right Fields Palette */}
+                  {/* Section 1: Signature Generator (Type Name & 10 Font Styles) */}
+                  <div className="p-4 bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-2xl border border-indigo-100/80 shadow-xs space-y-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Type className="w-4 h-4 text-indigo-600" />
+                        <span>1. Type Name to Generate 10 Signature Styles:</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {/* Ink Color Selector */}
+                        <span className="text-[11px] font-bold text-slate-500">Ink Color:</span>
+                        {[
+                          { hex: "#0f172a", label: "Ink Black" },
+                          { hex: "#1e3a8a", label: "Navy Blue" },
+                          { hex: "#2563eb", label: "Royal Blue" },
+                          { hex: "#dc2626", label: "Classic Red" },
+                          { hex: "#16a34a", label: "Forest Green" },
+                        ].map((c) => (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            onClick={() => {
+                              setSigColor(c.hex);
+                              const newSig = generateSignatureImage(sigFullName, sigSelectedFontIndex, c.hex);
+                              const newInit = generateSignatureImage(sigInitials, sigSelectedFontIndex, c.hex);
+                              setSigDataUrl(newSig);
+                              setInitialsDataUrl(newInit);
+                              setPlacedFields((prev) =>
+                                prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig, color: c.hex } : f))
+                              );
+                            }}
+                            className={`w-4 h-4 rounded-full transition cursor-pointer ${
+                              sigColor === c.hex
+                                ? "ring-2 ring-indigo-600 ring-offset-1 scale-110"
+                                : "opacity-75 hover:opacity-100"
+                            }`}
+                            style={{ backgroundColor: c.hex }}
+                            title={c.label}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="sm:col-span-2 relative">
+                        <input
+                          type="text"
+                          value={sigFullName}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSigFullName(val);
+                            const newSig = generateSignatureImage(val, sigSelectedFontIndex, sigColor);
+                            setSigDataUrl(newSig);
+                            setPlacedFields((prev) =>
+                              prev.map((f) => (f.type === "signature" ? { ...f, dataUrl: newSig } : f.type === "name" ? { ...f, content: val } : f))
+                            );
+                          }}
+                          placeholder="Type your full name (e.g. Subish M)..."
+                          className="w-full pl-3 pr-24 py-2.5 bg-white border-2 border-indigo-200 focus:border-indigo-600 rounded-xl text-sm font-bold text-slate-900 outline-hidden shadow-xs"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-indigo-600">
+                          Live Preview
+                        </span>
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          value={sigInitials}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSigInitials(val);
+                            const newInit = generateSignatureImage(val, sigSelectedFontIndex, sigColor);
+                            setInitialsDataUrl(newInit);
+                            setPlacedFields((prev) =>
+                              prev.map((f) => (f.type === "initials" ? { ...f, dataUrl: newInit } : f))
+                            );
+                          }}
+                          placeholder="Initials (e.g. SM)"
+                          className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-sm font-bold text-slate-900 outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 10 Signature Fonts Showcase Grid */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold text-slate-600 block">
+                        Choose from 10 Signature Font Styles (Click to apply):
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 max-h-56 overflow-y-auto p-1 scrollbar-thin">
+                        {signatureFonts.map((f, idx) => {
+                          const isSelected = sigSelectedFontIndex === idx;
+                          return (
+                            <button
+                              key={f.id}
+                              type="button"
+                              onClick={() => {
+                                setSigSelectedFontIndex(idx);
+                                const newSig = generateSignatureImage(sigFullName, idx, sigColor);
+                                const newInit = generateSignatureImage(sigInitials, idx, sigColor);
+                                setSigDataUrl(newSig);
+                                setInitialsDataUrl(newInit);
+                                setPlacedFields((prev) =>
+                                  prev.map((field) =>
+                                    field.type === "signature"
+                                      ? { ...field, dataUrl: newSig }
+                                      : field.type === "initials"
+                                      ? { ...field, dataUrl: newInit }
+                                      : field
+                                  )
+                                );
+                              }}
+                              className={`p-2.5 rounded-xl border text-center transition cursor-pointer flex flex-col justify-between h-20 group ${
+                                isSelected
+                                  ? "bg-white border-indigo-600 ring-2 ring-indigo-600/30 shadow-md scale-102"
+                                  : "bg-white/80 border-slate-200 hover:border-indigo-300 hover:bg-white"
+                              }`}
+                            >
+                              <div
+                                className="text-base truncate px-1"
+                                style={{
+                                  fontFamily: f.style,
+                                  color: isSelected ? sigColor : "#334155",
+                                }}
+                              >
+                                {sigFullName || "Signature"}
+                              </div>
+                              <span className={`text-[10px] font-semibold block truncate mt-1 ${isSelected ? "text-indigo-700 font-bold" : "text-slate-400"}`}>
+                                {f.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Quick Draw / Upload Alternatives */}
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-100/60">
+                      <span className="text-slate-500 text-[11px]">Need handwritten drawing or logo stamp?</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSigModalTab("signature");
+                          setIsSigConfigModalOpen(true);
+                        }}
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                      >
+                        <PenTool className="w-3 h-3" />
+                        <span>Draw Pad or Upload File...</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Where to Place & Multi-Page Presets */}
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Move className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>2. Where & How to Place Signature:</span>
+                      </span>
+
+                      {/* Multi-Page Placement Actions */}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={copySignaturesToLastPage}
+                          className="px-2.5 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs"
+                          title="Place signature on the last page of document"
+                        >
+                          📜 Apply to Last Page (Contracts)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={copySignaturesToAllPages}
+                          className="px-2.5 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs"
+                          title="Stamp this signature onto every page in PDF"
+                        >
+                          📑 Apply to ALL Pages
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Position Presets Buttons */}
+                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
+                      {[
+                        { id: "bottom-right", label: "Bottom-Right (Standard Sign)" },
+                        { id: "bottom-left", label: "Bottom-Left" },
+                        { id: "bottom-center", label: "Bottom-Center" },
+                        { id: "top-right", label: "Top-Right" },
+                        { id: "top-left", label: "Top-Left" },
+                        { id: "center", label: "Center Page" },
+                      ].map((pos) => (
+                        <button
+                          key={pos.id}
+                          type="button"
+                          onClick={() => applyPlacementPreset(pos.id as any)}
+                          className="px-2 py-1.5 bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-slate-200 rounded-xl text-[10px] font-bold transition cursor-pointer text-center truncate shadow-2xs"
+                        >
+                          {pos.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Section 3: Interactive Visual Studio (Thumbnails + Canvas + Palette) */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     {/* Left Sidebar: Multi-Page Thumbnails */}
                     {sigThumbnails.length > 0 && (
@@ -3370,7 +3639,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               <span className="w-5 h-5 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
                                 <PenTool className="w-3 h-3" />
                               </span>
-                              <span>Signature</span>
+                              <span>Signature ({sigFullName})</span>
                             </div>
 
                             <button
@@ -3618,7 +3887,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
                             {/* Right Mode Workspace */}
                             <div className="col-span-10 space-y-3">
-                              {/* Type Mode: 4 Cursive Font Choices with Radio Selector */}
+                              {/* Type Mode: 10 Cursive Font Choices with Radio Selector */}
                               {sigCreationMode === "type" && (
                                 <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                                   {signatureFonts.map((f, idx) => (
