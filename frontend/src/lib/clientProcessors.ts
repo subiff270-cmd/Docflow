@@ -532,21 +532,23 @@ export async function clientResizeImage(
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      let targetW = img.width;
-      let targetH = img.height;
+      const origW = img.naturalWidth || img.width;
+      const origH = img.naturalHeight || img.height;
+      let targetW = origW;
+      let targetH = origH;
 
       if (options.percentage && options.percentage > 0) {
-        targetW = Math.max(1, Math.round(img.width * (options.percentage / 100)));
-        targetH = Math.max(1, Math.round(img.height * (options.percentage / 100)));
+        targetW = Math.max(1, Math.round(origW * (options.percentage / 100)));
+        targetH = Math.max(1, Math.round(origH * (options.percentage / 100)));
       } else if (options.width && options.height) {
-        targetW = options.width;
-        targetH = options.height;
+        targetW = Math.max(1, Math.round(options.width));
+        targetH = Math.max(1, Math.round(options.height));
       } else if (options.width) {
-        targetW = options.width;
-        targetH = Math.round((options.width / img.width) * img.height);
+        targetW = Math.max(1, Math.round(options.width));
+        targetH = Math.max(1, Math.round((options.width / origW) * origH));
       } else if (options.height) {
-        targetH = options.height;
-        targetW = Math.round((options.height / img.height) * img.width);
+        targetH = Math.max(1, Math.round(options.height));
+        targetW = Math.max(1, Math.round((options.height / origH) * origW));
       }
 
       const canvas = document.createElement("canvas");
@@ -555,9 +557,18 @@ export async function clientResizeImage(
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("Canvas context unavailable"));
 
+      // If JPEG, fill white background to avoid black artifacts on transparency
+      const isJpeg = file.type === "image/jpeg" || file.name.toLowerCase().endsWith(".jpg") || file.name.toLowerCase().endsWith(".jpeg");
+      if (isJpeg) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, targetW, targetH);
+      }
+
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, targetW, targetH);
+
+      const mimeType = isJpeg ? "image/jpeg" : (file.type || "image/png");
 
       canvas.toBlob(
         (blob) => {
@@ -567,14 +578,15 @@ export async function clientResizeImage(
             filename: `resized_${file.name}`,
             size: blob.size,
             metadata: {
-              originalWidth: img.width,
-              originalHeight: img.height,
+              originalWidth: origW,
+              originalHeight: origH,
               newWidth: targetW,
               newHeight: targetH,
+              percentage: options.percentage,
             }
           });
         },
-        file.type || "image/png",
+        mimeType,
         0.95
       );
     };

@@ -5850,13 +5850,18 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             {tool.id === "resize-image" && origImageDims && (
               <div className="p-4 bg-white rounded-2xl border border-indigo-200/80 text-xs font-semibold text-slate-700 flex items-center justify-around flex-wrap gap-3 shadow-xs">
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Original Size</span>
-                  <span className="font-bold text-slate-900 text-sm">{origImageDims.width} × {origImageDims.height} px</span>
+                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Original Dimensions</span>
+                  <span className="font-bold text-slate-900 text-sm font-mono">{origImageDims.width} × {origImageDims.height} px</span>
                 </div>
-                <div className="text-indigo-400 font-bold text-base">➔</div>
+                <div className="flex flex-col items-center">
+                  <span className="text-indigo-600 font-extrabold text-xs bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 mb-0.5">
+                    {result.metadata?.percentage ? `${result.metadata.percentage}%` : (resizeMode === "percentage" ? `${resizePercentage}%` : "Custom")}
+                  </span>
+                  <div className="text-indigo-400 font-bold text-base">➔</div>
+                </div>
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Resized Size</span>
-                  <span className="font-bold text-indigo-600 text-sm font-mono">{result.metadata?.newWidth || resizeWidth} × {result.metadata?.newHeight || resizeHeight} px</span>
+                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Resized Dimensions</span>
+                  <span className="font-bold text-emerald-600 text-sm font-mono">{result.metadata?.newWidth || (resizeMode === "percentage" ? Math.round(origImageDims.width * (resizePercentage / 100)) : resizeWidth)} × {result.metadata?.newHeight || (resizeMode === "percentage" ? Math.round(origImageDims.height * (resizePercentage / 100)) : resizeHeight)} px</span>
                 </div>
               </div>
             )}
