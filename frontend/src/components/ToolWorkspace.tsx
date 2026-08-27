@@ -894,20 +894,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     boxId: string;
   }>({ startX: 0, startY: 0, initialX: 0, initialY: 0, initialW: 0, initialH: 0, boxId: "" });
 
-  // =========================================================================
-  // ADVANCED VISUAL COMPARE PDF STUDIO STATE (iLovePDF Style)
-  // =========================================================================
-  const [compareDocAThumbnails, setCompareDocAThumbnails] = useState<Array<{ page_num: number; thumbnail: string }>>([]);
-  const [compareDocBThumbnails, setCompareDocBThumbnails] = useState<Array<{ page_num: number; thumbnail: string }>>([]);
-  const [comparePageNumA, setComparePageNumA] = useState<number>(1);
-  const [comparePageNumB, setComparePageNumB] = useState<number>(1);
-  const [compareZoomA, setCompareZoomA] = useState<number>(75);
-  const [compareZoomB, setCompareZoomB] = useState<number>(75);
-  const [compareSyncScroll, setCompareSyncScroll] = useState<boolean>(true);
-  const [compareSearchQuery, setCompareSearchQuery] = useState<string>("");
-  const [compareActiveChangeId, setCompareActiveChangeId] = useState<string | null>(null);
-  const [compareActiveTab, setCompareActiveTab] = useState<"visual" | "report">("visual");
-
   const signatureFonts = [
     { id: "dancing-script", name: "1. Dancing Script (Classic Cursive)", style: "'Dancing Script', cursive", size: 66 },
     { id: "caveat", name: "2. Modern Caveat (Natural Flow)", style: "'Caveat', cursive", size: 70 },
@@ -1076,38 +1062,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     }
   }, [files, tool.id]);
 
-  useEffect(() => {
-    if (tool.id === "compare-pdf" && files.length >= 2) {
-      let isMounted = true;
-      if (files[0]) {
-        fetchPdfThumbnails(files[0])
-          .then((res) => {
-            if (isMounted && res.success && Array.isArray(res.thumbnails) && res.thumbnails.length > 0) {
-              setCompareDocAThumbnails(res.thumbnails);
-              setComparePageNumA(1);
-            }
-          })
-          .catch((err) => console.warn("Failed to load Compare Doc A preview:", err));
-      }
-      if (files[1]) {
-        fetchPdfThumbnails(files[1])
-          .then((res) => {
-            if (isMounted && res.success && Array.isArray(res.thumbnails) && res.thumbnails.length > 0) {
-              setCompareDocBThumbnails(res.thumbnails);
-              setComparePageNumB(1);
-            }
-          })
-          .catch((err) => console.warn("Failed to load Compare Doc B preview:", err));
-      }
-      return () => { isMounted = false; };
-    } else if (tool.id === "compare-pdf") {
-      setCompareDocAThumbnails([]);
-      setCompareDocBThumbnails([]);
-      setComparePageNumA(1);
-      setComparePageNumB(1);
-    }
-  }, [files, tool.id]);
-
   const handleSwitchSigPage = (pageNum: number) => {
     setSigPageNum(pageNum);
     const targetThumb = sigThumbnails.find((t) => t.page_num === pageNum);
@@ -1121,26 +1075,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     const targetThumb = redactThumbnails.find((t) => t.page_num === pageNum);
     if (targetThumb) {
       setRedactPreviewUrl(targetThumb.thumbnail);
-    }
-  };
-
-  const handleSwitchComparePage = (doc: "A" | "B" | "both", pageNum: number) => {
-    const totalA = compareDocAThumbnails.length || 1;
-    const totalB = compareDocBThumbnails.length || 1;
-
-    if (doc === "A" || (compareSyncScroll && doc === "both")) {
-      const clampedA = Math.max(1, Math.min(totalA, pageNum));
-      setComparePageNumA(clampedA);
-    }
-    if (doc === "B" || (compareSyncScroll && doc === "both")) {
-      const clampedB = Math.max(1, Math.min(totalB, pageNum));
-      setComparePageNumB(clampedB);
-    }
-    if (compareSyncScroll && doc !== "both") {
-      const targetA = Math.max(1, Math.min(totalA, pageNum));
-      const targetB = Math.max(1, Math.min(totalB, pageNum));
-      setComparePageNumA(targetA);
-      setComparePageNumB(targetB);
     }
   };
 
@@ -2089,14 +2023,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       }];
       formData.append("placed_fields_json", JSON.stringify(fieldsToProcess));
       formData.append("page", String(sigPageNum));
-    } else if (tool.id === "compare-pdf") {
-      if (files.length < 2) {
-        setError("Please upload 2 PDF files to compare differences (Document 1: Original and Document 2: Modified).");
-        setLoading(false);
-        return;
-      }
-      formData.append("file_a", files[0]);
-      formData.append("file_b", files[1]);
     }
 
     try {
@@ -2336,13 +2262,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                             {f.name}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 flex-wrap">
-                            {tool.id === "compare-pdf" && (
-                              <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md uppercase tracking-wider ${
-                                i === 0 ? "bg-indigo-100 text-indigo-800 border border-indigo-200" : "bg-purple-100 text-purple-800 border border-purple-200"
-                              }`}>
-                                {i === 0 ? "📄 Document 1 (Original)" : "📄 Document 2 (Modified)"}
-                              </span>
-                            )}
                             <span className={isFileOversized ? "text-amber-800 font-bold" : ""}>
                               {formatFileSize(f.size)}
                             </span>
@@ -2373,33 +2292,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 })}
               </div>
 
-              {/* Compare PDF 2nd File Upload Callout */}
-              {tool.id === "compare-pdf" && files.length === 1 && (
-                <div
-                  onClick={openFilePicker}
-                  className="p-4 bg-indigo-50/70 hover:bg-indigo-50 border-2 border-dashed border-indigo-300 hover:border-indigo-500 rounded-2xl cursor-pointer transition flex items-center justify-between gap-3 text-indigo-900 shadow-2xs group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-purple-500/20">
-                      02
-                    </div>
-                    <div>
-                      <p className="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-indigo-600 transition">
-                        Upload Document 2 (Modified / Revised PDF)
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        Select the second PDF to compare differences side-by-side
-                      </p>
-                    </div>
-                  </div>
-                  <span className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs rounded-xl shadow-xs shrink-0">
-                    + Choose File 2
-                  </span>
-                </div>
-              )}
-
               {/* Prominent Add More Files Banner */}
-              {tool.id !== "organize-pdf" && tool.id !== "compare-pdf" && (
+              {tool.id !== "organize-pdf" && (
                 <button
                   type="button"
                   onClick={openFilePicker}
@@ -3049,7 +2943,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             "split-pdf", "remove-pages", "extract-pages", "compress-pdf",
             "rotate-pdf", "unlock-pdf", "protect-pdf", "add-watermark",
             "ocr-pdf", "indian-language-documents", "image-to-text", "crop-pdf",
-            "resize-image", "crop-image", "convert-image", "add-page-numbers", "redact-pdf", "sign-pdf", "compare-pdf"
+            "resize-image", "crop-image", "convert-image", "add-page-numbers", "redact-pdf", "sign-pdf"
           ].includes(tool.id) && (
             <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -5449,170 +5343,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
-              {/* Compare PDF Studio (Pre-processing dual document view) */}
-              {tool.id === "compare-pdf" && files.length >= 2 && (
-                <div className="space-y-4">
-                  {/* Top Bar: Sync Toggle & Page Controls */}
-                  <div className="p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs">
-                        ⚖️
-                      </span>
-                      <div>
-                        <h4 className="text-xs font-bold text-white">Side-by-Side Comparison Workspace</h4>
-                        <p className="text-[10px] text-slate-400">
-                          {files[0]?.name} vs {files[1]?.name}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCompareSyncScroll(!compareSyncScroll)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                          compareSyncScroll
-                            ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/30"
-                            : "bg-slate-800 text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${compareSyncScroll ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
-                        <span>Scroll Sync {compareSyncScroll ? "ON" : "OFF"}</span>
-                      </button>
-
-                      {/* Sync Page Stepper */}
-                      <div className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-xl text-xs">
-                        <button
-                          type="button"
-                          disabled={comparePageNumA <= 1 && comparePageNumB <= 1}
-                          onClick={() => handleSwitchComparePage("both", Math.min(comparePageNumA, comparePageNumB) - 1)}
-                          className="px-1.5 py-0.5 text-slate-300 hover:text-white disabled:opacity-30 cursor-pointer font-bold"
-                        >
-                          ←
-                        </button>
-                        <span className="text-[11px] font-bold text-slate-200">
-                          Page {comparePageNumA}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={comparePageNumA >= (compareDocAThumbnails.length || 1) && comparePageNumB >= (compareDocBThumbnails.length || 1)}
-                          onClick={() => handleSwitchComparePage("both", Math.max(comparePageNumA, comparePageNumB) + 1)}
-                          className="px-1.5 py-0.5 text-slate-300 hover:text-white disabled:opacity-30 cursor-pointer font-bold"
-                        >
-                          →
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dual Document Viewport Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-100/90 p-3 rounded-2xl border border-slate-200/80">
-                    {/* Document 1 Viewport (Original) */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between px-2 text-xs font-bold text-slate-700">
-                        <span className="flex items-center gap-1.5 text-indigo-700">
-                          <span className="w-2 h-2 rounded-full bg-indigo-600 inline-block" />
-                          Document 1 (Original)
-                        </span>
-                        <span className="text-[11px] text-slate-400 font-normal truncate max-w-[160px]" title={files[0]?.name}>
-                          {files[0]?.name}
-                        </span>
-                      </div>
-
-                      <div className="relative bg-slate-900 rounded-2xl overflow-hidden min-h-[340px] max-h-[420px] flex items-center justify-center border-2 border-indigo-200/50 shadow-inner">
-                        {compareDocAThumbnails.find((t) => t.page_num === comparePageNumA)?.thumbnail ? (
-                          <img
-                            src={compareDocAThumbnails.find((t) => t.page_num === comparePageNumA)?.thumbnail}
-                            alt="Document 1"
-                            className="max-h-[400px] w-auto object-contain pointer-events-none transition-transform"
-                            style={{ transform: `scale(${compareZoomA / 100})` }}
-                          />
-                        ) : (
-                          <div className="text-center p-6 text-slate-400 space-y-2">
-                            <FileText className="w-8 h-8 mx-auto text-indigo-400 opacity-80" />
-                            <p className="text-xs font-bold">Document 1 Loaded</p>
-                          </div>
-                        )}
-
-                        {/* Bottom Floating Control Pill */}
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-2 shadow-lg border border-slate-800 pointer-events-auto">
-                          <span>{compareZoomA}%</span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setCompareZoomA((z) => Math.max(50, z - 15))}
-                              className="hover:text-indigo-400 px-1 font-bold cursor-pointer"
-                            >
-                              -
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setCompareZoomA((z) => Math.min(150, z + 15))}
-                              className="hover:text-indigo-400 px-1 font-bold cursor-pointer"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <span className="text-slate-400">Pg {comparePageNumA}/{compareDocAThumbnails.length || 1}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Document 2 Viewport (Modified) */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between px-2 text-xs font-bold text-slate-700">
-                        <span className="flex items-center gap-1.5 text-purple-700">
-                          <span className="w-2 h-2 rounded-full bg-purple-600 inline-block" />
-                          Document 2 (Modified)
-                        </span>
-                        <span className="text-[11px] text-slate-400 font-normal truncate max-w-[160px]" title={files[1]?.name}>
-                          {files[1]?.name}
-                        </span>
-                      </div>
-
-                      <div className="relative bg-slate-900 rounded-2xl overflow-hidden min-h-[340px] max-h-[420px] flex items-center justify-center border-2 border-purple-200/50 shadow-inner">
-                        {compareDocBThumbnails.find((t) => t.page_num === comparePageNumB)?.thumbnail ? (
-                          <img
-                            src={compareDocBThumbnails.find((t) => t.page_num === comparePageNumB)?.thumbnail}
-                            alt="Document 2"
-                            className="max-h-[400px] w-auto object-contain pointer-events-none transition-transform"
-                            style={{ transform: `scale(${compareZoomB / 100})` }}
-                          />
-                        ) : (
-                          <div className="text-center p-6 text-slate-400 space-y-2">
-                            <FileText className="w-8 h-8 mx-auto text-purple-400 opacity-80" />
-                            <p className="text-xs font-bold">Document 2 Loaded</p>
-                          </div>
-                        )}
-
-                        {/* Bottom Floating Control Pill */}
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-2 shadow-lg border border-slate-800 pointer-events-auto">
-                          <span>{compareZoomB}%</span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setCompareZoomB((z) => Math.max(50, z - 15))}
-                              className="hover:text-purple-400 px-1 font-bold cursor-pointer"
-                            >
-                              -
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setCompareZoomB((z) => Math.min(150, z + 15))}
-                              className="hover:text-purple-400 px-1 font-bold cursor-pointer"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <span className="text-slate-400">Pg {comparePageNumB}/{compareDocBThumbnails.length || 1}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
               {/* OCR & Indian Languages */}
               {(tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") && (
                 <div>
@@ -5717,9 +5447,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           ) : (
             <button
               type="submit"
-              disabled={loading || files.length === 0 || (tool.id === "compare-pdf" && files.length < 2)}
+              disabled={loading || files.length === 0}
               className={`w-full py-4 text-white font-bold rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all duration-300 ${
-                loading || files.length === 0 || (tool.id === "compare-pdf" && files.length < 2)
+                loading || files.length === 0
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed shadow-none"
                   : "bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5 cursor-pointer"
               }`}
@@ -5738,8 +5468,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       ? `Sign & Download PDF (${placedFields.length} placed)`
                       : tool.id === "redact-pdf"
                       ? `Permanently Redact PDF (${redactBoxes.length} marked area${redactBoxes.length === 1 ? "" : "s"})`
-                      : tool.id === "compare-pdf"
-                      ? (files.length < 2 ? "Please Upload 2 PDF Files to Compare" : "Compare 2 Documents Side-by-Side")
                       : `Process ${tool.name}`}
                   </span>
                   <ArrowRight className="w-5 h-5" />
@@ -5817,417 +5545,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               </div>
             )}
-
-            {/* Visual Compare PDF Studio (iLovePDF Parity Interface) */}
-            {result.comparison && tool.id === "compare-pdf" && (() => {
-              const allChanges = result.comparison.changes || [];
-              const filteredChanges = compareSearchQuery.trim()
-                ? allChanges.filter(
-                    (c: any) =>
-                      (c.old_text && c.old_text.toLowerCase().includes(compareSearchQuery.toLowerCase())) ||
-                      (c.new_text && c.new_text.toLowerCase().includes(compareSearchQuery.toLowerCase()))
-                  )
-                : allChanges;
-
-              const doc1Name = result.file_a_name || files[0]?.name || "Document 1";
-              const doc2Name = result.file_b_name || files[1]?.name || "Document 2";
-
-              const thumbsA = (result.comparison?.thumbnails_a && result.comparison.thumbnails_a.length > 0) ? result.comparison.thumbnails_a : compareDocAThumbnails;
-              const thumbsB = (result.comparison?.thumbnails_b && result.comparison.thumbnails_b.length > 0) ? result.comparison.thumbnails_b : compareDocBThumbnails;
-
-              // Unique pages with changes
-              const changedPages = Array.from(new Set(filteredChanges.map((c: any) => c.page))).sort((a: any, b: any) => a - b);
-
-              return (
-                <div className="space-y-4">
-                  {/* Top Comparison Header & Sync Toolbar */}
-                  <div className="p-4 bg-slate-900 text-white rounded-2xl shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm">
-                        ⚖️
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          <span>Visual PDF Comparison Studio</span>
-                          <span className="px-2 py-0.5 bg-indigo-600/60 text-indigo-200 text-[10px] font-extrabold rounded-md uppercase">
-                            {allChanges.length} Differences Found
-                          </span>
-                        </h4>
-                        <p className="text-xs text-slate-400">
-                          {doc1Name} (Old) vs {doc2Name} (New)
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Controls: Scroll Sync, Page Navigation */}
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      {/* Scroll Sync Toggle Button */}
-                      <button
-                        type="button"
-                        onClick={() => setCompareSyncScroll(!compareSyncScroll)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                          compareSyncScroll
-                            ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/30"
-                            : "bg-slate-800 text-slate-400 hover:text-white"
-                        }`}
-                        title="Synchronize page switching and scrolling across both documents"
-                      >
-                        <span className={`w-2 h-2 rounded-full ${compareSyncScroll ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
-                        <span>Scroll sync</span>
-                      </button>
-
-                      {/* Sync Page Stepper */}
-                      <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold">
-                        <button
-                          type="button"
-                          disabled={comparePageNumA <= 1 && comparePageNumB <= 1}
-                          onClick={() => handleSwitchComparePage("both", Math.min(comparePageNumA, comparePageNumB) - 1)}
-                          className="px-1.5 py-0.5 text-slate-300 hover:text-white disabled:opacity-30 cursor-pointer"
-                          title="Previous Page"
-                        >
-                          ←
-                        </button>
-                        <span className="text-slate-200">
-                          Page {comparePageNumA} / {Math.max(thumbsA.length || 1, thumbsB.length || 1)}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={comparePageNumA >= (thumbsA.length || 1) && comparePageNumB >= (thumbsB.length || 1)}
-                          onClick={() => handleSwitchComparePage("both", Math.max(comparePageNumA, comparePageNumB) + 1)}
-                          className="px-1.5 py-0.5 text-slate-300 hover:text-white disabled:opacity-30 cursor-pointer"
-                          title="Next Page"
-                        >
-                          →
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Main Studio Grid: 2 Side-by-Side Document Viewers + 1 Change Report Sidebar */}
-                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-                    {/* LEFT & CENTER: Dual Document Canvas (8 Cols) */}
-                    <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-100/90 p-3.5 rounded-3xl border border-slate-200 shadow-xs">
-                      {/* Left: Document 1 (Original / Old) */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between px-2 text-xs font-bold">
-                          <span className="flex items-center gap-1.5 text-rose-700">
-                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
-                            Document 1 (Original)
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-normal truncate max-w-[140px]" title={doc1Name}>
-                            {doc1Name}
-                          </span>
-                        </div>
-
-                        <div className="relative bg-slate-900/95 rounded-2xl overflow-hidden min-h-[460px] max-h-[580px] flex items-center justify-center border-2 border-rose-200/60 shadow-inner group select-none">
-                          {thumbsA.find((t: any) => t.page_num === comparePageNumA)?.thumbnail ? (
-                            <div className="relative w-full h-full flex items-center justify-center p-2">
-                              <img
-                                src={thumbsA.find((t: any) => t.page_num === comparePageNumA)?.thumbnail}
-                                alt="Original Document"
-                                className="max-h-[520px] w-auto object-contain pointer-events-none transition-transform"
-                                style={{ transform: `scale(${compareZoomA / 100})` }}
-                              />
-
-                              {/* Real Red Bounding Box Highlights for Removed Text on Page */}
-                              {allChanges
-                                .filter((c: any) => c.page === comparePageNumA && c.old_rects && c.old_rects.length > 0)
-                                .flatMap((c: any) =>
-                                  c.old_rects.map((r: any, rIdx: number) => {
-                                    const isSelected = compareActiveChangeId === c.id;
-                                    return (
-                                      <div
-                                        key={`doc1-rect-${c.id}-${rIdx}`}
-                                        style={{
-                                          left: `${r.x}%`,
-                                          top: `${r.y}%`,
-                                          width: `${r.w}%`,
-                                          height: `${r.h}%`,
-                                        }}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setCompareActiveChangeId(c.id);
-                                        }}
-                                        className={`absolute rounded-xs pointer-events-auto cursor-pointer transition-all ${
-                                          isSelected
-                                            ? "bg-rose-500/40 border-2 border-rose-600 ring-4 ring-rose-400/50 z-20 animate-pulse"
-                                            : "bg-rose-500/20 border border-rose-500/80 hover:bg-rose-500/35 z-10"
-                                        }`}
-                                        title={`Removed: ${c.old_text?.slice(0, 60)}...`}
-                                      />
-                                    );
-                                  })
-                                )}
-
-                              {/* Red Highlight Status Badge */}
-                              {allChanges.filter((c: any) => c.page === comparePageNumA && c.old_text).length > 0 && (
-                                <div className="absolute top-3 left-3 bg-rose-900/90 text-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-md border border-rose-700 shadow-md">
-                                  ● {allChanges.filter((c: any) => c.page === comparePageNumA && c.old_text).length} Removed/Changed section(s)
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-center p-8 text-slate-400 space-y-2">
-                              <FileText className="w-10 h-10 mx-auto text-rose-400 opacity-80" />
-                              <p className="text-xs font-bold">Document 1 (Page {comparePageNumA})</p>
-                            </div>
-                          )}
-
-                          {/* Left Floating Pill (Zoom & Filename) */}
-                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-2.5 shadow-xl border border-slate-800 pointer-events-auto">
-                            <span className="text-slate-300">{compareZoomA}%</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setCompareZoomA((z) => Math.max(50, z - 15))}
-                                className="hover:text-rose-400 px-1 font-bold cursor-pointer"
-                              >
-                                -
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setCompareZoomA((z) => Math.min(150, z + 15))}
-                                className="hover:text-rose-400 px-1 font-bold cursor-pointer"
-                              >
-                                +
-                              </button>
-                            </div>
-                            <span className="text-slate-500 font-normal truncate max-w-[120px]" title={doc1Name}>
-                              {doc1Name}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Document 2 (Modified / New) */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between px-2 text-xs font-bold">
-                          <span className="flex items-center gap-1.5 text-emerald-700">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                            Document 2 (Modified)
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-normal truncate max-w-[140px]" title={doc2Name}>
-                            {doc2Name}
-                          </span>
-                        </div>
-
-                        <div className="relative bg-slate-900/95 rounded-2xl overflow-hidden min-h-[460px] max-h-[580px] flex items-center justify-center border-2 border-emerald-200/60 shadow-inner group select-none">
-                          {thumbsB.find((t: any) => t.page_num === comparePageNumB)?.thumbnail ? (
-                            <div className="relative w-full h-full flex items-center justify-center p-2">
-                              <img
-                                src={thumbsB.find((t: any) => t.page_num === comparePageNumB)?.thumbnail}
-                                alt="Modified Document"
-                                className="max-h-[520px] w-auto object-contain pointer-events-none transition-transform"
-                                style={{ transform: `scale(${compareZoomB / 100})` }}
-                              />
-
-                              {/* Real Green Bounding Box Highlights for Added Text on Page */}
-                              {allChanges
-                                .filter((c: any) => c.page === comparePageNumB && c.new_rects && c.new_rects.length > 0)
-                                .flatMap((c: any) =>
-                                  c.new_rects.map((r: any, rIdx: number) => {
-                                    const isSelected = compareActiveChangeId === c.id;
-                                    return (
-                                      <div
-                                        key={`doc2-rect-${c.id}-${rIdx}`}
-                                        style={{
-                                          left: `${r.x}%`,
-                                          top: `${r.y}%`,
-                                          width: `${r.w}%`,
-                                          height: `${r.h}%`,
-                                        }}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setCompareActiveChangeId(c.id);
-                                        }}
-                                        className={`absolute rounded-xs pointer-events-auto cursor-pointer transition-all ${
-                                          isSelected
-                                            ? "bg-emerald-500/40 border-2 border-emerald-600 ring-4 ring-emerald-400/50 z-20 animate-pulse"
-                                            : "bg-emerald-500/20 border border-emerald-500/80 hover:bg-emerald-500/35 z-10"
-                                        }`}
-                                        title={`Added: ${c.new_text?.slice(0, 60)}...`}
-                                      />
-                                    );
-                                  })
-                                )}
-
-                              {/* Green Highlight Status Badge */}
-                              {allChanges.filter((c: any) => c.page === comparePageNumB && c.new_text).length > 0 && (
-                                <div className="absolute top-3 left-3 bg-emerald-900/90 text-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-700 shadow-md">
-                                  ● {allChanges.filter((c: any) => c.page === comparePageNumB && c.new_text).length} Added/New section(s)
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-center p-8 text-slate-400 space-y-2">
-                              <FileText className="w-10 h-10 mx-auto text-emerald-400 opacity-80" />
-                              <p className="text-xs font-bold">Document 2 (Page {comparePageNumB})</p>
-                            </div>
-                          )}
-
-                          {/* Right Floating Pill (Zoom & Filename) */}
-                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-2.5 shadow-xl border border-slate-800 pointer-events-auto">
-                            <span className="text-slate-300">{compareZoomB}%</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setCompareZoomB((z) => Math.max(50, z - 15))}
-                                className="hover:text-emerald-400 px-1 font-bold cursor-pointer"
-                              >
-                                -
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setCompareZoomB((z) => Math.min(150, z + 15))}
-                                className="hover:text-emerald-400 px-1 font-bold cursor-pointer"
-                              >
-                                +
-                              </button>
-                            </div>
-                            <span className="text-slate-500 font-normal truncate max-w-[120px]" title={doc2Name}>
-                              {doc2Name}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* RIGHT SIDEBAR: Change Report (4 Cols) */}
-                    <div className="xl:col-span-4 bg-white rounded-3xl border border-slate-200 shadow-sm p-4 flex flex-col justify-between space-y-4 max-h-[640px] overflow-hidden">
-                      <div className="space-y-3 overflow-hidden flex flex-col flex-1">
-                        {/* Search Filter Input */}
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={compareSearchQuery}
-                            onChange={(e) => setCompareSearchQuery(e.target.value)}
-                            placeholder="Search text differences..."
-                            className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-semibold text-slate-800 outline-hidden"
-                          />
-                          {compareSearchQuery && (
-                            <button
-                              type="button"
-                              onClick={() => setCompareSearchQuery("")}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Change Report Header */}
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                          <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
-                            Change report ({filteredChanges.length})
-                          </h5>
-                          <span className="text-[11px] font-bold text-slate-400">
-                            {changedPages.length} Page(s) Affected
-                          </span>
-                        </div>
-
-                        {/* Scrollable Edit Cards List */}
-                        <div className="overflow-y-auto flex-1 pr-1 space-y-4 text-xs">
-                          {changedPages.length > 0 ? (
-                            changedPages.map((pageNum: any) => {
-                              const pageChanges = filteredChanges.filter((c: any) => c.page === pageNum);
-                              return (
-                                <div key={pageNum} className="space-y-2.5">
-                                  <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-                                    <span>Page {pageNum}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSwitchComparePage("both", pageNum)}
-                                      className="text-indigo-600 hover:underline cursor-pointer normal-case text-xs font-bold"
-                                    >
-                                      Go to page →
-                                    </button>
-                                  </div>
-
-                                  {pageChanges.map((change: any) => {
-                                    const isSelected = compareActiveChangeId === change.id;
-                                    return (
-                                      <div
-                                        key={change.id}
-                                        onClick={() => {
-                                          setCompareActiveChangeId(change.id);
-                                          handleSwitchComparePage("both", change.page);
-                                        }}
-                                        className={`p-3.5 rounded-2xl border transition cursor-pointer space-y-2.5 ${
-                                          isSelected
-                                            ? "border-indigo-500 bg-indigo-50/40 ring-2 ring-indigo-500/20"
-                                            : "border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/50"
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-[10px] font-extrabold text-slate-500 uppercase">
-                                            {change.type === "edit" ? "Edit" : change.type === "insert" ? "Added" : "Deleted"}
-                                          </span>
-                                        </div>
-
-                                        {/* Old Text Block */}
-                                        {change.old_text && (
-                                          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200/80 space-y-1">
-                                            <div className="flex items-center justify-between text-[10px] font-extrabold text-rose-700">
-                                              <span>Old</span>
-                                              <span>{change.old_len}</span>
-                                            </div>
-                                            <p className="text-[11px] font-mono text-rose-900 leading-snug line-clamp-3">
-                                              {change.old_text}
-                                            </p>
-                                          </div>
-                                        )}
-
-                                        {/* New Text Block */}
-                                        {change.new_text && (
-                                          <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/80 space-y-1">
-                                            <div className="flex items-center justify-between text-[10px] font-extrabold text-emerald-700">
-                                              <span>New</span>
-                                              <span>+{change.new_len}</span>
-                                            </div>
-                                            <p className="text-[11px] font-mono text-emerald-900 leading-snug line-clamp-3">
-                                              {change.new_text}
-                                            </p>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <div className="text-center py-10 text-slate-400 space-y-2">
-                              <p className="text-xs font-bold text-slate-700">No differences match query</p>
-                              <p className="text-[11px]">Both files have matching text or query filtered all items.</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Prominent Download Report Button (Matches Screenshot) */}
-                      <button
-                        type="button"
-                        onClick={handleDownloadFile}
-                        disabled={downloading}
-                        className="w-full py-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-600 text-white font-extrabold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-500/30 hover:shadow-xl transition-all hover:-translate-y-0.5 cursor-pointer"
-                      >
-                        {downloading ? (
-                          <>
-                            <RefreshCw className="w-5 h-5 animate-spin" />
-                            <span>Downloading Report...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Download report</span>
-                            <ArrowRight className="w-5 h-5" />
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* Balanced Action Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">

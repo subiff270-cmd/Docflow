@@ -359,18 +359,6 @@ export const TOOLS: ToolItem[] = [
     popular: true,
   },
 
-  {
-    id: "compare-pdf",
-    name: "Compare PDF",
-    category: "EDIT PDF",
-    description: "Compare two PDF files side-by-side to highlight text differences.",
-    iconName: "GitCompare",
-    href: "/compare-pdf",
-    endpoint: "compare-pdf",
-    accept: ".pdf",
-    multiple: true,
-  },
-
   // INDIAN LANGUAGE DOCUMENTS & OCR
   {
     id: "indian-language-documents",
