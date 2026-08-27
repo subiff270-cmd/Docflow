@@ -278,6 +278,7 @@ async def api_repair_pdf(
 async def api_ocr_pdf(
     file: UploadFile = File(...),
     language: str = Form("English"),
+    output_format: str = Form("pdf"),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -288,14 +289,18 @@ async def api_ocr_pdf(
         raise HTTPException(status_code=403, detail=msg)
 
     try:
-        searchable_pdf, text = ocr_service.ocr_pdf(content, language)
-        out_name = f"ocr_{file.filename}"
-        item = save_generated_bytes(db, searchable_pdf, out_name, "application/pdf", uid)
+        out_bytes, text, out_ext, mime = ocr_service.ocr_pdf(content, language, output_format)
+        base_name = os.path.splitext(file.filename)[0] if file.filename else "document"
+        out_name = f"DocFlow_OCR_{base_name}.{out_ext}"
+        item = save_generated_bytes(db, out_bytes, out_name, mime, uid)
         return {
             "success": True,
             "download_key": item.file_key,
             "filename": out_name,
-            "extracted_text": text[:3000]
+            "size": len(out_bytes),
+            "extracted_text": text,
+            "language": language,
+            "output_format": out_ext
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OCR failed: {str(e)}")
@@ -962,6 +967,7 @@ async def api_image_to_text(
 async def api_indian_language_documents(
     file: UploadFile = File(...),
     language: str = Form("Hindi"),
+    output_format: str = Form("pdf"),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -972,10 +978,19 @@ async def api_indian_language_documents(
         raise HTTPException(status_code=403, detail=msg)
 
     try:
-        searchable_pdf, extracted = ocr_service.ocr_pdf(content, language)
-        out_name = f"ocr_{language}_{file.filename}"
-        item = save_generated_bytes(db, searchable_pdf, out_name, "application/pdf", uid)
-        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(searchable_pdf), "extracted_text": extracted}
+        out_bytes, extracted, out_ext, mime = ocr_service.ocr_pdf(content, language, output_format)
+        base_name = os.path.splitext(file.filename)[0] if file.filename else "document"
+        out_name = f"DocFlow_{language}_{base_name}.{out_ext}"
+        item = save_generated_bytes(db, out_bytes, out_name, mime, uid)
+        return {
+            "success": True,
+            "download_key": item.file_key,
+            "filename": out_name,
+            "size": len(out_bytes),
+            "extracted_text": extracted,
+            "language": language,
+            "output_format": out_ext
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Indian language OCR failed: {str(e)}")
 
