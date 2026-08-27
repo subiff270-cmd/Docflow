@@ -598,17 +598,22 @@ export async function clientResizeImage(
 // 11. CROP IMAGE (Client-side HTML5 Canvas)
 export async function clientCropImage(
   file: File,
-  cropPct: { x: number; y: number; w: number; h: number }
+  cropPct: { x: number; y: number; w: number; h: number },
+  shape: "rectangle" | "circle" | "lasso" = "rectangle",
+  lassoPoints?: Array<{ x: number; y: number }>
 ): Promise<ClientProcessResult> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const sx = (cropPct.x / 100) * img.width;
-      const sy = (cropPct.y / 100) * img.height;
-      const sw = Math.max(1, (cropPct.w / 100) * img.width);
-      const sh = Math.max(1, (cropPct.h / 100) * img.height);
+      const origW = img.naturalWidth || img.width;
+      const origH = img.naturalHeight || img.height;
+
+      const sx = (cropPct.x / 100) * origW;
+      const sy = (cropPct.y / 100) * origH;
+      const sw = Math.max(1, (cropPct.w / 100) * origW);
+      const sh = Math.max(1, (cropPct.h / 100) * origH);
 
       const canvas = document.createElement("canvas");
       canvas.width = sw;
@@ -616,18 +621,50 @@ export async function clientCropImage(
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("Canvas context unavailable"));
 
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      if (shape === "circle") {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(sw / 2, sh / 2, sw / 2, sh / 2, 0, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        ctx.restore();
+      } else if (shape === "lasso" && lassoPoints && lassoPoints.length > 2) {
+        ctx.save();
+        ctx.beginPath();
+        lassoPoints.forEach((p, idx) => {
+          const px = (p.x / 100) * origW - sx;
+          const py = (p.y / 100) * origH - sy;
+          if (idx === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        ctx.restore();
+      } else {
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      }
+
+      // If circle or lasso, output as PNG to preserve transparency
+      const isCutout = shape === "circle" || shape === "lasso";
+      const outType = isCutout ? "image/png" : (file.type || "image/png");
 
       canvas.toBlob(
         (blob) => {
           if (!blob) return reject(new Error("Failed to crop image"));
+          const baseName = file.name.replace(/\.[^/.]+$/, "");
+          const ext = isCutout ? ".png" : (file.name.includes(".") ? file.name.substring(file.name.lastIndexOf(".")) : ".png");
           resolve({
             blob,
-            filename: `cropped_${file.name}`,
+            filename: `cropped_${baseName}${ext}`,
             size: blob.size,
           });
         },
-        file.type || "image/png"
+        outType,
+        0.95
       );
     };
     img.onerror = () => reject(new Error("Failed to load image for cropping"));

@@ -657,11 +657,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
     if (cropMode === "free" && cropShape === "lasso" && handle === "new") {
       setIsDrawingLasso(true);
-      setLassoPoints([{ x: Math.round(xPct), y: Math.round(yPct) }]);
-      setCropX(Math.round(xPct));
-      setCropY(Math.round(yPct));
-      setCropW(5);
-      setCropH(5);
+      setLassoPoints([{ x: Number(xPct.toFixed(2)), y: Number(yPct.toFixed(2)) }]);
+      setCropX(Number(xPct.toFixed(2)));
+      setCropY(Number(yPct.toFixed(2)));
+      setCropW(2);
+      setCropH(2);
       return;
     }
 
@@ -706,7 +706,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         const yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
 
         setLassoPoints((prev) => {
-          const next = [...prev, { x: Math.round(xPct), y: Math.round(yPct) }];
+          const next = [...prev, { x: Number(xPct.toFixed(2)), y: Number(yPct.toFixed(2)) }];
           const xs = next.map((p) => p.x);
           const ys = next.map((p) => p.y);
           const minX = Math.min(...xs);
@@ -716,13 +716,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
           const finalX = Math.max(0, minX);
           const finalY = Math.max(0, minY);
-          const finalW = Math.max(5, maxX - minX);
-          const finalH = Math.max(5, maxY - minY);
+          const finalW = Math.max(2, maxX - minX);
+          const finalH = Math.max(2, maxY - minY);
 
-          setCropX(finalX);
-          setCropY(finalY);
-          setCropW(finalW);
-          setCropH(finalH);
+          setCropX(Number(finalX.toFixed(2)));
+          setCropY(Number(finalY.toFixed(2)));
+          setCropW(Number(finalW.toFixed(2)));
+          setCropH(Number(finalH.toFixed(2)));
 
           setPageCrops((prevP) => ({
             ...prevP,
@@ -1955,7 +1955,12 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           clientRes = await clientResizeImage(files[0], { width: resizeWidth, height: resizeHeight });
         }
       } else if (tool.id === "crop-image" && files[0]) {
-        clientRes = await clientCropImage(files[0], { x: cropX, y: cropY, w: cropW, h: cropH });
+        clientRes = await clientCropImage(
+          files[0],
+          { x: cropX, y: cropY, w: cropW, h: cropH },
+          cropShape,
+          lassoPoints
+        );
       } else if (tool.id === "sign-pdf" && files[0]) {
         const fieldsToProcess = placedFields.length > 0 ? placedFields : [{
           id: "default-sig",
@@ -3669,16 +3674,26 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
                           {/* Freehand Lasso SVG Path Overlay */}
                           {cropShape === "lasso" && lassoPoints.length > 1 && (
-                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-10">
                               <polygon
-                                points={lassoPoints.map((p) => `${(p.x / 100) * (cropContainerRef.current?.clientWidth || 500)},${(p.y / 100) * (cropContainerRef.current?.clientHeight || 500)}`).join(" ")}
-                                fill="rgba(99, 102, 241, 0.25)"
+                                points={lassoPoints.map((p) => `${p.x},${p.y}`).join(" ")}
+                                fill="rgba(99, 102, 241, 0.28)"
                                 stroke="#6366f1"
-                                strokeWidth="3"
-                                strokeDasharray="5 5"
+                                strokeWidth="1.2"
+                                strokeDasharray={isDrawingLasso ? "2 2" : "none"}
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />
+                              {isDrawingLasso && lassoPoints.length > 0 && (
+                                <circle
+                                  cx={lassoPoints[lassoPoints.length - 1].x}
+                                  cy={lassoPoints[lassoPoints.length - 1].y}
+                                  r="2"
+                                  fill="#4f46e5"
+                                  stroke="#ffffff"
+                                  strokeWidth="0.6"
+                                />
+                              )}
                             </svg>
                           )}
 
@@ -3690,10 +3705,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                               width: `${cropW}%`,
                               height: `${cropH}%`,
                               borderRadius: cropShape === "circle" ? "9999px" : "4px",
-                              boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.65)",
+                              boxShadow: isDrawingLasso ? "none" : (cropShape === "lasso" ? "0 0 0 9999px rgba(15, 23, 42, 0.45)" : "0 0 0 9999px rgba(15, 23, 42, 0.65)"),
                             }}
                             className={`absolute border-2 ${
-                              cropShape === "lasso" ? "border-indigo-400 border-dashed opacity-70" : "border-indigo-500"
+                              cropShape === "lasso" ? "border-indigo-400/70 border-dashed" : "border-indigo-500"
                             } pointer-events-auto transition-[border-radius]`}
                           >
                             {/* Rule of Thirds Grid (for Rectangle) */}
