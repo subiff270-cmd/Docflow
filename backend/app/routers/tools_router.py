@@ -803,9 +803,16 @@ async def api_compare_pdf(
 
     try:
         result = pdf_service.compare_pdfs(b_a, b_b)
+        clean_a = fa.filename.replace('.pdf', '') if fa.filename else 'Doc1'
+        clean_b = fb.filename.replace('.pdf', '') if fb.filename else 'Doc2'
+        out_name = f"DocFlow_Comparison_{clean_a}_vs_{clean_b}.txt"
+        report_bytes = result.get("report_text", "").encode("utf-8")
+        item = save_generated_bytes(db, report_bytes, out_name, "text/plain", uid)
         return {
             "success": True,
-            "filename": f"Comparison_{fa.filename}_vs_{fb.filename}.txt",
+            "download_key": item.file_key,
+            "filename": out_name,
+            "size": item.file_size,
             "comparison": result,
             "file_a_name": fa.filename,
             "file_b_name": fb.filename

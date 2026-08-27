@@ -726,23 +726,98 @@ def compare_pdfs(pdf_a_bytes: bytes, pdf_b_bytes: bytes) -> dict:
     doc_a = fitz.open(stream=pdf_a_bytes, filetype="pdf")
     doc_b = fitz.open(stream=pdf_b_bytes, filetype="pdf")
 
-    text_a = "\n".join([p.get_text() for p in doc_a])
-    text_b = "\n".join([p.get_text() for p in doc_b])
-
     doc_a_pages = len(doc_a)
     doc_b_pages = len(doc_b)
 
     import difflib
+    from datetime import datetime
+
+    changes = []
+    total_added_lines = 0
+    total_removed_lines = 0
+
+    max_pages = max(doc_a_pages, doc_b_pages)
+    for p in range(max_pages):
+        text_a_page = doc_a[p].get_text() if p < doc_a_pages else ""
+        text_b_page = doc_b[p].get_text() if p < doc_b_pages else ""
+
+        lines_a = [l.strip() for l in text_a_page.splitlines() if l.strip()]
+        lines_b = [l.strip() for l in text_b_page.splitlines() if l.strip()]
+
+        matcher = difflib.SequenceMatcher(None, lines_a, lines_b)
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == 'replace':
+                old_chunk = " ".join(lines_a[i1:i2])
+                new_chunk = " ".join(lines_b[j1:j2])
+                changes.append({
+                    "id": f"change-p{p+1}-{len(changes)+1}",
+                    "page": p + 1,
+                    "type": "edit",
+                    "old_text": old_chunk,
+                    "new_text": new_chunk,
+                    "old_len": -len(old_chunk),
+                    "new_len": len(new_chunk),
+                })
+                total_removed_lines += (i2 - i1)
+                total_added_lines += (j2 - j1)
+            elif tag == 'delete':
+                old_chunk = " ".join(lines_a[i1:i2])
+                changes.append({
+                    "id": f"change-p{p+1}-{len(changes)+1}",
+                    "page": p + 1,
+                    "type": "delete",
+                    "old_text": old_chunk,
+                    "new_text": "",
+                    "old_len": -len(old_chunk),
+                    "new_len": 0,
+                })
+                total_removed_lines += (i2 - i1)
+            elif tag == 'insert':
+                new_chunk = " ".join(lines_b[j1:j2])
+                changes.append({
+                    "id": f"change-p{p+1}-{len(changes)+1}",
+                    "page": p + 1,
+                    "type": "insert",
+                    "old_text": "",
+                    "new_text": new_chunk,
+                    "old_len": 0,
+                    "new_len": len(new_chunk),
+                })
+                total_added_lines += (j2 - j1)
+
+    text_a = "\n".join([p.get_text() for p in doc_a])
+    text_b = "\n".join([p.get_text() for p in doc_b])
     diff = list(difflib.unified_diff(
         text_a.splitlines(),
         text_b.splitlines(),
-        fromfile="PDF_A",
-        tofile="PDF_B",
+        fromfile="Document_1 (Original)",
+        tofile="Document_2 (Modified)",
         lineterm=""
     ))
 
-    added_count = sum(1 for line in diff if line.startswith("+") and not line.startswith("+++"))
-    removed_count = sum(1 for line in diff if line.startswith("-") and not line.startswith("---"))
+    report_lines = [
+        "================================================================",
+        "                  DOCFLOW PDF COMPARISON AUDIT REPORT           ",
+        "================================================================",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Document 1 Total Pages: {doc_a_pages}",
+        f"Document 2 Total Pages: {doc_b_pages}",
+        f"Total Differences Found: {len(changes)}",
+        f"Total Lines Added: +{total_added_lines}",
+        f"Total Lines Removed: -{total_removed_lines}",
+        "================================================================\n",
+        "DETAILED CHANGE REPORT:\n"
+    ]
+
+    for idx, c in enumerate(changes, 1):
+        report_lines.append(f"[{idx}] Page {c['page']} - {c['type'].upper()}:")
+        if c['old_text']:
+            report_lines.append(f"    OLD ({c['old_len']}): {c['old_text']}")
+        if c['new_text']:
+            report_lines.append(f"    NEW (+{c['new_len']}): {c['new_text']}")
+        report_lines.append("")
+
+    report_content = "\n".join(report_lines)
 
     doc_a.close()
     doc_b.close()
@@ -750,9 +825,11 @@ def compare_pdfs(pdf_a_bytes: bytes, pdf_b_bytes: bytes) -> dict:
     return {
         "pdf_a_pages": doc_a_pages,
         "pdf_b_pages": doc_b_pages,
-        "added_lines": added_count,
-        "removed_lines": removed_count,
-        "diff_summary": diff[:100]
+        "added_lines": total_added_lines,
+        "removed_lines": total_removed_lines,
+        "changes": changes,
+        "diff_summary": diff[:150],
+        "report_text": report_content
     }
 
 def edit_pdf(file_bytes: bytes, text_inserts: list[dict] = None, annotations: list[dict] = None) -> bytes:
