@@ -115,8 +115,6 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
     // OCR & AI & Languages
     case "ocr-pdf":
       return renderSingleIcon(ScanText, "bg-indigo-50 border border-indigo-100", "text-indigo-600");
-    case "indian-language-documents":
-      return renderSingleIcon(Languages, "bg-purple-50 border border-purple-100", "text-purple-600");
     case "voice-to-document":
       return renderSingleIcon(Mic, "bg-blue-50 border border-blue-100", "text-blue-600");
     case "ai-pdf-summarizer":

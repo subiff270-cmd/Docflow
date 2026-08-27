@@ -114,7 +114,6 @@ export default function Navbar() {
               {activeDropdown === "ocr" && (
                 <div className="absolute top-full left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-500/5 border border-indigo-100/50 p-3 space-y-1 z-50 animate-in fade-in">
                   <Link href="/ocr-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
-                  <Link href="/indian-language-documents" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Indian Language Documents</Link>
                   <Link href="/image-to-text" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Image to Text</Link>
                 </div>
               )}
@@ -304,7 +303,6 @@ export default function Navbar() {
               {mobileExpanded === "ocr" && (
                 <div className="pl-6 space-y-0.5 pb-2 animate-in">
                   <Link href="/ocr-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
-                  <Link href="/indian-language-documents" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Indian Language Documents</Link>
                   <Link href="/image-to-text" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to Text</Link>
                 </div>
               )}

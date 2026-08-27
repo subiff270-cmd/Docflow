@@ -22,6 +22,7 @@ import {
   Lock,
   LayoutGrid,
   FileCheck2,
+  FileSearch,
 } from "lucide-react";
 
 /* ──────────────────────────────────────────
@@ -448,10 +449,10 @@ export default function HomePage() {
           </div>
           <div className="text-center mt-6">
             <Link
-              href="/indian-language-documents"
+              href="/ocr-pdf"
               className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition group"
             >
-              Explore Indian Languages OCR
+              Explore OCR PDF
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
@@ -469,20 +470,19 @@ export default function HomePage() {
                 POWERFUL CAPABILITIES
               </span>
               <h2 className="text-xl sm:text-3xl font-extrabold">
-                Indian Language OCR & Smart PDF Processing
+                Smart OCR & Multi-Format PDF Processing
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Extract editable text from Hindi, Tamil, Telugu, Malayalam, Bengali,
-                and Marathi documents with high-precision optical character recognition,
+                Extract searchable text, convert scanned documents to editable formats,
                 or optimize and organize large PDFs with zero quality loss.
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Link
-                  href="/indian-language-documents"
+                  href="/ocr-pdf"
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition"
                 >
-                  <Languages className="w-4 h-4" />
-                  Try Indian Languages OCR
+                  <FileSearch className="w-4 h-4" />
+                  Try OCR PDF
                 </Link>
                 <Link
                   href="/organize-pdf"

@@ -47,9 +47,8 @@ export default function Footer() {
               <li><Link href="/protect-pdf" className="hover:text-indigo-400 transition">Protect PDF</Link></li>
               <li><Link href="/unlock-pdf" className="hover:text-indigo-400 transition">Unlock PDF</Link></li>
               <li><Link href="/sign-pdf" className="hover:text-indigo-400 transition">Sign PDF</Link></li>
-              <li><Link href="/redact-pdf" className="hover:text-indigo-400 transition">Redact PDF</Link></li>
               <li><Link href="/add-watermark" className="hover:text-indigo-400 transition">Add Watermark</Link></li>
-              <li><Link href="/indian-language-documents" className="hover:text-indigo-400 transition">Indian Language OCR</Link></li>
+              <li><Link href="/ocr-pdf" className="hover:text-indigo-400 transition">OCR PDF</Link></li>
             </ul>
           </div>
 

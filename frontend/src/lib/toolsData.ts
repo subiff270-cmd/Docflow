@@ -361,18 +361,6 @@ export const TOOLS: ToolItem[] = [
 
   // INDIAN LANGUAGE DOCUMENTS & OCR
   {
-    id: "indian-language-documents",
-    name: "Indian Language Documents",
-    category: "INDIAN LANGUAGE DOCUMENTS",
-    description: "Extract OCR text from Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, & Urdu.",
-    iconName: "Languages",
-    href: "/indian-language-documents",
-    endpoint: "indian-language-documents",
-    accept: ".pdf,image/*",
-    multiple: false,
-    popular: true,
-  },
-  {
     id: "image-to-text",
     name: "Image to Text (OCR)",
     category: "INDIAN LANGUAGE DOCUMENTS",

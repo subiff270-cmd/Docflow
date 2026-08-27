@@ -2004,7 +2004,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       formData.append("redact_rects_json", JSON.stringify(redactBoxes));
       formData.append("color", redactColor);
       formData.append("wipe_metadata", String(redactWipeMetadata));
-    } else if (tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") {
+    } else if (tool.id === "ocr-pdf" || tool.id === "image-to-text") {
       formData.append("language", ocrLanguage);
       formData.append("output_format", ocrOutputFormat);
       if (password) {
@@ -2964,7 +2964,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           {files.length > 0 && [
             "split-pdf", "remove-pages", "extract-pages", "compress-pdf",
             "rotate-pdf", "unlock-pdf", "protect-pdf", "add-watermark",
-            "ocr-pdf", "indian-language-documents", "image-to-text", "crop-pdf",
+            "ocr-pdf", "image-to-text", "crop-pdf",
             "resize-image", "crop-image", "convert-image", "add-page-numbers", "redact-pdf", "sign-pdf"
           ].includes(tool.id) && (
             <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
@@ -5366,7 +5366,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               )}
 
               {/* OCR & Indian Languages */}
-              {(tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") && (
+              {(tool.id === "ocr-pdf" || tool.id === "image-to-text") && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Document Language */}
