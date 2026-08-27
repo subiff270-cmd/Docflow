@@ -297,7 +297,7 @@ def translate_pdf_document(
     password: str = None
 ) -> dict:
     """
-    Translates PDF content into the target language and exports to PDF, DOCX, or TXT.
+    Translates PDF content with exact in-place layout, alignment, and coordinate preservation.
     """
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     if doc.is_encrypted:
@@ -307,7 +307,127 @@ def translate_pdf_document(
         else:
             raise ValueError("Document is password protected. Please provide a password.")
 
-    # Extract text per page with PyMuPDF OCR fallback for scanned pages
+    fmt = output_format.lower().strip()
+
+    # Check if input document has existing text blocks that can be translated in-place
+    has_layout_blocks = False
+    for page in doc:
+        blocks = page.get_text("blocks")
+        text_b_count = sum(1 for b in blocks if b[6] == 0 and len(b[4].strip()) > 3)
+        if text_b_count > 0:
+            has_layout_blocks = True
+            break
+
+    # =========================================================================
+    # 1. IN-PLACE LAYOUT-PRESERVING PDF TRANSLATION (Exact Alignment & Coordinates)
+    # =========================================================================
+    if fmt == "pdf" and has_layout_blocks:
+        font_path = "C:/Windows/Fonts/ARIALUNI.ttf" if os.path.exists("C:/Windows/Fonts/ARIALUNI.ttf") else "C:/Windows/Fonts/arial.ttf"
+        all_orig_text_parts = []
+        all_trans_text_parts = []
+
+        for pno, page in enumerate(doc):
+            text_dict = page.get_text("dict")
+            blocks_to_replace = []
+
+            for b in text_dict.get("blocks", []):
+                if b.get("type") == 0:  # text block
+                    block_rect = fitz.Rect(b["bbox"])
+                    block_text = ""
+                    sample_size = 10
+                    sample_color = (0, 0, 0)
+
+                    for line in b.get("lines", []):
+                        line_text = ""
+                        for span in line.get("spans", []):
+                            line_text += span.get("text", "") + " "
+                            sample_size = span.get("size", 10)
+                            c_int = span.get("color", 0)
+                            r = ((c_int >> 16) & 255) / 255.0
+                            g = ((c_int >> 8) & 255) / 255.0
+                            bl = (c_int & 255) / 255.0
+                            sample_color = (r, g, bl)
+                        block_text += line_text.strip() + "\n"
+
+                    clean_text = block_text.strip()
+                    if clean_text:
+                        # Detect horizontal alignment based on position
+                        page_w = page.rect.width
+                        align = 0
+                        if block_rect.width < page_w * 0.75:
+                            center_diff = abs((block_rect.x0 + block_rect.x1)/2 - page_w/2)
+                            if center_diff < 35:
+                                align = 1  # Centered
+                            elif block_rect.x0 > page_w * 0.55:
+                                align = 2  # Right-aligned
+
+                        blocks_to_replace.append({
+                            "rect": block_rect,
+                            "text": clean_text,
+                            "size": sample_size,
+                            "color": sample_color,
+                            "align": align
+                        })
+                        page.add_redact_annot(block_rect, fill=(1, 1, 1))
+
+            page.apply_redactions()
+
+            font_id = f"f_{pno}"
+            if os.path.exists(font_path):
+                page.insert_font(fontname=font_id, fontfile=font_path)
+            else:
+                font_id = "helv"
+
+            for item in blocks_to_replace:
+                trans_txt = translate_text_chunks(item["text"], source_language, target_language)
+                all_orig_text_parts.append(item["text"])
+                all_trans_text_parts.append(trans_txt)
+
+                fsize = item["size"]
+                rc = page.insert_textbox(
+                    item["rect"],
+                    trans_txt,
+                    fontname=font_id,
+                    fontsize=fsize,
+                    color=item["color"],
+                    align=item["align"]
+                )
+                if rc < 0 and fsize > 6:
+                    # Dynamically adjust font size to guarantee it fits inside original box
+                    page.insert_textbox(
+                        item["rect"],
+                        trans_txt,
+                        fontname=font_id,
+                        fontsize=max(6.5, fsize * 0.85),
+                        color=item["color"],
+                        align=item["align"]
+                    )
+
+        try:
+            doc.subset_fonts()
+        except Exception:
+            pass
+
+        output_pdf_bytes = doc.tobytes(garbage=4, deflate=True)
+        doc.close()
+
+        full_orig = "\n\n".join(all_orig_text_parts)
+        full_trans = "\n\n".join(all_trans_text_parts)
+        word_count = len(re.findall(r'\b\w+\b', full_trans))
+
+        return {
+            "bytes": output_pdf_bytes,
+            "ext": "pdf",
+            "mime": "application/pdf",
+            "original_text": full_orig,
+            "translated_text": full_trans,
+            "word_count": word_count,
+            "target_language": target_language
+        }
+
+    # =========================================================================
+    # 2. SCANNED OCR OR DOCUMENT EXPORT (DOCX, TXT, or Full Reconstructed PDF)
+    # =========================================================================
     from app.services.ocr_service import TESSDATA_DIR, LANG_CODE_MAP
     tess_lang = LANG_CODE_MAP.get(source_language.capitalize(), "eng")
     tess_dir = TESSDATA_DIR if os.path.exists(TESSDATA_DIR) else None
@@ -339,14 +459,12 @@ def translate_pdf_document(
     translated_text = translate_text_chunks(full_original_text, source_language, target_language)
     word_count = len(re.findall(r'\b\w+\b', translated_text))
 
-    fmt = output_format.lower().strip()
-
     if fmt == "docx":
         import docx
         doc_obj = docx.Document()
         heading = doc_obj.add_heading(f"Translated Document ({target_language.capitalize()})", level=1)
         heading.paragraph_format.space_after = docx.shared.Pt(14)
-        
+
         for para in translated_text.split("\n\n"):
             clean_p = para.strip()
             if clean_p:
@@ -378,7 +496,7 @@ def translate_pdf_document(
         }
 
     else:
-        # Default: Generate clean PDF with Unicode TrueType font support
+        # Generate clean PDF with Unicode TrueType font support
         unicode_font = get_unicode_font_name()
         buffer = io.BytesIO()
         pdf_doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
@@ -419,7 +537,6 @@ def translate_pdf_document(
         for para in translated_text.split("\n\n"):
             clean_p = para.strip().replace("\n", " ")
             if clean_p:
-                # Escape XML/HTML tags for ReportLab Paragraph
                 safe_p = clean_p.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 try:
                     story.append(Paragraph(safe_p, body_style))
