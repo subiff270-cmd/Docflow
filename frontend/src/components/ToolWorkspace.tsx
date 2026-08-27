@@ -2023,6 +2023,14 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       }];
       formData.append("placed_fields_json", JSON.stringify(fieldsToProcess));
       formData.append("page", String(sigPageNum));
+    } else if (tool.id === "compare-pdf") {
+      if (files.length < 2) {
+        setError("Please upload 2 PDF files to compare differences (Document 1: Original and Document 2: Modified).");
+        setLoading(false);
+        return;
+      }
+      formData.append("file_a", files[0]);
+      formData.append("file_b", files[1]);
     }
 
     try {
@@ -2261,7 +2269,14 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
                             {f.name}
                           </p>
-                          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
+                          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 flex-wrap">
+                            {tool.id === "compare-pdf" && (
+                              <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md uppercase tracking-wider ${
+                                i === 0 ? "bg-indigo-100 text-indigo-800 border border-indigo-200" : "bg-purple-100 text-purple-800 border border-purple-200"
+                              }`}>
+                                {i === 0 ? "📄 Document 1 (Original)" : "📄 Document 2 (Modified)"}
+                              </span>
+                            )}
                             <span className={isFileOversized ? "text-amber-800 font-bold" : ""}>
                               {formatFileSize(f.size)}
                             </span>
@@ -2282,7 +2297,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       <button
                         type="button"
                         onClick={() => removeFile(i)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
                         title="Remove file"
                       >
                         <X className="w-4 h-4" />
@@ -2292,8 +2307,33 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 })}
               </div>
 
+              {/* Compare PDF 2nd File Upload Callout */}
+              {tool.id === "compare-pdf" && files.length === 1 && (
+                <div
+                  onClick={openFilePicker}
+                  className="p-4 bg-indigo-50/70 hover:bg-indigo-50 border-2 border-dashed border-indigo-300 hover:border-indigo-500 rounded-2xl cursor-pointer transition flex items-center justify-between gap-3 text-indigo-900 shadow-2xs group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-purple-500/20">
+                      02
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-indigo-600 transition">
+                        Upload Document 2 (Modified / Revised PDF)
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Select the second PDF to compare differences side-by-side
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs rounded-xl shadow-xs shrink-0">
+                    + Choose File 2
+                  </span>
+                </div>
+              )}
+
               {/* Prominent Add More Files Banner */}
-              {tool.id !== "organize-pdf" && (
+              {tool.id !== "organize-pdf" && tool.id !== "compare-pdf" && (
                 <button
                   type="button"
                   onClick={openFilePicker}
@@ -5448,11 +5488,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           ) : (
             <button
               type="submit"
-              disabled={loading || files.length === 0}
+              disabled={loading || files.length === 0 || (tool.id === "compare-pdf" && files.length < 2)}
               className={`w-full py-4 text-white font-bold rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all duration-300 ${
-                loading || files.length === 0
+                loading || files.length === 0 || (tool.id === "compare-pdf" && files.length < 2)
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed shadow-none"
-                  : "bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5"
+                  : "bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5 cursor-pointer"
               }`}
             >
               {loading ? (
@@ -5469,6 +5509,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       ? `Sign & Download PDF (${placedFields.length} placed)`
                       : tool.id === "redact-pdf"
                       ? `Permanently Redact PDF (${redactBoxes.length} marked area${redactBoxes.length === 1 ? "" : "s"})`
+                      : tool.id === "compare-pdf"
+                      ? (files.length < 2 ? "Please Upload 2 PDF Files to Compare" : "Compare 2 Documents Side-by-Side")
                       : `Process ${tool.name}`}
                   </span>
                   <ArrowRight className="w-5 h-5" />
@@ -5543,6 +5585,77 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Extracted Text</span>
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 max-h-48 overflow-y-auto font-mono text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
                   {result.extracted_text}
+                </div>
+              </div>
+            )}
+
+            {/* Compare PDF Side-by-Side Diff Report */}
+            {result.comparison && tool.id === "compare-pdf" && (
+              <div className="space-y-4">
+                {/* Comparison Stat Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 bg-white rounded-2xl border border-slate-200 text-center shadow-2xs">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Document Pages</p>
+                    <p className="text-xs sm:text-sm font-bold text-slate-800 mt-0.5">
+                      Doc 1: {result.comparison.pdf_a_pages} pg • Doc 2: {result.comparison.pdf_b_pages} pg
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-center shadow-2xs">
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase">Lines Added</p>
+                    <p className="text-base font-extrabold text-emerald-700 mt-0.5">
+                      +{result.comparison.added_lines} lines
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-center shadow-2xs">
+                    <p className="text-[10px] font-bold text-rose-600 uppercase">Lines Removed</p>
+                    <p className="text-base font-extrabold text-rose-700 mt-0.5">
+                      -{result.comparison.removed_lines} lines
+                    </p>
+                  </div>
+                </div>
+
+                {/* Diff Log Viewer */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Side-by-Side Text Comparison Log</span>
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+                      <span className="text-emerald-600 font-bold">+ Green = Added</span> • <span className="text-rose-600 font-bold">- Red = Removed</span>
+                    </span>
+                  </div>
+
+                  <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 max-h-72 overflow-y-auto font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed space-y-0.5 shadow-inner select-text">
+                    {result.comparison.diff_summary && result.comparison.diff_summary.length > 0 ? (
+                      result.comparison.diff_summary.map((line: string, idx: number) => {
+                        const isAdd = line.startsWith("+") && !line.startsWith("+++");
+                        const isRemove = line.startsWith("-") && !line.startsWith("---");
+                        const isHeader = line.startsWith("@@") || line.startsWith("---") || line.startsWith("+++");
+                        return (
+                          <div
+                            key={idx}
+                            className={`px-2 py-0.5 rounded-xs ${
+                              isAdd
+                                ? "bg-emerald-950/80 text-emerald-300 font-semibold"
+                                : isRemove
+                                ? "bg-rose-950/80 text-rose-300 font-semibold"
+                                : isHeader
+                                ? "text-indigo-400 font-bold"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {line}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-emerald-400 font-bold text-center py-4">
+                        ✓ Both PDF documents have identical text content. No differences detected.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

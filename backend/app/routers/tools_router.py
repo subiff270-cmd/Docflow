@@ -774,14 +774,28 @@ async def api_search_pdf_matches(
 
 @router.post("/compare-pdf")
 async def api_compare_pdf(
-    file_a: UploadFile = File(...),
-    file_b: UploadFile = File(...),
+    file_a: Optional[UploadFile] = File(None),
+    file_b: Optional[UploadFile] = File(None),
+    files: Optional[list[UploadFile]] = File(None),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     uid = get_uid_from_header(x_firebase_uid)
-    b_a = await file_a.read()
-    b_b = await file_b.read()
+    
+    fa = file_a
+    fb = file_b
+    if (not fa or not fb) and files and len(files) >= 2:
+        fa = files[0]
+        fb = files[1]
+
+    if not fa or not fb:
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload 2 PDF files (Document 1 and Document 2) to compare differences."
+        )
+
+    b_a = await fa.read()
+    b_b = await fb.read()
 
     allowed, msg = check_user_quota(db, uid, (len(b_a) + len(b_b)) / (1024*1024))
     if not allowed:
@@ -789,7 +803,13 @@ async def api_compare_pdf(
 
     try:
         result = pdf_service.compare_pdfs(b_a, b_b)
-        return {"success": True, "comparison": result}
+        return {
+            "success": True,
+            "filename": f"Comparison_{fa.filename}_vs_{fb.filename}.txt",
+            "comparison": result,
+            "file_a_name": fa.filename,
+            "file_b_name": fb.filename
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Compare PDF failed: {str(e)}")
 
