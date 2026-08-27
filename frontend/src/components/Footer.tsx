@@ -48,6 +48,7 @@ export default function Footer() {
               <li><Link href="/unlock-pdf" className="hover:text-indigo-400 transition">Unlock PDF</Link></li>
               <li><Link href="/sign-pdf" className="hover:text-indigo-400 transition">Sign PDF</Link></li>
               <li><Link href="/add-watermark" className="hover:text-indigo-400 transition">Add Watermark</Link></li>
+              <li><Link href="/translate-pdf" className="hover:text-indigo-400 transition">Translate PDF</Link></li>
               <li><Link href="/ocr-pdf" className="hover:text-indigo-400 transition">OCR PDF</Link></li>
             </ul>
           </div>

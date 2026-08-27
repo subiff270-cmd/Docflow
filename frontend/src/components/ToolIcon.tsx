@@ -113,6 +113,8 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
       return renderSingleIcon(EyeOff, "bg-slate-100 border border-slate-200", "text-slate-700");
 
     // OCR & AI & Languages
+    case "translate-pdf":
+      return renderSingleIcon(Languages, "bg-indigo-50 border border-indigo-100", "text-indigo-600");
     case "ocr-pdf":
       return renderSingleIcon(ScanText, "bg-indigo-50 border border-indigo-100", "text-indigo-600");
     case "voice-to-document":
@@ -121,6 +123,12 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
       return renderSingleIcon(Sparkles, "bg-violet-50 border border-violet-100", "text-violet-600");
     case "image-to-text":
       return renderSingleIcon(ScanText, "bg-emerald-50 border border-emerald-100", "text-emerald-600");
+    case "resize-image":
+      return renderSingleIcon(Crop, "bg-blue-50 border border-blue-100", "text-blue-600");
+    case "crop-image":
+      return renderSingleIcon(Crop, "bg-cyan-50 border border-cyan-100", "text-cyan-600");
+    case "convert-image":
+      return renderSingleIcon(FileImage, "bg-purple-50 border border-purple-100", "text-purple-600");
 
     // Default Fallback
     default:

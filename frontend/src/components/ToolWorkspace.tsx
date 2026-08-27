@@ -129,6 +129,12 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   // Convert Image Format State
   const [imageTargetFormat, setImageTargetFormat] = useState<string>("png");
 
+  // Translate PDF State
+  const [translateSourceLang, setTranslateSourceLang] = useState<string>("auto");
+  const [translateTargetLang, setTranslateTargetLang] = useState<string>("Spanish");
+  const [translateOutputFormat, setTranslateOutputFormat] = useState<"pdf" | "docx" | "txt">("pdf");
+  const [translateSearchQuery, setTranslateSearchQuery] = useState<string>("");
+
   // Organize PDF Full Production State
   const [organizePages, setOrganizePages] = useState<PageOrderConfig[]>([]);
   const [initialSnapshot, setInitialSnapshot] = useState<PageOrderConfig[]>([]);
@@ -2080,6 +2086,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       }
     } else if (tool.id === "convert-image") {
       formData.append("target_format", imageTargetFormat);
+    } else if (tool.id === "translate-pdf") {
+      formData.append("target_language", translateTargetLang);
+      formData.append("source_language", translateSourceLang);
+      formData.append("output_format", translateOutputFormat);
+      if (password) {
+        formData.append("password", password);
+      }
     }
 
     try {
@@ -3013,7 +3026,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           {files.length > 0 && [
             "split-pdf", "remove-pages", "extract-pages", "compress-pdf",
             "rotate-pdf", "unlock-pdf", "protect-pdf", "add-watermark",
-            "ocr-pdf", "image-to-text", "crop-pdf",
+            "ocr-pdf", "image-to-text", "crop-pdf", "translate-pdf",
             "resize-image", "crop-image", "convert-image", "add-page-numbers", "redact-pdf", "sign-pdf"
           ].includes(tool.id) && (
             <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
@@ -5498,6 +5511,172 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-medium text-slate-800 outline-hidden"
                       />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Translate PDF Studio */}
+              {tool.id === "translate-pdf" && (
+                <div className="space-y-4">
+                  {/* Language Conversion Header Badge */}
+                  <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-600">Source:</span>
+                      <span className="font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200 uppercase">
+                        {translateSourceLang === "auto" ? "🌐 Auto Detect" : translateSourceLang}
+                      </span>
+                    </div>
+                    <div className="text-indigo-400 font-bold">➔</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-600">Target Translation:</span>
+                      <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                        {translateTargetLang}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Source Language */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Languages className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Document Source Language</span>
+                      </label>
+                      <select
+                        value={translateSourceLang}
+                        onChange={(e) => setTranslateSourceLang(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:border-indigo-600 outline-hidden cursor-pointer"
+                      >
+                        <option value="auto">🌐 Auto Detect (Recommended)</option>
+                        <option value="English">English</option>
+                        <option value="Spanish">Spanish (Español)</option>
+                        <option value="French">French (Français)</option>
+                        <option value="German">German (Deutsch)</option>
+                        <option value="Hindi">Hindi (हिन्दी)</option>
+                        <option value="Tamil">Tamil (தமிழ்)</option>
+                        <option value="Telugu">Telugu (తెలుగు)</option>
+                        <option value="Arabic">Arabic (العربية)</option>
+                        <option value="Chinese">Chinese (中文)</option>
+                        <option value="Japanese">Japanese (日本語)</option>
+                        <option value="Portuguese">Portuguese (Português)</option>
+                        <option value="Russian">Russian (Русский)</option>
+                        <option value="Italian">Italian (Italiano)</option>
+                      </select>
+                    </div>
+
+                    {/* Output Document Format */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <FileType className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Output Format</span>
+                      </label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { id: "pdf", label: "PDF Document", ext: ".pdf" },
+                          { id: "docx", label: "Word Doc", ext: ".docx" },
+                          { id: "txt", label: "Text File", ext: ".txt" },
+                        ].map((fmt) => (
+                          <button
+                            key={fmt.id}
+                            type="button"
+                            onClick={() => setTranslateOutputFormat(fmt.id as any)}
+                            className={`p-2 rounded-xl border text-center transition cursor-pointer ${
+                              translateOutputFormat === fmt.id
+                                ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold shadow-xs"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-semibold"
+                            }`}
+                          >
+                            <span className="block text-[11px] font-bold">{fmt.label}</span>
+                            <span className="text-[9px] text-slate-400 font-mono uppercase">{fmt.ext}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Target Language Grid */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Select Target Language</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Search language..."
+                        value={translateSearchQuery}
+                        onChange={(e) => setTranslateSearchQuery(e.target.value)}
+                        className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs w-36 outline-hidden focus:border-indigo-600 font-medium"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1 bg-slate-50/50 rounded-xl border border-slate-200">
+                      {[
+                        { name: "Spanish", native: "Español", flag: "🇪🇸" },
+                        { name: "French", native: "Français", flag: "🇫🇷" },
+                        { name: "German", native: "Deutsch", flag: "🇩🇪" },
+                        { name: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
+                        { name: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
+                        { name: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
+                        { name: "Kannada", native: "ಕನ್ನಡ", flag: "🇮🇳" },
+                        { name: "Malayalam", native: "മലയാളം", flag: "🇮🇳" },
+                        { name: "Bengali", native: "বাংলা", flag: "🇮🇳" },
+                        { name: "Marathi", native: "मराठी", flag: "🇮🇳" },
+                        { name: "Gujarati", native: "ગુજરાતી", flag: "🇮🇳" },
+                        { name: "Punjabi", native: "ਪੰਜਾਬੀ", flag: "🇮🇳" },
+                        { name: "Urdu", native: "اردو", flag: "🇵🇰" },
+                        { name: "Arabic", native: "العربية", flag: "🇸🇦" },
+                        { name: "Chinese", native: "中文", flag: "🇨🇳" },
+                        { name: "Japanese", native: "日本語", flag: "🇯🇵" },
+                        { name: "Korean", native: "한국어", flag: "🇰🇷" },
+                        { name: "Portuguese", native: "Português", flag: "🇵🇹" },
+                        { name: "Russian", native: "Русский", flag: "🇷🇺" },
+                        { name: "Italian", native: "Italiano", flag: "🇮🇹" },
+                        { name: "Dutch", native: "Nederlands", flag: "🇳🇱" },
+                        { name: "Polish", native: "Polski", flag: "🇵🇱" },
+                        { name: "Turkish", native: "Türkçe", flag: "🇹🇷" },
+                        { name: "Vietnamese", native: "Tiếng Việt", flag: "🇻🇳" },
+                        { name: "English", native: "English", flag: "🇺🇸" },
+                      ]
+                        .filter((l) =>
+                          !translateSearchQuery ||
+                          l.name.toLowerCase().includes(translateSearchQuery.toLowerCase()) ||
+                          l.native.toLowerCase().includes(translateSearchQuery.toLowerCase())
+                        )
+                        .map((lang) => (
+                          <button
+                            key={lang.name}
+                            type="button"
+                            onClick={() => setTranslateTargetLang(lang.name)}
+                            className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                              translateTargetLang === lang.name
+                                ? "border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-500/20 shadow-xs"
+                                : "border-slate-200 bg-white hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-sm">{lang.flag}</span>
+                              <span className="text-xs font-bold text-slate-800 truncate">{lang.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-medium truncate block">{lang.native}</span>
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Optional Password */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Document Password (Optional — if your PDF is protected)</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Enter PDF password to unlock before translating..."
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-medium text-slate-800 outline-hidden"
+                    />
                   </div>
                 </div>
               )}

@@ -1006,6 +1006,49 @@ async def api_indian_language_documents(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Indian language OCR failed: {str(e)}")
 
+@router.post("/translate-pdf")
+async def api_translate_pdf(
+    file: UploadFile = File(...),
+    target_language: str = Form("Spanish"),
+    source_language: str = Form("auto"),
+    output_format: str = Form("pdf"),
+    password: Optional[str] = Form(None),
+    x_firebase_uid: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    uid = get_uid_from_header(x_firebase_uid)
+    content = await file.read()
+    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
+    if not allowed:
+        raise HTTPException(status_code=403, detail=msg)
+
+    try:
+        from app.services import ai_service
+        result = ai_service.translate_pdf_document(
+            content,
+            target_language=target_language,
+            source_language=source_language,
+            output_format=output_format,
+            password=password
+        )
+        base_name = os.path.splitext(file.filename)[0] if file.filename else "document"
+        out_name = f"DocFlow_Translated_{target_language}_{base_name}.{result['ext']}"
+        item = save_generated_bytes(db, result['bytes'], out_name, result['mime'], uid)
+        return {
+            "success": True,
+            "download_key": item.file_key,
+            "filename": out_name,
+            "size": len(result['bytes']),
+            "extracted_text": result['translated_text'],
+            "original_text": result['original_text'],
+            "translated_text": result['translated_text'],
+            "word_count": result['word_count'],
+            "language": target_language,
+            "output_format": result['ext']
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF Translation failed: {str(e)}")
+
 @router.post("/edit-pdf")
 async def api_edit_pdf(
     file: UploadFile = File(...),
