@@ -149,6 +149,8 @@ LANGUAGE_MAP = {
     "tamil": "ta",
     "telugu": "te",
     "kannada": "kn",
+    "kanada": "kn",
+    "kn": "kn",
     "malayalam": "ml",
     "bengali": "bn",
     "marathi": "mr",

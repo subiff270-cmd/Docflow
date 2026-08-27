@@ -5574,6 +5574,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <option value="English">🇺🇸 English</option>
                           <option value="Tamil">🇮🇳 Tamil (தமிழ்)</option>
                           <option value="Hindi">🇮🇳 Hindi (हिन्दी)</option>
+                          <option value="Kannada">🇮🇳 Kannada (ಕನ್ನಡ)</option>
                           <option value="Telugu">🇮🇳 Telugu (తెలుగు)</option>
                           <option value="Spanish">🇪🇸 Spanish (Español)</option>
                           <option value="French">🇫🇷 French (Français)</option>
@@ -5631,12 +5632,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-indigo-600 outline-hidden cursor-pointer"
                       >
                         <optgroup label="Popular Languages">
-                          <option value="Spanish">🇪🇸 Spanish (Español)</option>
-                          <option value="French">🇫🇷 French (Français)</option>
-                          <option value="German">🇩🇪 German (Deutsch)</option>
+                          <option value="Kannada">🇮🇳 Kannada (ಕನ್ನಡ)</option>
                           <option value="Tamil">🇮🇳 Tamil (தமிழ்)</option>
                           <option value="Hindi">🇮🇳 Hindi (हिन्दी)</option>
                           <option value="Telugu">🇮🇳 Telugu (తెలుగు)</option>
+                          <option value="Spanish">🇪🇸 Spanish (Español)</option>
+                          <option value="French">🇫🇷 French (Français)</option>
+                          <option value="German">🇩🇪 German (Deutsch)</option>
                           <option value="English">🇺🇸 English</option>
                           <option value="Arabic">🇸🇦 Arabic (العربية)</option>
                           <option value="Chinese">🇨🇳 Chinese (中文)</option>
@@ -5687,12 +5689,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     </span>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {[
-                        { name: "Spanish", flag: "🇪🇸" },
+                        { name: "Kannada", flag: "🇮🇳" },
                         { name: "Tamil", flag: "🇮🇳" },
                         { name: "Hindi", flag: "🇮🇳" },
+                        { name: "Telugu", flag: "🇮🇳" },
+                        { name: "Spanish", flag: "🇪🇸" },
                         { name: "French", flag: "🇫🇷" },
                         { name: "German", flag: "🇩🇪" },
-                        { name: "Telugu", flag: "🇮🇳" },
                         { name: "Arabic", flag: "🇸🇦" },
                         { name: "Chinese", flag: "🇨🇳" },
                         { name: "Japanese", flag: "🇯🇵" },
@@ -5764,11 +5767,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       <div className="relative">
                         <input
                           type="text"
-                          placeholder="Filter languages..."
+                          placeholder="Filter languages (e.g. Kannada, Tamil)..."
                           value={translateSearchQuery}
                           autoComplete="off"
                           onChange={(e) => setTranslateSearchQuery(e.target.value)}
-                          className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs w-44 outline-hidden focus:border-indigo-600 font-medium pr-6"
+                          className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs w-56 outline-hidden focus:border-indigo-600 font-medium pr-6"
                         />
                         {translateSearchQuery && (
                           <button
@@ -5784,13 +5787,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-40 overflow-y-auto p-1.5 bg-slate-50/50 rounded-xl border border-slate-200">
                       {[
-                        { name: "Spanish", native: "Español", flag: "🇪🇸" },
+                        { name: "Kannada", native: "ಕನ್ನಡ", flag: "🇮🇳" },
                         { name: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
                         { name: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
+                        { name: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
+                        { name: "Spanish", native: "Español", flag: "🇪🇸" },
                         { name: "French", native: "Français", flag: "🇫🇷" },
                         { name: "German", native: "Deutsch", flag: "🇩🇪" },
-                        { name: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
-                        { name: "Kannada", native: "ಕನ್ನಡ", flag: "🇮🇳" },
                         { name: "Malayalam", native: "മലയാളം", flag: "🇮🇳" },
                         { name: "Bengali", native: "বাংলা", flag: "🇮🇳" },
                         { name: "Marathi", native: "मराठी", flag: "🇮🇳" },
@@ -5822,11 +5825,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         { name: "Hungarian", native: "Magyar", flag: "🇭🇺" },
                         { name: "Ukrainian", native: "Українська", flag: "🇺🇦" },
                       ]
-                        .filter((l) =>
-                          !translateSearchQuery ||
-                          l.name.toLowerCase().includes(translateSearchQuery.toLowerCase()) ||
-                          l.native.toLowerCase().includes(translateSearchQuery.toLowerCase())
-                        )
+                        .filter((l) => {
+                          if (!translateSearchQuery) return true;
+                          const q = translateSearchQuery.toLowerCase().trim();
+                          return (
+                            l.name.toLowerCase().includes(q) ||
+                            l.native.toLowerCase().includes(q) ||
+                            (l.name === "Kannada" && (q.includes("kanada") || q.includes("kannada")))
+                          );
+                        })
                         .map((lang) => (
                           <button
                             key={lang.name}
