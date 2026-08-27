@@ -610,14 +610,14 @@ export async function clientCropImage(
       const origW = img.naturalWidth || img.width;
       const origH = img.naturalHeight || img.height;
 
-      const sx = (cropPct.x / 100) * origW;
-      const sy = (cropPct.y / 100) * origH;
-      const sw = Math.max(1, (cropPct.w / 100) * origW);
-      const sh = Math.max(1, (cropPct.h / 100) * origH);
+      const sx = Math.max(0, Math.min(origW - 1, (cropPct.x / 100) * origW));
+      const sy = Math.max(0, Math.min(origH - 1, (cropPct.y / 100) * origH));
+      const sw = Math.max(1, Math.min(origW - sx, (cropPct.w / 100) * origW));
+      const sh = Math.max(1, Math.min(origH - sy, (cropPct.h / 100) * origH));
 
       const canvas = document.createElement("canvas");
-      canvas.width = sw;
-      canvas.height = sh;
+      canvas.width = Math.round(sw);
+      canvas.height = Math.round(sh);
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("Canvas context unavailable"));
 
@@ -661,6 +661,12 @@ export async function clientCropImage(
             blob,
             filename: `cropped_${baseName}${ext}`,
             size: blob.size,
+            metadata: {
+              originalWidth: origW,
+              originalHeight: origH,
+              croppedWidth: Math.round(sw),
+              croppedHeight: Math.round(sh),
+            }
           });
         },
         outType,

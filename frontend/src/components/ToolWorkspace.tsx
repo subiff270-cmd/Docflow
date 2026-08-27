@@ -3638,7 +3638,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     </div>
                   )}
 
-                  {/* Interactive Visual Mouse Crop Canvas */}
+{/* Interactive Visual Mouse Crop Canvas */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span className="font-semibold text-slate-700">Visual Page Crop Preview</span>
@@ -3649,27 +3649,27 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       </span>
                     </div>
 
-                    <div
-                      ref={cropContainerRef}
-                      onMouseDown={(e) => {
-                        if (cropMode === "free") {
-                          handleCropMouseDown(e, "new");
-                        }
-                      }}
-                      className="relative w-full max-w-lg mx-auto bg-slate-900/90 rounded-2xl overflow-hidden shadow-inner border border-slate-300 select-none flex items-center justify-center min-h-[380px] max-h-[500px] cursor-crosshair group"
-                    >
+                    <div className="relative w-full max-w-xl mx-auto bg-slate-900/95 rounded-2xl overflow-hidden shadow-inner border border-slate-300 select-none flex items-center justify-center min-h-[380px] p-2">
                       {cropLoadingPreview ? (
                         <div className="flex flex-col items-center justify-center p-8 text-white/70 space-y-2">
                           <RefreshCw className="w-8 h-8 animate-spin text-indigo-400" />
                           <span className="text-xs font-semibold">Generating document preview...</span>
                         </div>
                       ) : cropPreviewUrl ? (
-                        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                        <div
+                          ref={cropContainerRef}
+                          onMouseDown={(e) => {
+                            if (cropMode === "free") {
+                              handleCropMouseDown(e, "new");
+                            }
+                          }}
+                          className="relative inline-block max-w-full overflow-hidden shadow-2xl rounded-lg cursor-crosshair group select-none"
+                        >
                           {/* Page Image */}
                           <img
                             src={cropPreviewUrl}
                             alt="PDF Crop Page Preview"
-                            className="max-h-[460px] w-auto object-contain pointer-events-none"
+                            className="max-h-[460px] max-w-full w-auto object-contain block pointer-events-none select-none rounded-lg"
                           />
 
                           {/* Freehand Lasso SVG Path Overlay */}
@@ -3709,7 +3709,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                             }}
                             className={`absolute border-2 ${
                               cropShape === "lasso" ? "border-indigo-400/70 border-dashed" : "border-indigo-500"
-                            } pointer-events-auto transition-[border-radius]`}
+                            } pointer-events-auto transition-[border-radius] z-20`}
                           >
                             {/* Rule of Thirds Grid (for Rectangle) */}
                             {cropShape === "rectangle" && (
@@ -5881,6 +5881,26 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Resized Dimensions</span>
                   <span className="font-bold text-emerald-600 text-sm font-mono">{result.metadata?.newWidth || (resizeMode === "percentage" ? Math.round(origImageDims.width * (resizePercentage / 100)) : resizeWidth)} × {result.metadata?.newHeight || (resizeMode === "percentage" ? Math.round(origImageDims.height * (resizePercentage / 100)) : resizeHeight)} px</span>
+                </div>
+              </div>
+            )}
+
+            {/* Dimensions indicator for crop-image */}
+            {tool.id === "crop-image" && result.metadata && (
+              <div className="p-4 bg-white rounded-2xl border border-indigo-200/80 text-xs font-semibold text-slate-700 flex items-center justify-around flex-wrap gap-3 shadow-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Original Image</span>
+                  <span className="font-bold text-slate-900 text-sm font-mono">{result.metadata.originalWidth} × {result.metadata.originalHeight} px</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-indigo-600 font-extrabold text-xs bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 mb-0.5 uppercase">
+                    {cropShape === "lasso" ? "Freehand Cutout" : cropShape === "circle" ? "Circle Cutout" : "Cropped"}
+                  </span>
+                  <div className="text-indigo-400 font-bold text-base">➔</div>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Cropped Output Size</span>
+                  <span className="font-bold text-emerald-600 text-sm font-mono">{result.metadata.croppedWidth} × {result.metadata.croppedHeight} px</span>
                 </div>
               </div>
             )}
