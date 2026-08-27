@@ -7,6 +7,34 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+_REGISTERED_UNICODE_FONT = None
+
+def get_unicode_font_name() -> str:
+    global _REGISTERED_UNICODE_FONT
+    if _REGISTERED_UNICODE_FONT:
+        return _REGISTERED_UNICODE_FONT
+
+    font_candidates = [
+        ("ArialUnicode", "C:/Windows/Fonts/ARIALUNI.ttf"),
+        ("SegoeUI", "C:/Windows/Fonts/segoeui.ttf"),
+        ("NotoSans", "C:/Windows/Fonts/NotoSans-Regular.ttf"),
+        ("Arial", "C:/Windows/Fonts/arial.ttf"),
+    ]
+
+    for fname, fpath in font_candidates:
+        if os.path.exists(fpath):
+            try:
+                pdfmetrics.registerFont(TTFont(fname, fpath))
+                _REGISTERED_UNICODE_FONT = fname
+                return fname
+            except Exception:
+                continue
+
+    _REGISTERED_UNICODE_FONT = "Helvetica"
+    return "Helvetica"
 
 def extract_pdf_full_text(pdf_bytes: bytes) -> str:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -195,10 +223,11 @@ def resolve_lang_code(lang_str: str) -> str:
     return "auto"
 
 def translate_text_chunks(text: str, source_lang: str = "auto", target_lang: str = "es") -> str:
-    """Translate text with automatic paragraph batching."""
+    """Translate text with automatic paragraph batching and robust retries."""
     if not text.strip():
         return ""
     
+    import time
     from deep_translator import GoogleTranslator
     src = resolve_lang_code(source_lang)
     tgt = resolve_lang_code(target_lang)
@@ -211,10 +240,18 @@ def translate_text_chunks(text: str, source_lang: str = "auto", target_lang: str
     
     for p in paragraphs:
         if len(p) <= 2500:
-            try:
-                res = translator.translate(p)
-                translated_paras.append(res or p)
-            except Exception:
+            success = False
+            for attempt in range(3):
+                try:
+                    res = translator.translate(p)
+                    if res and not res.startswith("Error 500"):
+                        translated_paras.append(res)
+                        success = True
+                        break
+                    time.sleep(0.4)
+                except Exception:
+                    time.sleep(0.4)
+            if not success:
                 translated_paras.append(p)
         else:
             sentences = re.split(r'(?<=[.!?])\s+', p)
@@ -222,17 +259,31 @@ def translate_text_chunks(text: str, source_lang: str = "auto", target_lang: str
             sub_trans = []
             for s in sentences:
                 if len(curr_chunk) + len(s) + 1 > 2000:
-                    try:
-                        sub_trans.append(translator.translate(curr_chunk) or curr_chunk)
-                    except Exception:
+                    for attempt in range(3):
+                        try:
+                            t_res = translator.translate(curr_chunk)
+                            if t_res and not t_res.startswith("Error 500"):
+                                sub_trans.append(t_res)
+                                break
+                            time.sleep(0.4)
+                        except Exception:
+                            time.sleep(0.4)
+                    else:
                         sub_trans.append(curr_chunk)
                     curr_chunk = s
                 else:
                     curr_chunk = f"{curr_chunk} {s}".strip()
             if curr_chunk:
-                try:
-                    sub_trans.append(translator.translate(curr_chunk) or curr_chunk)
-                except Exception:
+                for attempt in range(3):
+                    try:
+                        t_res = translator.translate(curr_chunk)
+                        if t_res and not t_res.startswith("Error 500"):
+                            sub_trans.append(t_res)
+                            break
+                        time.sleep(0.4)
+                    except Exception:
+                        time.sleep(0.4)
+                else:
                     sub_trans.append(curr_chunk)
             translated_paras.append(" ".join(sub_trans))
             
@@ -256,29 +307,34 @@ def translate_pdf_document(
         else:
             raise ValueError("Document is password protected. Please provide a password.")
 
+    # Extract text per page with PyMuPDF OCR fallback for scanned pages
+    from app.services.ocr_service import TESSDATA_DIR, LANG_CODE_MAP
+    tess_lang = LANG_CODE_MAP.get(source_language.capitalize(), "eng")
+    tess_dir = TESSDATA_DIR if os.path.exists(TESSDATA_DIR) else None
+
     extracted_pages = []
     for i, page in enumerate(doc):
         t = page.get_text("text").strip()
-        if t:
+        if len(t) >= 15:
+            extracted_pages.append(t)
+        elif tess_dir:
+            try:
+                tp = page.get_textpage_ocr(language=tess_lang, tessdata=tess_dir, dpi=200)
+                ocr_t = tp.extractText().strip()
+                if ocr_t:
+                    extracted_pages.append(ocr_t)
+                elif t:
+                    extracted_pages.append(t)
+            except Exception:
+                if t:
+                    extracted_pages.append(t)
+        elif t:
             extracted_pages.append(t)
     doc.close()
 
-    # If document has no embedded text (e.g. scanned), perform OCR
-    if not extracted_pages:
-        try:
-            from app.services.ocr_service import ocr_pdf
-            ocr_lang = "English"
-            if source_language and source_language.lower() != "auto":
-                ocr_lang = source_language.capitalize()
-            _, ocr_text, _, _ = ocr_pdf(pdf_bytes, language=ocr_lang, password=password)
-            if ocr_text and isinstance(ocr_text, str) and ocr_text.strip():
-                extracted_pages.append(ocr_text.strip())
-        except Exception:
-            pass
-
     full_original_text = "\n\n".join(extracted_pages)
     if not full_original_text.strip():
-        raise ValueError("No readable text found in document to translate.")
+        raise ValueError("No readable text found in document to translate. Please make sure the PDF has readable text or clear scans.")
 
     translated_text = translate_text_chunks(full_original_text, source_language, target_language)
     word_count = len(re.findall(r'\b\w+\b', translated_text))
@@ -322,7 +378,8 @@ def translate_pdf_document(
         }
 
     else:
-        # Default: Generate clean PDF
+        # Default: Generate clean PDF with Unicode TrueType font support
+        unicode_font = get_unicode_font_name()
         buffer = io.BytesIO()
         pdf_doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
         styles = getSampleStyleSheet()
@@ -330,27 +387,27 @@ def translate_pdf_document(
 
         title_style = ParagraphStyle(
             'TitleStyle',
-            parent=styles['Heading1'],
+            fontName=unicode_font,
             fontSize=16,
-            leading=20,
+            leading=22,
             textColor=colors.HexColor('#1E1B4B'),
             spaceAfter=12
         )
 
         body_style = ParagraphStyle(
             'BodyStyle',
-            parent=styles['Normal'],
+            fontName=unicode_font,
             fontSize=10,
-            leading=15,
+            leading=16,
             textColor=colors.HexColor('#334155'),
             spaceAfter=10
         )
 
         meta_style = ParagraphStyle(
             'MetaStyle',
-            parent=styles['Normal'],
+            fontName=unicode_font,
             fontSize=9,
-            leading=12,
+            leading=14,
             textColor=colors.HexColor('#64748B'),
             spaceAfter=16
         )
