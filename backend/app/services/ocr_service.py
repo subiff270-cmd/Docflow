@@ -49,7 +49,8 @@ def create_docx_from_text(text: str, title: str = "Extracted Document") -> bytes
 def ocr_pdf(
     file_bytes: bytes,
     language: str = "Hindi",
-    output_format: str = "pdf"
+    output_format: str = "pdf",
+    password: str = None
 ) -> tuple[bytes, str, str, str]:
     """
     Real document OCR engine supporting English and 10 Indian Regional Languages:
@@ -65,6 +66,15 @@ def ocr_pdf(
     is_pdf = file_bytes.startswith(b"%PDF")
     if is_pdf:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
+        if doc.is_encrypted:
+            # 1. Try empty password first (unlocks standard permission-locked PDFs)
+            doc.authenticate("")
+            # 2. If password provided, try it
+            if doc.is_encrypted and password:
+                doc.authenticate(password.strip())
+            # 3. If still encrypted, raise a clean informative error
+            if doc.is_encrypted:
+                raise ValueError("This PDF document is password protected. Please unlock it using the 'Unlock PDF' tool or provide the correct password.")
     else:
         # It's an image file (PNG, JPG, TIFF, etc.)
         img = Image.open(io.BytesIO(file_bytes))

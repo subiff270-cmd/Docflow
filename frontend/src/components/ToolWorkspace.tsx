@@ -2007,6 +2007,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     } else if (tool.id === "ocr-pdf" || tool.id === "indian-language-documents" || tool.id === "image-to-text") {
       formData.append("language", ocrLanguage);
       formData.append("output_format", ocrOutputFormat);
+      if (password) {
+        formData.append("password", password);
+      }
     } else if (tool.id === "crop-pdf") {
       formData.append("crop_x", String(cropX));
       formData.append("crop_y", String(cropY));
@@ -5418,6 +5421,20 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         </div>
                       </div>
                     )}
+                    {/* Optional Password for Protected PDFs */}
+                    <div className="sm:col-span-2 pt-2 border-t border-slate-100">
+                      <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Document Password (Optional — if your PDF is protected)</span>
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Enter PDF password to unlock before scanning..."
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-medium text-slate-800 outline-hidden"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
