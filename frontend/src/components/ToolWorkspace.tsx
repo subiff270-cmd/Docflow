@@ -117,6 +117,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [ocrOutputFormat, setOcrOutputFormat] = useState<"pdf" | "docx" | "txt">("pdf");
   const [copiedText, setCopiedText] = useState(false);
 
+  // Resize Image State
+  const [resizeMode, setResizeMode] = useState<"pixels" | "percentage">("pixels");
+  const [origImageDims, setOrigImageDims] = useState<{ width: number; height: number } | null>(null);
+  const [resizeWidth, setResizeWidth] = useState<number>(800);
+  const [resizeHeight, setResizeHeight] = useState<number>(600);
+  const [resizePercentage, setResizePercentage] = useState<number>(50);
+  const [resizeLockAspect, setResizeLockAspect] = useState<boolean>(true);
+  const [resizeAspectRatio, setResizeAspectRatio] = useState<number>(1.333);
+
   // Organize PDF Full Production State
   const [organizePages, setOrganizePages] = useState<PageOrderConfig[]>([]);
   const [initialSnapshot, setInitialSnapshot] = useState<PageOrderConfig[]>([]);
@@ -1066,6 +1075,25 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     }
   }, [files, tool.id]);
 
+  useEffect(() => {
+    if (tool.id === "resize-image" && files.length > 0 && files[0]) {
+      const url = URL.createObjectURL(files[0]);
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        setOrigImageDims({ width: w, height: h });
+        setResizeWidth(w);
+        setResizeHeight(h);
+        setResizeAspectRatio(w / (h || 1));
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    } else if (tool.id === "resize-image") {
+      setOrigImageDims(null);
+    }
+  }, [files, tool.id]);
+
   const handleSwitchSigPage = (pageNum: number) => {
     setSigPageNum(pageNum);
     const targetThumb = sigThumbnails.find((t) => t.page_num === pageNum);
@@ -1921,7 +1949,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       } else if ((tool.id === "jpg-to-pdf" || tool.id === "scan-to-pdf") && files.length > 0) {
         clientRes = await clientImageToPdf(files);
       } else if (tool.id === "resize-image" && files[0]) {
-        clientRes = await clientResizeImage(files[0], { percentage: 50 });
+        if (resizeMode === "percentage") {
+          clientRes = await clientResizeImage(files[0], { percentage: resizePercentage });
+        } else {
+          clientRes = await clientResizeImage(files[0], { width: resizeWidth, height: resizeHeight });
+        }
       } else if (tool.id === "crop-image" && files[0]) {
         clientRes = await clientCropImage(files[0], { x: cropX, y: cropY, w: cropW, h: cropH });
       } else if (tool.id === "sign-pdf" && files[0]) {
@@ -2031,6 +2063,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       }];
       formData.append("placed_fields_json", JSON.stringify(fieldsToProcess));
       formData.append("page", String(sigPageNum));
+    } else if (tool.id === "resize-image") {
+      if (resizeMode === "percentage") {
+        formData.append("percentage", String(resizePercentage));
+      } else {
+        formData.append("width", String(resizeWidth));
+        formData.append("height", String(resizeHeight));
+      }
     }
 
     try {
@@ -5439,6 +5478,202 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
+              {/* Resize Image Studio */}
+              {tool.id === "resize-image" && (
+                <div className="space-y-4">
+                  {/* Original Dimensions Badge */}
+                  {origImageDims && (
+                    <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-indigo-900">Original Dimensions:</span>
+                        <span className="font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">
+                          {origImageDims.width} × {origImageDims.height} px
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-600">Target Size:</span>
+                        <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          {resizeMode === "percentage"
+                            ? `${Math.round(origImageDims.width * (resizePercentage / 100))} × ${Math.round(origImageDims.height * (resizePercentage / 100))} px`
+                            : `${resizeWidth} × ${resizeHeight} px`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode Tabs */}
+                  <div className="flex items-center gap-2 p-1 bg-slate-100/80 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setResizeMode("pixels")}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        resizeMode === "pixels"
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      By Dimensions (Pixels)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResizeMode("percentage")}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        resizeMode === "percentage"
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      By Percentage (%)
+                    </button>
+                  </div>
+
+                  {/* By Pixels Controls */}
+                  {resizeMode === "pixels" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                        {/* Width */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Width (pixels)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="1"
+                              max="10000"
+                              value={resizeWidth || ""}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10) || 0;
+                                setResizeWidth(val);
+                                if (resizeLockAspect && resizeAspectRatio > 0) {
+                                  setResizeHeight(Math.max(1, Math.round(val / resizeAspectRatio)));
+                                }
+                              }}
+                              className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-bold text-slate-800 outline-hidden pr-10"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-slate-400">
+                              px
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Height */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Height (pixels)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="1"
+                              max="10000"
+                              value={resizeHeight || ""}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10) || 0;
+                                setResizeHeight(val);
+                                if (resizeLockAspect && resizeAspectRatio > 0) {
+                                  setResizeWidth(Math.max(1, Math.round(val * resizeAspectRatio)));
+                                }
+                              }}
+                              className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-bold text-slate-800 outline-hidden pr-10"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-slate-400">
+                              px
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Aspect Ratio Lock Checkbox */}
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={resizeLockAspect}
+                          onChange={(e) => setResizeLockAspect(e.target.checked)}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                          <Lock className="w-3.5 h-3.5 text-indigo-600" />
+                          Lock & Maintain Aspect Ratio (prevents distortion)
+                        </span>
+                      </label>
+
+                      {/* Quick Presets */}
+                      <div>
+                        <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                          Popular Presets
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {[
+                            { name: "Passport Photo", w: 600, h: 600, desc: "600 × 600" },
+                            { name: "Govt / Signature", w: 200, h: 230, desc: "200 × 230" },
+                            { name: "Instagram Square", w: 1080, h: 1080, desc: "1080 × 1080" },
+                            { name: "Full HD 1080p", w: 1920, h: 1080, desc: "1920 × 1080" },
+                            { name: "Web Banner", w: 1200, h: 630, desc: "1200 × 630" },
+                            { name: "Email Standard", w: 800, h: 600, desc: "800 × 600" },
+                          ].map((preset) => (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => {
+                                setResizeWidth(preset.w);
+                                setResizeHeight(preset.h);
+                                setResizeAspectRatio(preset.w / preset.h);
+                              }}
+                              className="p-2 rounded-xl border border-slate-200 hover:border-indigo-500 bg-white hover:bg-indigo-50/50 text-left transition cursor-pointer"
+                            >
+                              <p className="text-xs font-bold text-slate-800 truncate">{preset.name}</p>
+                              <p className="text-[10px] font-mono text-slate-400">{preset.desc} px</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* By Percentage Controls */}
+                  {resizeMode === "percentage" && (
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-1.5">
+                          <span>Scale Percentage</span>
+                          <span className="font-mono text-indigo-600 text-sm bg-indigo-50 px-2 py-0.5 rounded-lg">
+                            {resizePercentage}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="200"
+                          step="5"
+                          value={resizePercentage}
+                          onChange={(e) => setResizePercentage(parseInt(e.target.value, 10))}
+                          className="w-full accent-indigo-600 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Percentage Preset Buttons */}
+                      <div className="grid grid-cols-5 gap-2">
+                        {[25, 50, 75, 100, 150].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => setResizePercentage(pct)}
+                            className={`py-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                              resizePercentage === pct
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            {pct}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Convert Image Format */}
               {tool.id === "convert-image" && (
                 <div>
@@ -5608,6 +5843,21 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 <div>Original: {(result.original_size / 1024).toFixed(1)} KB</div>
                 <div>Compressed: {(result.compressed_size / 1024).toFixed(1)} KB</div>
                 <div className="text-emerald-700 font-extrabold">Reduction: -{result.reduction_percentage}%</div>
+              </div>
+            )}
+
+            {/* Dimensions indicator for resize-image */}
+            {tool.id === "resize-image" && origImageDims && (
+              <div className="p-4 bg-white rounded-2xl border border-indigo-200/80 text-xs font-semibold text-slate-700 flex items-center justify-around flex-wrap gap-3 shadow-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Original Size</span>
+                  <span className="font-bold text-slate-900 text-sm">{origImageDims.width} × {origImageDims.height} px</span>
+                </div>
+                <div className="text-indigo-400 font-bold text-base">➔</div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Resized Size</span>
+                  <span className="font-bold text-indigo-600 text-sm font-mono">{result.metadata?.newWidth || resizeWidth} × {result.metadata?.newHeight || resizeHeight} px</span>
+                </div>
               </div>
             )}
 

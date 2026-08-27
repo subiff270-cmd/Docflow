@@ -4,6 +4,7 @@ export interface ClientProcessResult {
   blob: Blob;
   filename: string;
   size: number;
+  metadata?: any;
 }
 
 // 1. MERGE PDF (Client-side)
@@ -565,10 +566,16 @@ export async function clientResizeImage(
             blob,
             filename: `resized_${file.name}`,
             size: blob.size,
+            metadata: {
+              originalWidth: img.width,
+              originalHeight: img.height,
+              newWidth: targetW,
+              newHeight: targetH,
+            }
           });
         },
         file.type || "image/png",
-        0.92
+        0.95
       );
     };
     img.onerror = () => reject(new Error("Failed to load image for resizing"));
