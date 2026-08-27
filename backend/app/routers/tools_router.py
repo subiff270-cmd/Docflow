@@ -4,6 +4,7 @@ import json
 import base64
 import zipfile
 import fitz
+from PIL import Image
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header
 from fastapi.responses import FileResponse, StreamingResponse
@@ -177,7 +178,16 @@ async def api_pdf_thumbnails(
 ):
     try:
         content = await file.read()
-        doc = fitz.open(stream=content, filetype="pdf")
+        if content.startswith(b"%PDF"):
+            doc = fitz.open(stream=content, filetype="pdf")
+        else:
+            img = Image.open(io.BytesIO(content))
+            doc = fitz.open()
+            img_byte_arr = io.BytesIO()
+            img.convert("RGB").save(img_byte_arr, format="JPEG", quality=90)
+            page = doc.new_page(width=img.width, height=img.height)
+            page.insert_image(fitz.Rect(0, 0, img.width, img.height), stream=img_byte_arr.getvalue())
+
         thumbnails = []
         for idx, page in enumerate(doc):
             pix = page.get_pixmap(dpi=90)
