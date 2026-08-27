@@ -3801,10 +3801,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         <div className="relative">
                           <input
                             type="number"
+                            step="any"
                             min="0"
                             max="90"
-                            value={cropX}
-                            onChange={(e) => setCropX(Math.max(0, Math.min(90, Number(e.target.value) || 0)))}
+                            value={Number(cropX.toFixed(2))}
+                            onChange={(e) => setCropX(Math.max(0, Math.min(90, parseFloat(e.target.value) || 0)))}
                             className="w-full pl-3 pr-7 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
@@ -3816,10 +3817,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         <div className="relative">
                           <input
                             type="number"
+                            step="any"
                             min="0"
                             max="90"
-                            value={cropY}
-                            onChange={(e) => setCropY(Math.max(0, Math.min(90, Number(e.target.value) || 0)))}
+                            value={Number(cropY.toFixed(2))}
+                            onChange={(e) => setCropY(Math.max(0, Math.min(90, parseFloat(e.target.value) || 0)))}
                             className="w-full pl-3 pr-7 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
@@ -3831,10 +3833,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         <div className="relative">
                           <input
                             type="number"
-                            min="10"
+                            step="any"
+                            min="1"
                             max="100"
-                            value={cropW}
-                            onChange={(e) => setCropW(Math.max(10, Math.min(100 - cropX, Number(e.target.value) || 10)))}
+                            value={Number(cropW.toFixed(2))}
+                            onChange={(e) => setCropW(Math.max(1, Math.min(100 - cropX, parseFloat(e.target.value) || 1)))}
                             className="w-full pl-3 pr-7 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
@@ -3846,10 +3849,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         <div className="relative">
                           <input
                             type="number"
-                            min="10"
+                            step="any"
+                            min="1"
                             max="100"
-                            value={cropH}
-                            onChange={(e) => setCropH(Math.max(10, Math.min(100 - cropY, Number(e.target.value) || 10)))}
+                            value={Number(cropH.toFixed(2))}
+                            onChange={(e) => setCropH(Math.max(1, Math.min(100 - cropY, parseFloat(e.target.value) || 1)))}
                             className="w-full pl-3 pr-7 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
