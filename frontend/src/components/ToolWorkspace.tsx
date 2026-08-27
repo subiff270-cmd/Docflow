@@ -126,6 +126,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [resizeLockAspect, setResizeLockAspect] = useState<boolean>(true);
   const [resizeAspectRatio, setResizeAspectRatio] = useState<number>(1.333);
 
+  // Convert Image Format State
+  const [imageTargetFormat, setImageTargetFormat] = useState<string>("png");
+
   // Organize PDF Full Production State
   const [organizePages, setOrganizePages] = useState<PageOrderConfig[]>([]);
   const [initialSnapshot, setInitialSnapshot] = useState<PageOrderConfig[]>([]);
@@ -1976,7 +1979,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       } else if (tool.id === "redact-pdf" && files[0]) {
         clientRes = await clientRedactPdf(files[0], redactBoxes, redactColor, redactWipeMetadata);
       } else if (tool.id === "convert-image" && files[0]) {
-        clientRes = await clientConvertImage(files[0], "webp");
+        clientRes = await clientConvertImage(files[0], imageTargetFormat);
       } else if (tool.id === "organize-pdf" && files.length > 0 && organizePages.length > 0) {
         clientRes = await clientOrganizePdf(files, organizePages);
       }
@@ -2075,6 +2078,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         formData.append("width", String(resizeWidth));
         formData.append("height", String(resizeHeight));
       }
+    } else if (tool.id === "convert-image") {
+      formData.append("target_format", imageTargetFormat);
     }
 
     try {
@@ -5693,20 +5698,65 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
-              {/* Convert Image Format */}
+              {/* Convert Image Format Studio */}
               {tool.id === "convert-image" && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Target Format</label>
-                  <select
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
-                    defaultValue="png"
-                  >
-                    <option value="png">PNG (Lossless with Alpha)</option>
-                    <option value="jpg">JPG / JPEG (Compact Web Image)</option>
-                    <option value="webp">WEBP (Next-Gen High Compression)</option>
-                    <option value="bmp">BMP (Bitmap)</option>
-                    <option value="tiff">TIFF (High Resolution)</option>
-                  </select>
+                <div className="space-y-4">
+                  {/* File conversion indicator */}
+                  {files[0] && (
+                    <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-600">Source Format:</span>
+                        <span className="font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200 uppercase">
+                          {files[0].type ? files[0].type.replace("image/", "") : files[0].name.split(".").pop()}
+                        </span>
+                      </div>
+                      <div className="text-indigo-400 font-bold">➔</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-600">Target Output:</span>
+                        <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                          {imageTargetFormat}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                      <FileType className="w-4 h-4 text-indigo-600" />
+                      <span>Select Target Image Format</span>
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      {[
+                        { id: "png", name: "PNG", tag: "Lossless", desc: "Preserves alpha transparency & crisp text", ext: ".png" },
+                        { id: "jpg", name: "JPG / JPEG", tag: "Smallest", desc: "Best for photos, social & emails", ext: ".jpg" },
+                        { id: "webp", name: "WEBP", tag: "Next-Gen", desc: "Google Web format, 30% smaller", ext: ".webp" },
+                        { id: "bmp", name: "BMP", tag: "Bitmap", desc: "Uncompressed Windows raster graphic", ext: ".bmp" },
+                        { id: "tiff", name: "TIFF", tag: "Print", desc: "Ultra high-resolution archival print", ext: ".tiff" },
+                        { id: "ico", name: "ICO", tag: "Icon", desc: "Website favicon & desktop icon", ext: ".ico" },
+                      ].map((fmt) => (
+                        <button
+                          key={fmt.id}
+                          type="button"
+                          onClick={() => setImageTargetFormat(fmt.id)}
+                          className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                            imageTargetFormat === fmt.id
+                              ? "border-indigo-600 bg-indigo-50/70 shadow-xs ring-2 ring-indigo-500/20"
+                              : "border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50/60"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-xs font-extrabold text-slate-900">{fmt.name}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
+                              imageTargetFormat === fmt.id ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
+                            }`}>
+                              {fmt.tag}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 leading-tight">{fmt.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -5901,6 +5951,30 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Cropped Output Size</span>
                   <span className="font-bold text-emerald-600 text-sm font-mono">{result.metadata.croppedWidth} × {result.metadata.croppedHeight} px</span>
+                </div>
+              </div>
+            )}
+
+            {/* Format Conversion indicator for convert-image */}
+            {tool.id === "convert-image" && (
+              <div className="p-4 bg-white rounded-2xl border border-indigo-200/80 text-xs font-semibold text-slate-700 flex items-center justify-around flex-wrap gap-3 shadow-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Source Image Format</span>
+                  <span className="font-bold text-slate-900 text-sm uppercase">
+                    {result.metadata?.originalFormat || (files[0]?.name.split(".").pop() || "IMAGE")}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-indigo-600 font-extrabold text-xs bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 mb-0.5 uppercase">
+                    Converted To
+                  </span>
+                  <div className="text-indigo-400 font-bold text-base">➔</div>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase tracking-wider font-bold">Target Output Format</span>
+                  <span className="font-bold text-emerald-600 text-sm uppercase font-mono">
+                    {result.metadata?.targetFormat || imageTargetFormat}
+                  </span>
                 </div>
               </div>
             )}

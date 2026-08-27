@@ -679,51 +679,68 @@ export async function clientCropImage(
 }
 
 // 12. CONVERT IMAGE FORMAT (Client-side HTML5 Canvas)
-export async function clientConvertImage(file: File, targetFormat: string = "webp"): Promise<ClientProcessResult> {
+export async function clientConvertImage(file: File, targetFormat: string = "png"): Promise<ClientProcessResult> {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("Canvas context unavailable"));
+    const fmt = targetFormat.toLowerCase();
 
-      const fmt = targetFormat.toLowerCase();
-      let mime = "image/png";
-      let ext = "png";
+    // For formats supported natively by HTML5 Canvas (PNG, JPEG, WEBP)
+    if (fmt === "png" || fmt === "jpg" || fmt === "jpeg" || fmt === "webp") {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const origW = img.naturalWidth || img.width;
+        const origH = img.naturalHeight || img.height;
+        const canvas = document.createElement("canvas");
+        canvas.width = origW;
+        canvas.height = origH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas context unavailable"));
 
-      if (fmt === "jpg" || fmt === "jpeg") {
-        mime = "image/jpeg";
-        ext = "jpg";
-        // Fill white background for transparent images converted to JPG
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else if (fmt === "webp") {
-        mime = "image/webp";
-        ext = "webp";
-      }
+        let mime = "image/png";
+        let ext = "png";
 
-      ctx.drawImage(img, 0, 0);
+        if (fmt === "jpg" || fmt === "jpeg") {
+          mime = "image/jpeg";
+          ext = "jpg";
+          // Fill white background for transparent images converted to JPG
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else if (fmt === "webp") {
+          mime = "image/webp";
+          ext = "webp";
+        }
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject(new Error("Failed to convert image format"));
-          const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
-          resolve({
-            blob,
-            filename: `${baseName}.${ext}`,
-            size: blob.size,
-          });
-        },
-        mime,
-        0.92
-      );
-    };
-    img.onerror = () => reject(new Error("Failed to load image for conversion"));
-    img.src = url;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return reject(new Error("Failed to convert image format"));
+            const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
+            resolve({
+              blob,
+              filename: `${baseName}.${ext}`,
+              size: blob.size,
+              metadata: {
+                targetFormat: ext.toUpperCase(),
+                originalFormat: file.type ? file.type.replace("image/", "").toUpperCase() : (file.name.includes(".") ? file.name.substring(file.name.lastIndexOf(".") + 1).toUpperCase() : "IMAGE"),
+                width: origW,
+                height: origH,
+              }
+            });
+          },
+          mime,
+          0.95
+        );
+      };
+      img.onerror = () => reject(new Error("Failed to load image for conversion"));
+      img.src = url;
+    } else {
+      // For BMP, TIFF, etc. trigger backend fallback
+      reject(new Error("Use server-side converter for high-fidelity " + targetFormat.toUpperCase()));
+    }
   });
 }
 
