@@ -731,70 +731,100 @@ def compare_pdfs(pdf_a_bytes: bytes, pdf_b_bytes: bytes) -> dict:
 
     import difflib
     from datetime import datetime
+    import base64
 
     changes = []
     total_added_lines = 0
     total_removed_lines = 0
 
     max_pages = max(doc_a_pages, doc_b_pages)
+
     for p in range(max_pages):
-        text_a_page = doc_a[p].get_text() if p < doc_a_pages else ""
-        text_b_page = doc_b[p].get_text() if p < doc_b_pages else ""
+        page_a = doc_a[p] if p < doc_a_pages else None
+        page_b = doc_b[p] if p < doc_b_pages else None
+
+        text_a_page = page_a.get_text() if page_a else ""
+        text_b_page = page_b.get_text() if page_b else ""
 
         lines_a = [l.strip() for l in text_a_page.splitlines() if l.strip()]
         lines_b = [l.strip() for l in text_b_page.splitlines() if l.strip()]
 
         matcher = difflib.SequenceMatcher(None, lines_a, lines_b)
+
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == 'replace':
-                old_chunk = " ".join(lines_a[i1:i2])
-                new_chunk = " ".join(lines_b[j1:j2])
-                changes.append({
-                    "id": f"change-p{p+1}-{len(changes)+1}",
-                    "page": p + 1,
-                    "type": "edit",
-                    "old_text": old_chunk,
-                    "new_text": new_chunk,
-                    "old_len": -len(old_chunk),
-                    "new_len": len(new_chunk),
-                })
+            if tag == 'equal':
+                continue
+
+            old_lines = lines_a[i1:i2]
+            new_lines = lines_b[j1:j2]
+
+            old_chunk = " ".join(old_lines)
+            new_chunk = " ".join(new_lines)
+
+            # Find coordinates in Page A (Doc 1)
+            old_rects = []
+            if page_a and old_lines:
+                rect_a = page_a.rect
+                for l in old_lines:
+                    if len(l) >= 2:
+                        insts = page_a.search_for(l, flags=fitz.TEXT_DEHYPHENATE)
+                        for inst in insts:
+                            old_rects.append({
+                                "x": round(max(0, (inst.x0 / rect_a.width) * 100), 2),
+                                "y": round(max(0, (inst.y0 / rect_a.height) * 100), 2),
+                                "w": round(max(1, ((inst.x1 - inst.x0) / rect_a.width) * 100), 2),
+                                "h": round(max(1, ((inst.y1 - inst.y0) / rect_a.height) * 100), 2),
+                            })
+
+            # Find coordinates in Page B (Doc 2)
+            new_rects = []
+            if page_b and new_lines:
+                rect_b = page_b.rect
+                for l in new_lines:
+                    if len(l) >= 2:
+                        insts = page_b.search_for(l, flags=fitz.TEXT_DEHYPHENATE)
+                        for inst in insts:
+                            new_rects.append({
+                                "x": round(max(0, (inst.x0 / rect_b.width) * 100), 2),
+                                "y": round(max(0, (inst.y0 / rect_b.height) * 100), 2),
+                                "w": round(max(1, ((inst.x1 - inst.x0) / rect_b.width) * 100), 2),
+                                "h": round(max(1, ((inst.y1 - inst.y0) / rect_b.height) * 100), 2),
+                            })
+
+            change_type = "edit" if tag == "replace" else ("delete" if tag == "delete" else "insert")
+            change_item = {
+                "id": f"change-p{p+1}-{len(changes)+1}",
+                "page": p + 1,
+                "type": change_type,
+                "old_text": old_chunk,
+                "new_text": new_chunk,
+                "old_rects": old_rects,
+                "new_rects": new_rects,
+                "old_len": -len(old_chunk) if old_chunk else 0,
+                "new_len": len(new_chunk) if new_chunk else 0,
+            }
+            changes.append(change_item)
+            if tag in ('replace', 'delete'):
                 total_removed_lines += (i2 - i1)
-                total_added_lines += (j2 - j1)
-            elif tag == 'delete':
-                old_chunk = " ".join(lines_a[i1:i2])
-                changes.append({
-                    "id": f"change-p{p+1}-{len(changes)+1}",
-                    "page": p + 1,
-                    "type": "delete",
-                    "old_text": old_chunk,
-                    "new_text": "",
-                    "old_len": -len(old_chunk),
-                    "new_len": 0,
-                })
-                total_removed_lines += (i2 - i1)
-            elif tag == 'insert':
-                new_chunk = " ".join(lines_b[j1:j2])
-                changes.append({
-                    "id": f"change-p{p+1}-{len(changes)+1}",
-                    "page": p + 1,
-                    "type": "insert",
-                    "old_text": "",
-                    "new_text": new_chunk,
-                    "old_len": 0,
-                    "new_len": len(new_chunk),
-                })
+            if tag in ('replace', 'insert'):
                 total_added_lines += (j2 - j1)
 
-    text_a = "\n".join([p.get_text() for p in doc_a])
-    text_b = "\n".join([p.get_text() for p in doc_b])
-    diff = list(difflib.unified_diff(
-        text_a.splitlines(),
-        text_b.splitlines(),
-        fromfile="Document_1 (Original)",
-        tofile="Document_2 (Modified)",
-        lineterm=""
-    ))
+    # Render high-resolution thumbnails for Doc A and Doc B
+    thumbnails_a = []
+    for p in range(doc_a_pages):
+        page = doc_a[p]
+        pix = page.get_pixmap(dpi=150)
+        img_b64 = f"data:image/jpeg;base64,{base64.b64encode(pix.tobytes('jpeg')).decode('utf-8')}"
+        thumbnails_a.append({"page_num": p + 1, "thumbnail": img_b64})
 
+    thumbnails_b = []
+    for p in range(doc_b_pages):
+        page = doc_b[p]
+        pix = page.get_pixmap(dpi=150)
+        img_b64 = f"data:image/jpeg;base64,{base64.b64encode(pix.tobytes('jpeg')).decode('utf-8')}"
+        thumbnails_b.append({"page_num": p + 1, "thumbnail": img_b64})
+
+    # Generate Audit Report Text
     report_lines = [
         "================================================================",
         "                  DOCFLOW PDF COMPARISON AUDIT REPORT           ",
@@ -819,6 +849,16 @@ def compare_pdfs(pdf_a_bytes: bytes, pdf_b_bytes: bytes) -> dict:
 
     report_content = "\n".join(report_lines)
 
+    text_a = "\n".join([p.get_text() for p in doc_a])
+    text_b = "\n".join([p.get_text() for p in doc_b])
+    diff = list(difflib.unified_diff(
+        text_a.splitlines(),
+        text_b.splitlines(),
+        fromfile="Document_1 (Original)",
+        tofile="Document_2 (Modified)",
+        lineterm=""
+    ))
+
     doc_a.close()
     doc_b.close()
 
@@ -828,6 +868,8 @@ def compare_pdfs(pdf_a_bytes: bytes, pdf_b_bytes: bytes) -> dict:
         "added_lines": total_added_lines,
         "removed_lines": total_removed_lines,
         "changes": changes,
+        "thumbnails_a": thumbnails_a,
+        "thumbnails_b": thumbnails_b,
         "diff_summary": diff[:150],
         "report_text": report_content
     }

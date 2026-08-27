@@ -5832,6 +5832,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               const doc1Name = result.file_a_name || files[0]?.name || "Document 1";
               const doc2Name = result.file_b_name || files[1]?.name || "Document 2";
 
+              const thumbsA = (result.comparison?.thumbnails_a && result.comparison.thumbnails_a.length > 0) ? result.comparison.thumbnails_a : compareDocAThumbnails;
+              const thumbsB = (result.comparison?.thumbnails_b && result.comparison.thumbnails_b.length > 0) ? result.comparison.thumbnails_b : compareDocBThumbnails;
+
               // Unique pages with changes
               const changedPages = Array.from(new Set(filteredChanges.map((c: any) => c.page))).sort((a: any, b: any) => a - b);
 
@@ -5885,11 +5888,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           ←
                         </button>
                         <span className="text-slate-200">
-                          Page {comparePageNumA} / {Math.max(compareDocAThumbnails.length || 1, compareDocBThumbnails.length || 1)}
+                          Page {comparePageNumA} / {Math.max(thumbsA.length || 1, thumbsB.length || 1)}
                         </span>
                         <button
                           type="button"
-                          disabled={comparePageNumA >= (compareDocAThumbnails.length || 1) && comparePageNumB >= (compareDocBThumbnails.length || 1)}
+                          disabled={comparePageNumA >= (thumbsA.length || 1) && comparePageNumB >= (thumbsB.length || 1)}
                           onClick={() => handleSwitchComparePage("both", Math.max(comparePageNumA, comparePageNumB) + 1)}
                           className="px-1.5 py-0.5 text-slate-300 hover:text-white disabled:opacity-30 cursor-pointer"
                           title="Next Page"
@@ -5916,19 +5919,50 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           </span>
                         </div>
 
-                        <div className="relative bg-slate-900/95 rounded-2xl overflow-hidden min-h-[460px] max-h-[580px] flex items-center justify-center border-2 border-rose-200/60 shadow-inner group">
-                          {compareDocAThumbnails.find((t) => t.page_num === comparePageNumA)?.thumbnail ? (
+                        <div className="relative bg-slate-900/95 rounded-2xl overflow-hidden min-h-[460px] max-h-[580px] flex items-center justify-center border-2 border-rose-200/60 shadow-inner group select-none">
+                          {thumbsA.find((t: any) => t.page_num === comparePageNumA)?.thumbnail ? (
                             <div className="relative w-full h-full flex items-center justify-center p-2">
                               <img
-                                src={compareDocAThumbnails.find((t) => t.page_num === comparePageNumA)?.thumbnail}
+                                src={thumbsA.find((t: any) => t.page_num === comparePageNumA)?.thumbnail}
                                 alt="Original Document"
                                 className="max-h-[520px] w-auto object-contain pointer-events-none transition-transform"
                                 style={{ transform: `scale(${compareZoomA / 100})` }}
                               />
-                              {/* Red Highlight Indicators for Modified Areas on Doc 1 */}
+
+                              {/* Real Red Bounding Box Highlights for Removed Text on Page */}
+                              {allChanges
+                                .filter((c: any) => c.page === comparePageNumA && c.old_rects && c.old_rects.length > 0)
+                                .flatMap((c: any) =>
+                                  c.old_rects.map((r: any, rIdx: number) => {
+                                    const isSelected = compareActiveChangeId === c.id;
+                                    return (
+                                      <div
+                                        key={`doc1-rect-${c.id}-${rIdx}`}
+                                        style={{
+                                          left: `${r.x}%`,
+                                          top: `${r.y}%`,
+                                          width: `${r.w}%`,
+                                          height: `${r.h}%`,
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCompareActiveChangeId(c.id);
+                                        }}
+                                        className={`absolute rounded-xs pointer-events-auto cursor-pointer transition-all ${
+                                          isSelected
+                                            ? "bg-rose-500/40 border-2 border-rose-600 ring-4 ring-rose-400/50 z-20 animate-pulse"
+                                            : "bg-rose-500/20 border border-rose-500/80 hover:bg-rose-500/35 z-10"
+                                        }`}
+                                        title={`Removed: ${c.old_text?.slice(0, 60)}...`}
+                                      />
+                                    );
+                                  })
+                                )}
+
+                              {/* Red Highlight Status Badge */}
                               {allChanges.filter((c: any) => c.page === comparePageNumA && c.old_text).length > 0 && (
                                 <div className="absolute top-3 left-3 bg-rose-900/90 text-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-md border border-rose-700 shadow-md">
-                                  ● {allChanges.filter((c: any) => c.page === comparePageNumA && c.old_text).length} Removed/Changed text blocks on this page
+                                  ● {allChanges.filter((c: any) => c.page === comparePageNumA && c.old_text).length} Removed/Changed section(s)
                                 </div>
                               )}
                             </div>
@@ -5977,19 +6011,50 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           </span>
                         </div>
 
-                        <div className="relative bg-slate-900/95 rounded-2xl overflow-hidden min-h-[460px] max-h-[580px] flex items-center justify-center border-2 border-emerald-200/60 shadow-inner group">
-                          {compareDocBThumbnails.find((t) => t.page_num === comparePageNumB)?.thumbnail ? (
+                        <div className="relative bg-slate-900/95 rounded-2xl overflow-hidden min-h-[460px] max-h-[580px] flex items-center justify-center border-2 border-emerald-200/60 shadow-inner group select-none">
+                          {thumbsB.find((t: any) => t.page_num === comparePageNumB)?.thumbnail ? (
                             <div className="relative w-full h-full flex items-center justify-center p-2">
                               <img
-                                src={compareDocBThumbnails.find((t) => t.page_num === comparePageNumB)?.thumbnail}
+                                src={thumbsB.find((t: any) => t.page_num === comparePageNumB)?.thumbnail}
                                 alt="Modified Document"
                                 className="max-h-[520px] w-auto object-contain pointer-events-none transition-transform"
                                 style={{ transform: `scale(${compareZoomB / 100})` }}
                               />
-                              {/* Green Highlight Indicators for Added Areas on Doc 2 */}
+
+                              {/* Real Green Bounding Box Highlights for Added Text on Page */}
+                              {allChanges
+                                .filter((c: any) => c.page === comparePageNumB && c.new_rects && c.new_rects.length > 0)
+                                .flatMap((c: any) =>
+                                  c.new_rects.map((r: any, rIdx: number) => {
+                                    const isSelected = compareActiveChangeId === c.id;
+                                    return (
+                                      <div
+                                        key={`doc2-rect-${c.id}-${rIdx}`}
+                                        style={{
+                                          left: `${r.x}%`,
+                                          top: `${r.y}%`,
+                                          width: `${r.w}%`,
+                                          height: `${r.h}%`,
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCompareActiveChangeId(c.id);
+                                        }}
+                                        className={`absolute rounded-xs pointer-events-auto cursor-pointer transition-all ${
+                                          isSelected
+                                            ? "bg-emerald-500/40 border-2 border-emerald-600 ring-4 ring-emerald-400/50 z-20 animate-pulse"
+                                            : "bg-emerald-500/20 border border-emerald-500/80 hover:bg-emerald-500/35 z-10"
+                                        }`}
+                                        title={`Added: ${c.new_text?.slice(0, 60)}...`}
+                                      />
+                                    );
+                                  })
+                                )}
+
+                              {/* Green Highlight Status Badge */}
                               {allChanges.filter((c: any) => c.page === comparePageNumB && c.new_text).length > 0 && (
                                 <div className="absolute top-3 left-3 bg-emerald-900/90 text-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-700 shadow-md">
-                                  ● {allChanges.filter((c: any) => c.page === comparePageNumB && c.new_text).length} Added/New text blocks on this page
+                                  ● {allChanges.filter((c: any) => c.page === comparePageNumB && c.new_text).length} Added/New section(s)
                                 </div>
                               )}
                             </div>
