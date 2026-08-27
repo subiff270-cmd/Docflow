@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      {
+        source: "/convert-image-format",
+        destination: "/convert-image",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

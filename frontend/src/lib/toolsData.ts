@@ -396,13 +396,13 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
   },
   {
-    id: "convert-image-format",
+    id: "convert-image",
     name: "Convert Image Format",
     category: "IMAGE TOOLS",
     description: "Convert between JPG, PNG, WebP, BMP, and TIFF image formats.",
     iconName: "RefreshCw",
-    href: "/convert-image-format",
-    endpoint: "convert-image-format",
+    href: "/convert-image",
+    endpoint: "convert-image",
     accept: "image/*",
     multiple: false,
   }
