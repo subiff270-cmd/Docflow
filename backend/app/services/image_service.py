@@ -52,41 +52,71 @@ def resize_image(image_bytes: bytes, width: int = None, height: int = None, perc
     resized.save(out, format=fmt)
     return out.getvalue()
 
-def convert_image_format(image_bytes: bytes, target_format: str = "png") -> tuple[bytes, str]:
+def convert_image_format(image_bytes: bytes, target_format: str = "png") -> tuple[bytes, str, str]:
     img = Image.open(io.BytesIO(image_bytes))
     target = target_format.upper().replace(".", "").strip()
+    out = io.BytesIO()
     
     if target in ("JPG", "JPEG"):
         target_fmt = "JPEG"
         mime = "image/jpeg"
         ext = "jpg"
-        if img.mode in ("RGBA", "P"):
+        if img.mode in ("RGBA", "P", "LA"):
+            # Create a white background image to blend alpha
+            bg = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "RGBA":
+                bg.paste(img, mask=img.split()[3])
+            else:
+                bg.paste(img.convert("RGB"))
+            img = bg
+        elif img.mode != "RGB":
             img = img.convert("RGB")
+        img.save(out, format=target_fmt, quality=95)
     elif target == "PNG":
         target_fmt = "PNG"
         mime = "image/png"
         ext = "png"
+        img.save(out, format=target_fmt, optimize=True)
     elif target == "WEBP":
         target_fmt = "WEBP"
         mime = "image/webp"
         ext = "webp"
+        img.save(out, format=target_fmt, quality=92)
     elif target == "BMP":
         target_fmt = "BMP"
         mime = "image/bmp"
         ext = "bmp"
-        if img.mode in ("RGBA", "P"):
+        if img.mode in ("RGBA", "P", "LA"):
             img = img.convert("RGB")
-    elif target == "TIFF":
+        img.save(out, format=target_fmt)
+    elif target in ("TIFF", "TIF"):
         target_fmt = "TIFF"
         mime = "image/tiff"
         ext = "tiff"
+        if img.mode not in ("RGB", "RGBA", "L"):
+            img = img.convert("RGB")
+        img.save(out, format=target_fmt, compression="tiff_lzw")
+    elif target == "ICO":
+        target_fmt = "ICO"
+        mime = "image/x-icon"
+        ext = "ico"
+        ico_img = img.copy()
+        if ico_img.width > 256 or ico_img.height > 256:
+            ico_img.thumbnail((256, 256), Image.Resampling.LANCZOS)
+        if ico_img.mode not in ("RGBA", "RGB"):
+            ico_img = ico_img.convert("RGBA")
+        ico_img.save(out, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    elif target == "GIF":
+        target_fmt = "GIF"
+        mime = "image/gif"
+        ext = "gif"
+        img.save(out, format=target_fmt)
     else:
         target_fmt = "PNG"
         mime = "image/png"
         ext = "png"
+        img.save(out, format=target_fmt)
 
-    out = io.BytesIO()
-    img.save(out, format=target_fmt)
     return out.getvalue(), ext, mime
 
 def crop_image(image_bytes: bytes, crop_x: float, crop_y: float, crop_w: float, crop_h: float) -> bytes:
