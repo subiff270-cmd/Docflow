@@ -265,8 +265,11 @@ def translate_pdf_document(
     if not extracted_pages:
         try:
             from app.services.ocr_service import ocr_pdf
-            ocr_text = ocr_pdf(pdf_bytes, language="English", password=password)
-            if ocr_text.strip():
+            ocr_lang = "English"
+            if source_language and source_language.lower() != "auto":
+                ocr_lang = source_language.capitalize()
+            _, ocr_text, _, _ = ocr_pdf(pdf_bytes, language=ocr_lang, password=password)
+            if ocr_text and isinstance(ocr_text, str) and ocr_text.strip():
                 extracted_pages.append(ocr_text.strip())
         except Exception:
             pass

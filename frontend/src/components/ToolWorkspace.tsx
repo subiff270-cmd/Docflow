@@ -5518,25 +5518,47 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               {/* Translate PDF Studio */}
               {tool.id === "translate-pdf" && (
                 <div className="space-y-4">
-                  {/* Language Conversion Header Badge */}
-                  <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                  {/* Language Conversion Header & Quick Swap Bar */}
+                  <div className="p-3.5 bg-gradient-to-r from-indigo-50/90 via-violet-50/70 to-indigo-50/90 border border-indigo-100/90 rounded-2xl flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-600">Source:</span>
-                      <span className="font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200 uppercase">
-                        {translateSourceLang === "auto" ? "🌐 Auto Detect" : translateSourceLang}
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">From:</span>
+                      <span className="font-bold text-xs text-indigo-700 bg-white px-2.5 py-1 rounded-xl border border-indigo-200 shadow-xs flex items-center gap-1.5">
+                        <Languages className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>{translateSourceLang === "auto" ? "🌐 Auto Detect" : translateSourceLang}</span>
                       </span>
                     </div>
-                    <div className="text-indigo-400 font-bold">➔</div>
+
+                    {/* Swap Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (translateSourceLang !== "auto") {
+                          const temp = translateSourceLang;
+                          setTranslateSourceLang(translateTargetLang);
+                          setTranslateTargetLang(temp);
+                        } else {
+                          setTranslateSourceLang(translateTargetLang);
+                          setTranslateTargetLang("English");
+                        }
+                      }}
+                      title="Swap Source & Target Languages"
+                      className="p-1.5 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-600 hover:text-indigo-700 rounded-xl transition shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-600">Target Translation:</span>
-                      <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
-                        {translateTargetLang}
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Translate To:</span>
+                      <span className="font-bold text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200 shadow-xs flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{translateTargetLang}</span>
                       </span>
                     </div>
                   </div>
 
+                  {/* Primary Language Selectors (Source & Target Dropdowns) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Source Language */}
+                    {/* Source Language Dropdown */}
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                         <Languages className="w-3.5 h-3.5 text-indigo-600" />
@@ -5548,75 +5570,225 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:border-indigo-600 outline-hidden cursor-pointer"
                       >
                         <option value="auto">🌐 Auto Detect (Recommended)</option>
-                        <option value="English">English</option>
-                        <option value="Spanish">Spanish (Español)</option>
-                        <option value="French">French (Français)</option>
-                        <option value="German">German (Deutsch)</option>
-                        <option value="Hindi">Hindi (हिन्दी)</option>
-                        <option value="Tamil">Tamil (தமிழ்)</option>
-                        <option value="Telugu">Telugu (తెలుగు)</option>
-                        <option value="Arabic">Arabic (العربية)</option>
-                        <option value="Chinese">Chinese (中文)</option>
-                        <option value="Japanese">Japanese (日本語)</option>
-                        <option value="Portuguese">Portuguese (Português)</option>
-                        <option value="Russian">Russian (Русский)</option>
-                        <option value="Italian">Italian (Italiano)</option>
+                        <optgroup label="Popular Languages">
+                          <option value="English">🇺🇸 English</option>
+                          <option value="Tamil">🇮🇳 Tamil (தமிழ்)</option>
+                          <option value="Hindi">🇮🇳 Hindi (हिन्दी)</option>
+                          <option value="Telugu">🇮🇳 Telugu (తెలుగు)</option>
+                          <option value="Spanish">🇪🇸 Spanish (Español)</option>
+                          <option value="French">🇫🇷 French (Français)</option>
+                          <option value="German">🇩🇪 German (Deutsch)</option>
+                          <option value="Arabic">🇸🇦 Arabic (العربية)</option>
+                          <option value="Chinese">🇨🇳 Chinese (中文)</option>
+                          <option value="Japanese">🇯🇵 Japanese (日本語)</option>
+                        </optgroup>
+                        <optgroup label="All Indian Languages">
+                          <option value="Tamil">🇮🇳 Tamil (தமிழ்)</option>
+                          <option value="Hindi">🇮🇳 Hindi (हिन्दी)</option>
+                          <option value="Telugu">🇮🇳 Telugu (తెలుగు)</option>
+                          <option value="Kannada">🇮🇳 Kannada (ಕನ್ನಡ)</option>
+                          <option value="Malayalam">🇮🇳 Malayalam (മലയാളം)</option>
+                          <option value="Bengali">🇮🇳 Bengali (বাংলা)</option>
+                          <option value="Marathi">🇮🇳 Marathi (मराठी)</option>
+                          <option value="Gujarati">🇮🇳 Gujarati (ગુજરાતી)</option>
+                          <option value="Punjabi">🇮🇳 Punjabi (ਪੰਜਾਬੀ)</option>
+                          <option value="Urdu">🇵🇰 Urdu (اردو)</option>
+                        </optgroup>
+                        <optgroup label="All Global Languages">
+                          <option value="Russian">🇷🇺 Russian (Русский)</option>
+                          <option value="Portuguese">🇵🇹 Portuguese (Português)</option>
+                          <option value="Italian">🇮🇹 Italian (Italiano)</option>
+                          <option value="Dutch">🇳🇱 Dutch (Nederlands)</option>
+                          <option value="Polish">🇵🇱 Polish (Polski)</option>
+                          <option value="Turkish">🇹🇷 Turkish (Türkçe)</option>
+                          <option value="Vietnamese">🇻🇳 Vietnamese (Tiếng Việt)</option>
+                          <option value="Korean">🇰🇷 Korean (한국어)</option>
+                          <option value="Thai">🇹🇭 Thai (ไทย)</option>
+                          <option value="Indonesian">🇮🇩 Indonesian (Bahasa Indonesia)</option>
+                          <option value="Greek">🇬🇷 Greek (Ελληνικά)</option>
+                          <option value="Hebrew">🇮🇱 Hebrew (עברית)</option>
+                          <option value="Swedish">🇸🇪 Swedish (Svenska)</option>
+                          <option value="Norwegian">🇳🇴 Norwegian (Norsk)</option>
+                          <option value="Danish">🇩🇰 Danish (Dansk)</option>
+                          <option value="Finnish">🇫🇮 Finnish (Suomi)</option>
+                          <option value="Czech">🇨🇿 Czech (Čeština)</option>
+                          <option value="Romanian">🇷🇴 Romanian (Română)</option>
+                          <option value="Hungarian">🇭🇺 Hungarian (Magyar)</option>
+                          <option value="Ukrainian">🇺🇦 Ukrainian (Українська)</option>
+                        </optgroup>
                       </select>
                     </div>
 
-                    {/* Output Document Format */}
+                    {/* Target Language Dropdown (Always Accessible Option to Change Language) */}
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                        <FileType className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Output Format</span>
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Translate To (Target Language)</span>
                       </label>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {[
-                          { id: "pdf", label: "PDF Document", ext: ".pdf" },
-                          { id: "docx", label: "Word Doc", ext: ".docx" },
-                          { id: "txt", label: "Text File", ext: ".txt" },
-                        ].map((fmt) => (
-                          <button
-                            key={fmt.id}
-                            type="button"
-                            onClick={() => setTranslateOutputFormat(fmt.id as any)}
-                            className={`p-2 rounded-xl border text-center transition cursor-pointer ${
-                              translateOutputFormat === fmt.id
-                                ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold shadow-xs"
-                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-semibold"
-                            }`}
-                          >
-                            <span className="block text-[11px] font-bold">{fmt.label}</span>
-                            <span className="text-[9px] text-slate-400 font-mono uppercase">{fmt.ext}</span>
-                          </button>
-                        ))}
-                      </div>
+                      <select
+                        value={translateTargetLang}
+                        onChange={(e) => setTranslateTargetLang(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-indigo-600 outline-hidden cursor-pointer"
+                      >
+                        <optgroup label="Popular Languages">
+                          <option value="Spanish">🇪🇸 Spanish (Español)</option>
+                          <option value="French">🇫🇷 French (Français)</option>
+                          <option value="German">🇩🇪 German (Deutsch)</option>
+                          <option value="Tamil">🇮🇳 Tamil (தமிழ்)</option>
+                          <option value="Hindi">🇮🇳 Hindi (हिन्दी)</option>
+                          <option value="Telugu">🇮🇳 Telugu (తెలుగు)</option>
+                          <option value="English">🇺🇸 English</option>
+                          <option value="Arabic">🇸🇦 Arabic (العربية)</option>
+                          <option value="Chinese">🇨🇳 Chinese (中文)</option>
+                          <option value="Japanese">🇯🇵 Japanese (日本語)</option>
+                        </optgroup>
+                        <optgroup label="Indian Languages">
+                          <option value="Tamil">🇮🇳 Tamil (தமிழ்)</option>
+                          <option value="Hindi">🇮🇳 Hindi (हिन्दी)</option>
+                          <option value="Telugu">🇮🇳 Telugu (తెలుగు)</option>
+                          <option value="Kannada">🇮🇳 Kannada (ಕನ್ನಡ)</option>
+                          <option value="Malayalam">🇮🇳 Malayalam (മലയാളം)</option>
+                          <option value="Bengali">🇮🇳 Bengali (বাংলা)</option>
+                          <option value="Marathi">🇮🇳 Marathi (मराठी)</option>
+                          <option value="Gujarati">🇮🇳 Gujarati (ગુજરાતી)</option>
+                          <option value="Punjabi">🇮🇳 Punjabi (ਪੰਜਾਬੀ)</option>
+                          <option value="Urdu">🇵🇰 Urdu (اردو)</option>
+                        </optgroup>
+                        <optgroup label="All Global Languages">
+                          <option value="Portuguese">🇵🇹 Portuguese (Português)</option>
+                          <option value="Russian">🇷🇺 Russian (Русский)</option>
+                          <option value="Italian">🇮🇹 Italian (Italiano)</option>
+                          <option value="Dutch">🇳🇱 Dutch (Nederlands)</option>
+                          <option value="Polish">🇵🇱 Polish (Polski)</option>
+                          <option value="Turkish">🇹🇷 Turkish (Türkçe)</option>
+                          <option value="Vietnamese">🇻🇳 Vietnamese (Tiếng Việt)</option>
+                          <option value="Korean">🇰🇷 Korean (한국어)</option>
+                          <option value="Thai">🇹🇭 Thai (ไทย)</option>
+                          <option value="Indonesian">🇮🇩 Indonesian (Bahasa Indonesia)</option>
+                          <option value="Greek">🇬🇷 Greek (Ελληνικά)</option>
+                          <option value="Hebrew">🇮🇱 Hebrew (עברית)</option>
+                          <option value="Swedish">🇸🇪 Swedish (Svenska)</option>
+                          <option value="Norwegian">🇳🇴 Norwegian (Norsk)</option>
+                          <option value="Danish">🇩🇰 Danish (Dansk)</option>
+                          <option value="Finnish">🇫🇮 Finnish (Suomi)</option>
+                          <option value="Czech">🇨🇿 Czech (Čeština)</option>
+                          <option value="Romanian">🇷🇴 Romanian (Română)</option>
+                          <option value="Hungarian">🇭🇺 Hungarian (Magyar)</option>
+                          <option value="Ukrainian">🇺🇦 Ukrainian (Українська)</option>
+                        </optgroup>
+                      </select>
                     </div>
                   </div>
 
-                  {/* Target Language Grid */}
+                  {/* Quick-Pick Target Language Pills */}
                   <div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                      ⚡ Quick Choose Target Language:
+                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[
+                        { name: "Spanish", flag: "🇪🇸" },
+                        { name: "Tamil", flag: "🇮🇳" },
+                        { name: "Hindi", flag: "🇮🇳" },
+                        { name: "French", flag: "🇫🇷" },
+                        { name: "German", flag: "🇩🇪" },
+                        { name: "Telugu", flag: "🇮🇳" },
+                        { name: "Arabic", flag: "🇸🇦" },
+                        { name: "Chinese", flag: "🇨🇳" },
+                        { name: "Japanese", flag: "🇯🇵" },
+                        { name: "English", flag: "🇺🇸" },
+                        { name: "Portuguese", flag: "🇵🇹" },
+                        { name: "Russian", flag: "🇷🇺" },
+                      ].map((lang) => (
+                        <button
+                          key={lang.name}
+                          type="button"
+                          onClick={() => {
+                            setTranslateTargetLang(lang.name);
+                            setTranslateSearchQuery("");
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                            translateTargetLang === lang.name
+                              ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/20"
+                              : "bg-white text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200"
+                          }`}
+                        >
+                          <span>{lang.flag}</span>
+                          <span>{lang.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Output Document Format Selector */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <FileType className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Translated Document Export Format</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: "pdf", label: "Formatted PDF Document", desc: "Preserves layout & pages", ext: ".pdf" },
+                        { id: "docx", label: "Editable Word (.docx)", desc: "Full Microsoft Word editing", ext: ".docx" },
+                        { id: "txt", label: "Clean Text (.txt)", desc: "UTF-8 plain text file", ext: ".txt" },
+                      ].map((fmt) => (
+                        <button
+                          key={fmt.id}
+                          type="button"
+                          onClick={() => setTranslateOutputFormat(fmt.id as any)}
+                          className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                            translateOutputFormat === fmt.id
+                              ? "border-indigo-600 bg-indigo-50/80 text-indigo-950 font-bold shadow-xs ring-2 ring-indigo-500/20"
+                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 font-semibold"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-extrabold">{fmt.label}</span>
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md uppercase ${
+                              translateOutputFormat === fmt.id ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
+                            }`}>{fmt.ext}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-normal">{fmt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Visual Language Search & Card Grid (Optional Extended Explorer) */}
+                  <div className="pt-2 border-t border-slate-100">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Select Target Language</span>
+                        <Languages className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Browse All 35+ Target Languages</span>
                       </label>
-                      <input
-                        type="text"
-                        placeholder="Search language..."
-                        value={translateSearchQuery}
-                        onChange={(e) => setTranslateSearchQuery(e.target.value)}
-                        className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs w-36 outline-hidden focus:border-indigo-600 font-medium"
-                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Filter languages..."
+                          value={translateSearchQuery}
+                          autoComplete="off"
+                          onChange={(e) => setTranslateSearchQuery(e.target.value)}
+                          className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs w-44 outline-hidden focus:border-indigo-600 font-medium pr-6"
+                        />
+                        {translateSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setTranslateSearchQuery("")}
+                            className="absolute right-2 top-1.5 text-xs text-slate-400 hover:text-slate-700 cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1 bg-slate-50/50 rounded-xl border border-slate-200">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-40 overflow-y-auto p-1.5 bg-slate-50/50 rounded-xl border border-slate-200">
                       {[
                         { name: "Spanish", native: "Español", flag: "🇪🇸" },
+                        { name: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
+                        { name: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
                         { name: "French", native: "Français", flag: "🇫🇷" },
                         { name: "German", native: "Deutsch", flag: "🇩🇪" },
-                        { name: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
-                        { name: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
                         { name: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
                         { name: "Kannada", native: "ಕನ್ನಡ", flag: "🇮🇳" },
                         { name: "Malayalam", native: "മലയാളം", flag: "🇮🇳" },
@@ -5637,6 +5809,18 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                         { name: "Turkish", native: "Türkçe", flag: "🇹🇷" },
                         { name: "Vietnamese", native: "Tiếng Việt", flag: "🇻🇳" },
                         { name: "English", native: "English", flag: "🇺🇸" },
+                        { name: "Thai", native: "ไทย", flag: "🇹🇭" },
+                        { name: "Indonesian", native: "Bahasa", flag: "🇮🇩" },
+                        { name: "Greek", native: "Ελληνικά", flag: "🇬🇷" },
+                        { name: "Hebrew", native: "עברית", flag: "🇮🇱" },
+                        { name: "Swedish", native: "Svenska", flag: "🇸🇪" },
+                        { name: "Norwegian", native: "Norsk", flag: "🇳🇴" },
+                        { name: "Danish", native: "Dansk", flag: "🇩🇰" },
+                        { name: "Finnish", native: "Suomi", flag: "🇫🇮" },
+                        { name: "Czech", native: "Čeština", flag: "🇨🇿" },
+                        { name: "Romanian", native: "Română", flag: "🇷🇴" },
+                        { name: "Hungarian", native: "Magyar", flag: "🇭🇺" },
+                        { name: "Ukrainian", native: "Українська", flag: "🇺🇦" },
                       ]
                         .filter((l) =>
                           !translateSearchQuery ||
@@ -5647,10 +5831,13 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <button
                             key={lang.name}
                             type="button"
-                            onClick={() => setTranslateTargetLang(lang.name)}
+                            onClick={() => {
+                              setTranslateTargetLang(lang.name);
+                              setTranslateSearchQuery("");
+                            }}
                             className={`p-2 rounded-xl border text-left transition cursor-pointer ${
                               translateTargetLang === lang.name
-                                ? "border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-500/20 shadow-xs"
+                                ? "border-emerald-600 bg-emerald-50/80 ring-2 ring-emerald-500/20 shadow-xs font-bold"
                                 : "border-slate-200 bg-white hover:bg-slate-50"
                             }`}
                           >
@@ -5672,6 +5859,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     </label>
                     <input
                       type="password"
+                      autoComplete="new-password"
                       placeholder="Enter PDF password to unlock before translating..."
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
