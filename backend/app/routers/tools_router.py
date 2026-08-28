@@ -1013,6 +1013,7 @@ async def api_translate_pdf(
     source_language: str = Form("auto"),
     output_format: str = Form("pdf"),
     password: Optional[str] = Form(None),
+    job_id: Optional[str] = Form(None),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -1023,18 +1024,20 @@ async def api_translate_pdf(
         raise HTTPException(status_code=403, detail=msg)
 
     try:
-        from app.services import ai_service
-        result = ai_service.translate_pdf_document(
+        from app.services import translation_service
+        result = translation_service.process_pdf_translation(
             content,
             target_language=target_language,
             source_language=source_language,
             output_format=output_format,
-            password=password
+            password=password,
+            job_id=job_id
         )
         base_name = os.path.splitext(file.filename)[0] if file.filename else "document"
         out_name = f"DocFlow_Translated_{target_language}_{base_name}.{result['ext']}"
         item = save_generated_bytes(db, result['bytes'], out_name, result['mime'], uid)
-        return {
+
+        response_data = {
             "success": True,
             "download_key": item.file_key,
             "filename": out_name,
@@ -1043,11 +1046,59 @@ async def api_translate_pdf(
             "original_text": result['original_text'],
             "translated_text": result['translated_text'],
             "word_count": result['word_count'],
+            "detected_language": result.get('detected_language', 'English'),
+            "confidence": result.get('confidence', 'High'),
             "language": target_language,
             "output_format": result['ext']
         }
+
+        if job_id:
+            translation_service.update_job_status(
+                job_id,
+                status="completed",
+                stage="completed",
+                stage_label="Translation completed successfully!",
+                download_key=item.file_key,
+                filename=out_name,
+                result=response_data
+            )
+
+        return response_data
     except Exception as e:
+        if job_id:
+            from app.services import translation_service
+            translation_service.update_job_status(
+                job_id,
+                status="failed",
+                stage="failed",
+                stage_label=f"Translation failed: {str(e)}",
+                error=str(e)
+            )
         raise HTTPException(status_code=500, detail=f"PDF Translation failed: {str(e)}")
+
+@router.get("/translate-pdf/status/{job_id}")
+async def api_translate_pdf_status(job_id: str):
+    from app.services import translation_service
+    status = translation_service.get_job_status(job_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Translation job not found")
+    return status
+
+@router.post("/translate-pdf/analyze")
+async def api_translate_pdf_analyze(
+    file: UploadFile = File(...),
+    password: Optional[str] = Form(None)
+):
+    try:
+        content = await file.read()
+        from app.services import translation_service
+        analysis = translation_service.analyze_document_content(content, password)
+        return {
+            "success": True,
+            "analysis": analysis
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Document analysis failed: {str(e)}")
 
 @router.post("/edit-pdf")
 async def api_edit_pdf(

@@ -134,6 +134,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [translateTargetLang, setTranslateTargetLang] = useState<string>("Spanish");
   const [translateOutputFormat, setTranslateOutputFormat] = useState<"pdf" | "docx" | "txt">("pdf");
   const [translateSearchQuery, setTranslateSearchQuery] = useState<string>("");
+  const [translateStageLabel, setTranslateStageLabel] = useState<string>("Analyzing document structure...");
+  const [translateActiveTab, setTranslateActiveTab] = useState<"translated" | "original">("translated");
 
   // Organize PDF Full Production State
   const [organizePages, setOrganizePages] = useState<PageOrderConfig[]>([]);
@@ -6353,8 +6355,72 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               </div>
             )}
 
-            {/* Extracted Text Preview (Indian Language Documents, OCR PDF, Image to Text) */}
-            {result.extracted_text && (
+            {/* Translate PDF Dual Tabbed Preview */}
+            {tool.id === "translate-pdf" && (result.translated_text || result.extracted_text) ? (
+              <div className="space-y-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setTranslateActiveTab("translated")}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        translateActiveTab === "translated"
+                          ? "bg-white text-emerald-700 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      ✨ Translated ({result.language || translateTargetLang})
+                    </button>
+                    {result.original_text && (
+                      <button
+                        type="button"
+                        onClick={() => setTranslateActiveTab("original")}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          translateActiveTab === "original"
+                            ? "bg-white text-indigo-700 shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        🌐 Original ({result.detected_language || "Source"})
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const copyContent = translateActiveTab === "translated"
+                          ? (result.translated_text || result.extracted_text)
+                          : (result.original_text || "");
+                        navigator.clipboard.writeText(copyContent);
+                        setCopiedText(true);
+                        setTimeout(() => setCopiedText(false), 2000);
+                      }}
+                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {copiedText ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Copy Text</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 max-h-60 overflow-y-auto font-sans text-xs text-slate-800 whitespace-pre-wrap leading-relaxed select-text">
+                  {translateActiveTab === "translated"
+                    ? (result.translated_text || result.extracted_text)
+                    : (result.original_text || "Original text not available.")}
+                </div>
+              </div>
+            ) : result.extracted_text && (
               <div className="space-y-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
