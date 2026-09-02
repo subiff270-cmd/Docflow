@@ -1,5 +1,6 @@
 import os
 import asyncio
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,10 +16,27 @@ from .services.storage_service import purge_expired_files
 # Create DB tables
 Base.metadata.create_all(bind=engine)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Background task to clean up old temporary files every 10 minutes
+    async def periodic_purge():
+        while True:
+            await asyncio.sleep(600)
+            try:
+                db = SessionLocal()
+                purge_expired_files(db)
+                db.close()
+            except Exception as e:
+                print(f"File purge error: {e}")
+    task = asyncio.create_task(periodic_purge())
+    yield
+    task.cancel()
+
 app = FastAPI(
     title="DocFlow API",
     description="Production backend document processing engine for DocFlow",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS Configuration
@@ -50,17 +68,3 @@ app.include_router(system_router.router)
 @app.get("/")
 def read_root():
     return {"message": "DocFlow Backend API is running.", "status": "healthy"}
-
-# Background task to clean up old temporary files every 10 minutes
-@app.on_event("startup")
-async def start_purge_task():
-    async def periodic_purge():
-        while True:
-            await asyncio.sleep(600)
-            try:
-                db = SessionLocal()
-                purge_expired_files(db)
-                db.close()
-            except Exception as e:
-                print(f"File purge error: {e}")
-    asyncio.create_task(periodic_purge())

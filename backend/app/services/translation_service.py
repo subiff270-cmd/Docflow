@@ -127,6 +127,11 @@ def get_unicode_font_name() -> str:
         return _REGISTERED_UNICODE_FONT
 
     font_candidates = [
+        # Linux paths (Render / Docker containers)
+        ("NotoSansLinux", "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
+        ("DejaVuSansLinux", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        ("LiberationSans", "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+        # Windows paths
         ("ArialUnicode", "C:/Windows/Fonts/ARIALUNI.ttf"),
         ("NirmalaUI", "C:/Windows/Fonts/Nirmala.ttf"),
         ("SegoeUI", "C:/Windows/Fonts/segoeui.ttf"),
