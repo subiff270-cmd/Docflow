@@ -34,3 +34,4 @@ export const auth = (() => {
 })();
 
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: "select_account" });
