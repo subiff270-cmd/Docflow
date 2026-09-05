@@ -65,6 +65,10 @@ app.include_router(contact_router.router)
 app.include_router(tools_router.router)
 app.include_router(system_router.router)
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {"message": "DocFlow Backend API is running.", "status": "healthy"}
+
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health_check():
+    return {"status": "healthy"}
