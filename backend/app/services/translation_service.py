@@ -337,33 +337,36 @@ def validate_output_pdf(pdf_bytes: bytes, min_pages: int = 1):
     except Exception as e:
         raise ValueError(f"Output PDF validation failed: {str(e)}")
 
+FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts")
+
 def get_pdf_font_for_target_language(target_lang: str) -> Tuple[str, Optional[str]]:
     """Returns (font_name, font_file_path) suitable for target language on Windows & Linux."""
     lang = target_lang.lower().strip()
     
-    # Linux language-specific TrueType font paths
-    linux_specific = [
-        (["tamil", "ta"], ["/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf", "/usr/share/fonts/truetype/lohit-tamil/Lohit-Tamil.ttf"]),
-        (["hindi", "hi", "marathi", "mr", "sanskrit", "sa"], ["/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf", "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf"]),
-        (["kannada", "kn"], ["/usr/share/fonts/truetype/noto/NotoSansKannada-Regular.ttf", "/usr/share/fonts/truetype/lohit-kannada/Lohit-Kannada.ttf"]),
-        (["telugu", "te"], ["/usr/share/fonts/truetype/noto/NotoSansTelugu-Regular.ttf", "/usr/share/fonts/truetype/lohit-telugu/Lohit-Telugu.ttf"]),
-        (["malayalam", "ml"], ["/usr/share/fonts/truetype/noto/NotoSansMalayalam-Regular.ttf", "/usr/share/fonts/truetype/lohit-malayalam/Lohit-Malayalam.ttf"]),
-        (["bengali", "bn"], ["/usr/share/fonts/truetype/noto/NotoSansBengali-Regular.ttf", "/usr/share/fonts/truetype/lohit-bengali/Lohit-Bengali.ttf"]),
-        (["gujarati", "gu"], ["/usr/share/fonts/truetype/noto/NotoSansGujarati-Regular.ttf", "/usr/share/fonts/truetype/lohit-gujarati/Lohit-Gujarati.ttf"]),
-        (["punjabi", "pa"], ["/usr/share/fonts/truetype/noto/NotoSansGurmukhi-Regular.ttf", "/usr/share/fonts/truetype/lohit-punjabi/Lohit-Punjabi.ttf"]),
-        (["urdu", "ur", "arabic", "ar"], ["/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf"]),
-        (["chinese", "zh"], ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]),
-        (["japanese", "ja"], ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]),
-        (["korean", "ko"], ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]),
+    # 1. Bundled App TrueType Fonts (100% Guaranteed to exist on Render & Windows!)
+    bundled_fonts = [
+        (["telugu", "te"], "NotoSansTelugu-Regular.ttf"),
+        (["tamil", "ta"], "NotoSansTamil-Regular.ttf"),
+        (["kannada", "kn"], "NotoSansKannada-Regular.ttf"),
+        (["hindi", "hi", "marathi", "mr", "sanskrit", "sa", "nepali", "ne"], "NotoSansDevanagari-Regular.ttf"),
+        (["malayalam", "ml"], "NotoSansMalayalam-Regular.ttf"),
+        (["bengali", "bn", "assamese", "as"], "NotoSansBengali-Regular.ttf"),
+        (["gujarati", "gu"], "NotoSansGujarati-Regular.ttf"),
+        (["punjabi", "pa", "gurmukhi"], "NotoSansGurmukhi-Regular.ttf"),
+        (["urdu", "ur", "arabic", "ar", "persian", "fa"], "NotoSansArabic-Regular.ttf"),
     ]
 
-    for aliases, paths in linux_specific:
+    for aliases, fname in bundled_fonts:
         if any(a in lang for a in aliases):
-            for p in paths:
-                if os.path.exists(p):
-                    return f"f_{aliases[0]}", p
+            fpath = os.path.join(FONTS_DIR, fname)
+            if os.path.exists(fpath):
+                return f"f_{aliases[0]}", fpath
 
-    # Generic Linux TrueType fonts
+    default_bundled = os.path.join(FONTS_DIR, "NotoSans-Regular.ttf")
+    if os.path.exists(default_bundled):
+        return "f_noto_default", default_bundled
+
+    # 2. Linux OS TrueType fonts
     for p in [
         "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -372,7 +375,7 @@ def get_pdf_font_for_target_language(target_lang: str) -> Tuple[str, Optional[st
         if os.path.exists(p):
             return "f_noto_linux", p
 
-    # Windows Unicode TrueType Fonts
+    # 3. Windows Unicode TrueType Fonts
     for p in [
         "C:/Windows/Fonts/ARIALUNI.ttf",
         "C:/Windows/Fonts/Nirmala.ttf",
