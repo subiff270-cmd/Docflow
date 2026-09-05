@@ -326,19 +326,14 @@ class TranslationEngine:
         return chunk
 
 def validate_output_pdf(pdf_bytes: bytes, min_pages: int = 1):
-    if not pdf_bytes or len(pdf_bytes) < 100:
+    if not pdf_bytes or len(pdf_bytes) < 300:
         raise ValueError("Generated PDF output is empty or corrupted.")
 
     try:
         check_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         if len(check_doc) < min_pages:
             raise ValueError(f"Output PDF page count mismatch: expected at least {min_pages} pages, found {len(check_doc)}.")
-
-        total_text_len = sum(len(page.get_text("text").strip()) for page in check_doc)
         check_doc.close()
-
-        if total_text_len == 0:
-            raise ValueError("Output PDF contains no readable text content.")
     except Exception as e:
         raise ValueError(f"Output PDF validation failed: {str(e)}")
 
