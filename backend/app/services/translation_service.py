@@ -127,6 +127,9 @@ def get_unicode_font_name() -> str:
         return _REGISTERED_UNICODE_FONT
 
     font_candidates = [
+        # Bundled Pan-Unicode font (supports Latin + Indic + Global scripts)
+        ("ArialUnicodeBundled", os.path.join(FONTS_DIR, "ARIALUNI.TTF")),
+        ("NotoSansBundled", os.path.join(FONTS_DIR, "NotoSans-Regular.ttf")),
         # Linux paths (Render / Docker containers)
         ("NotoSansLinux", "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
         ("DejaVuSansLinux", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
@@ -343,7 +346,12 @@ def get_pdf_font_for_target_language(target_lang: str) -> Tuple[str, Optional[st
     """Returns (font_name, font_file_path) suitable for target language on Windows & Linux."""
     lang = target_lang.lower().strip()
     
-    # 1. Bundled App TrueType Fonts (100% Guaranteed to exist on Render & Windows!)
+    # 1. Bundled Pan-Unicode Font (ARIALUNI.TTF supports Latin, Indic, Arabic, Cyrillic, etc.)
+    pan_unicode = os.path.join(FONTS_DIR, "ARIALUNI.TTF")
+    if os.path.exists(pan_unicode):
+        return "f_pan_uni", pan_unicode
+
+    # 2. Bundled Script-Specific TrueType Fonts
     bundled_fonts = [
         (["telugu", "te"], "NotoSansTelugu-Regular.ttf"),
         (["tamil", "ta"], "NotoSansTamil-Regular.ttf"),
@@ -366,7 +374,7 @@ def get_pdf_font_for_target_language(target_lang: str) -> Tuple[str, Optional[st
     if os.path.exists(default_bundled):
         return "f_noto_default", default_bundled
 
-    # 2. Linux OS TrueType fonts
+    # 3. Linux OS TrueType fonts
     for p in [
         "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -375,7 +383,7 @@ def get_pdf_font_for_target_language(target_lang: str) -> Tuple[str, Optional[st
         if os.path.exists(p):
             return "f_noto_linux", p
 
-    # 3. Windows Unicode TrueType Fonts
+    # 4. Windows Unicode TrueType Fonts
     for p in [
         "C:/Windows/Fonts/ARIALUNI.ttf",
         "C:/Windows/Fonts/Nirmala.ttf",
