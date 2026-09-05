@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://docflow-backend.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://docflow-backend-8rwy.onrender.com";
 
 export async function fetchUserProfile(firebaseUid: string) {
   const res = await fetch(`${API_BASE_URL}/api/user/profile`, {
