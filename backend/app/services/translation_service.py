@@ -342,6 +342,54 @@ def validate_output_pdf(pdf_bytes: bytes, min_pages: int = 1):
     except Exception as e:
         raise ValueError(f"Output PDF validation failed: {str(e)}")
 
+def get_pdf_font_for_target_language(target_lang: str) -> Tuple[str, Optional[str]]:
+    """Returns (font_name, font_file_path) suitable for target language on Windows & Linux."""
+    lang = target_lang.lower().strip()
+    
+    # Linux language-specific TrueType font paths
+    linux_specific = [
+        (["tamil", "ta"], ["/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf", "/usr/share/fonts/truetype/lohit-tamil/Lohit-Tamil.ttf"]),
+        (["hindi", "hi", "marathi", "mr", "sanskrit", "sa"], ["/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf", "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf"]),
+        (["kannada", "kn"], ["/usr/share/fonts/truetype/noto/NotoSansKannada-Regular.ttf", "/usr/share/fonts/truetype/lohit-kannada/Lohit-Kannada.ttf"]),
+        (["telugu", "te"], ["/usr/share/fonts/truetype/noto/NotoSansTelugu-Regular.ttf", "/usr/share/fonts/truetype/lohit-telugu/Lohit-Telugu.ttf"]),
+        (["malayalam", "ml"], ["/usr/share/fonts/truetype/noto/NotoSansMalayalam-Regular.ttf", "/usr/share/fonts/truetype/lohit-malayalam/Lohit-Malayalam.ttf"]),
+        (["bengali", "bn"], ["/usr/share/fonts/truetype/noto/NotoSansBengali-Regular.ttf", "/usr/share/fonts/truetype/lohit-bengali/Lohit-Bengali.ttf"]),
+        (["gujarati", "gu"], ["/usr/share/fonts/truetype/noto/NotoSansGujarati-Regular.ttf", "/usr/share/fonts/truetype/lohit-gujarati/Lohit-Gujarati.ttf"]),
+        (["punjabi", "pa"], ["/usr/share/fonts/truetype/noto/NotoSansGurmukhi-Regular.ttf", "/usr/share/fonts/truetype/lohit-punjabi/Lohit-Punjabi.ttf"]),
+        (["urdu", "ur", "arabic", "ar"], ["/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf"]),
+        (["chinese", "zh"], ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]),
+        (["japanese", "ja"], ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]),
+        (["korean", "ko"], ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]),
+    ]
+
+    for aliases, paths in linux_specific:
+        if any(a in lang for a in aliases):
+            for p in paths:
+                if os.path.exists(p):
+                    return f"f_{aliases[0]}", p
+
+    # Generic Linux TrueType fonts
+    for p in [
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+    ]:
+        if os.path.exists(p):
+            return "f_noto_linux", p
+
+    # Windows Unicode TrueType Fonts
+    for p in [
+        "C:/Windows/Fonts/ARIALUNI.ttf",
+        "C:/Windows/Fonts/Nirmala.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/NotoSans-Regular.ttf",
+        "C:/Windows/Fonts/arial.ttf"
+    ]:
+        if os.path.exists(p):
+            return "f_win_uni", p
+
+    return "helv", None
+
 def process_pdf_translation(
     pdf_bytes: bytes,
     target_language: str = "Spanish",
@@ -391,7 +439,7 @@ def process_pdf_translation(
             has_layout_blocks = True
             break
 
-    font_path = "C:/Windows/Fonts/ARIALUNI.ttf" if os.path.exists("C:/Windows/Fonts/ARIALUNI.ttf") else "C:/Windows/Fonts/arial.ttf"
+    font_name, font_path = get_pdf_font_for_target_language(target_language)
 
     if fmt == "pdf" and has_layout_blocks:
         all_orig_text_parts = []
@@ -451,8 +499,11 @@ def process_pdf_translation(
             page.apply_redactions()
 
             font_id = f"f_{pno}"
-            if os.path.exists(font_path):
-                page.insert_font(fontname=font_id, fontfile=font_path)
+            if font_path and os.path.exists(font_path):
+                try:
+                    page.insert_font(fontname=font_id, fontfile=font_path)
+                except Exception:
+                    font_id = "helv"
             else:
                 font_id = "helv"
 
@@ -461,24 +512,20 @@ def process_pdf_translation(
                 all_orig_text_parts.append(item["text"])
                 all_trans_text_parts.append(trans_txt)
 
-                fsize = item["size"]
-                rc = page.insert_textbox(
-                    item["rect"],
-                    trans_txt,
-                    fontname=font_id,
-                    fontsize=fsize,
-                    color=item["color"],
-                    align=item["align"]
-                )
-                if rc < 0 and fsize > 6:
-                    page.insert_textbox(
+                # Professional adaptive font sizing loop (100% down to 50%)
+                base_size = item["size"]
+                for scale in [1.0, 0.90, 0.80, 0.70, 0.60, 0.50]:
+                    cur_size = max(5.0, base_size * scale)
+                    rc = page.insert_textbox(
                         item["rect"],
                         trans_txt,
                         fontname=font_id,
-                        fontsize=max(6.5, fsize * 0.85),
+                        fontsize=cur_size,
                         color=item["color"],
                         align=item["align"]
                     )
+                    if rc >= 0:
+                        break
 
         if job_id:
             update_job_status(job_id, stage="generating", stage_label="Reconstructing layout-preserved PDF...")
