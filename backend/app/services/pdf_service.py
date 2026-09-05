@@ -1,5 +1,6 @@
 import io
 import os
+from typing import Optional, List, Tuple, Dict, Any, Union
 import fitz  # PyMuPDF
 import pypdf
 from pypdf import PdfReader, PdfWriter
