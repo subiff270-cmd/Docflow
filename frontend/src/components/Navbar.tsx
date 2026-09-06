@@ -24,6 +24,24 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
 
+  // Close mobile menu on route changes
+  React.useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setMobileExpanded(null);
+  }, [pathname]);
+
+  // Lock body scroll when mobile menu is open
+  React.useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
+
   const closeMobile = () => {
     setIsMobileMenuOpen(false);
     setMobileExpanded(null);
@@ -34,7 +52,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-100/50 transition-all">
+    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm shadow-slate-100/50 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
@@ -238,10 +256,34 @@ export default function Navbar() {
 
       {/* Full-Screen Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 top-16 sm:top-20 z-30 bg-white overflow-y-auto animate-slide-up">
-          <div className="px-5 py-6 space-y-1">
+        <div className="lg:hidden fixed inset-x-0 bottom-0 top-16 z-50 bg-white/98 backdrop-blur-xl border-t border-slate-200/80 overflow-y-auto animate-slide-up shadow-2xl">
+          <div className="px-4 py-5 space-y-1">
+            {/* If user is logged in, show user info header in mobile menu */}
+            {user && (
+              <div className="mb-4 p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-md">
+                    {user.displayName ? user.displayName[0].toUpperCase() : user.email ? user.email[0].toUpperCase() : "U"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 truncate">{user.displayName || "My Account"}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                  </div>
+                </div>
+                {profile && profile.plan !== "FREE" ? (
+                  <span className="bg-amber-400 text-slate-950 font-extrabold text-[10px] px-2.5 py-1 rounded-full uppercase shadow-sm">
+                    PRO
+                  </span>
+                ) : (
+                  <span className="bg-slate-200 text-slate-700 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase">
+                    FREE
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* All Tools */}
-            <Link href="/" onClick={closeMobile} className="flex items-center justify-between px-4 py-3.5 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition">
+            <Link href="/" onClick={closeMobile} className="flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition">
               All Tools
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </Link>
@@ -250,21 +292,21 @@ export default function Navbar() {
             <div>
               <button
                 onClick={() => toggleMobileSection("convert")}
-                className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
               >
                 Convert PDF
                 <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpanded === "convert" ? "rotate-180" : ""}`} />
               </button>
               {mobileExpanded === "convert" && (
-                <div className="pl-6 space-y-0.5 pb-2 animate-in">
-                  <Link href="/word-to-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Word to PDF</Link>
-                  <Link href="/jpg-to-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">JPG to PDF</Link>
-                  <Link href="/ppt-to-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PowerPoint to PDF</Link>
-                  <Link href="/excel-to-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Excel to PDF</Link>
+                <div className="pl-4 space-y-0.5 pb-2 animate-in">
+                  <Link href="/word-to-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Word to PDF</Link>
+                  <Link href="/jpg-to-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">JPG to PDF</Link>
+                  <Link href="/ppt-to-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PowerPoint to PDF</Link>
+                  <Link href="/excel-to-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Excel to PDF</Link>
                   <div className="border-t border-slate-100 mx-4 my-1" />
-                  <Link href="/pdf-to-word" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Word</Link>
-                  <Link href="/pdf-to-jpg" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to JPG</Link>
-                  <Link href="/pdf-to-excel" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Excel</Link>
+                  <Link href="/pdf-to-word" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Word</Link>
+                  <Link href="/pdf-to-jpg" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to JPG</Link>
+                  <Link href="/pdf-to-excel" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Excel</Link>
                 </div>
               )}
             </div>
@@ -273,20 +315,20 @@ export default function Navbar() {
             <div>
               <button
                 onClick={() => toggleMobileSection("pdf")}
-                className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
               >
                 PDF Tools
                 <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpanded === "pdf" ? "rotate-180" : ""}`} />
               </button>
               {mobileExpanded === "pdf" && (
-                <div className="pl-6 space-y-0.5 pb-2 animate-in">
-                  <Link href="/merge-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Merge PDF</Link>
-                  <Link href="/split-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Split PDF</Link>
-                  <Link href="/compress-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
-                  <Link href="/organize-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
-                  <Link href="/protect-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Protect PDF</Link>
-                  <Link href="/sign-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Sign PDF</Link>
-                  <Link href="/redact-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Redact PDF</Link>
+                <div className="pl-4 space-y-0.5 pb-2 animate-in">
+                  <Link href="/merge-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Merge PDF</Link>
+                  <Link href="/split-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Split PDF</Link>
+                  <Link href="/compress-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
+                  <Link href="/organize-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
+                  <Link href="/protect-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Protect PDF</Link>
+                  <Link href="/sign-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Sign PDF</Link>
+                  <Link href="/redact-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Redact PDF</Link>
                 </div>
               )}
             </div>
@@ -295,49 +337,63 @@ export default function Navbar() {
             <div>
               <button
                 onClick={() => toggleMobileSection("ocr")}
-                className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
               >
                 OCR Tools
                 <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpanded === "ocr" ? "rotate-180" : ""}`} />
               </button>
               {mobileExpanded === "ocr" && (
-                <div className="pl-6 space-y-0.5 pb-2 animate-in">
-                  <Link href="/ocr-pdf" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
-                  <Link href="/image-to-text" onClick={closeMobile} className="block px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to Text</Link>
+                <div className="pl-4 space-y-0.5 pb-2 animate-in">
+                  <Link href="/ocr-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
+                  <Link href="/image-to-text" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to Text</Link>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-slate-100 my-3" />
+            <div className="border-t border-slate-100 my-2" />
 
             {/* Direct Links */}
-            <Link href="/pricing" onClick={closeMobile} className="flex items-center justify-between px-4 py-3.5 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition">
-              Pricing
+            <Link href="/pricing" onClick={closeMobile} className="flex items-center justify-between px-4 py-3 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition">
+              Pricing & Plans
               <ChevronRight className="w-4 h-4 text-indigo-400" />
             </Link>
-            <Link href="/contact" onClick={closeMobile} className="flex items-center justify-between px-4 py-3.5 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition">
-              Contact
+            <Link href="/dashboard" onClick={closeMobile} className="flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition">
+              Dashboard
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </Link>
-            <Link href="/dashboard" onClick={closeMobile} className="flex items-center justify-between px-4 py-3.5 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition">
-              Dashboard
+            <Link href="/about" onClick={closeMobile} className="flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition">
+              About Us
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </Link>
+            <Link href="/contact" onClick={closeMobile} className="flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition">
+              Contact Support
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </Link>
 
             {/* Mobile Auth Buttons */}
-            {!user && (
-              <div className="pt-4 space-y-3">
+            {!user ? (
+              <div className="pt-4 space-y-2.5">
                 <button
                   onClick={() => { closeMobile(); openAuthModal(); }}
-                  className="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 text-white font-bold rounded-xl text-sm shadow-lg shadow-indigo-500/30 transition"
+                  className="w-full py-3 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 text-white font-bold rounded-xl text-sm shadow-lg shadow-indigo-500/30 transition"
                 >
-                  Get Started — It's Free
+                  Get Started — It&apos;s Free
                 </button>
                 <button
                   onClick={() => { closeMobile(); openAuthModal(); }}
-                  className="w-full py-3 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl text-sm hover:bg-slate-50 transition"
+                  className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl text-sm hover:bg-slate-50 transition"
                 >
                   Sign In
+                </button>
+              </div>
+            ) : (
+              <div className="pt-3">
+                <button
+                  onClick={() => { closeMobile(); signOut(); }}
+                  className="w-full py-2.5 bg-red-50 text-red-600 border border-red-100 font-bold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-red-100 transition"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
                 </button>
               </div>
             )}
