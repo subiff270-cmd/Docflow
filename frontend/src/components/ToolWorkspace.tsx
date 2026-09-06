@@ -1968,6 +1968,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
       if (tool.id === "merge-pdf" && files.length > 0) {
         clientRes = await clientMergePdf(files);
+      } else if (tool.id === "split-pdf" && files[0] && splitMode === "ranges") {
+        clientRes = await clientSplitPdf(files[0], ranges);
       } else if (tool.id === "remove-pages" && files[0]) {
         clientRes = await clientRemovePages(files[0], pagesToRemove);
       } else if (tool.id === "extract-pages" && files[0]) {

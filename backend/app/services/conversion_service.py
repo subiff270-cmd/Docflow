@@ -477,16 +477,28 @@ def html_to_pdf(html_content: str) -> bytes:
     pdf_doc.build(story)
     return buffer.getvalue()
 
-def pdf_to_jpg(pdf_bytes: bytes) -> list[tuple[str, bytes]]:
+def pdf_to_jpg(pdf_bytes: bytes, dpi: int = 150) -> list[tuple[str, bytes]]:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    pages = []
-    for i in range(len(doc)):
-        page = doc[i]
-        pix = page.get_pixmap(dpi=150)
-        img_bytes = pix.tobytes("jpeg")
-        pages.append((f"page_{i+1}.jpg", img_bytes))
+    total = len(doc)
     doc.close()
-    return pages
+    if total == 0:
+        return []
+
+    def render_page(pno: int) -> tuple[int, str, bytes]:
+        p_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        p = p_doc[pno]
+        pix = p.get_pixmap(dpi=dpi)
+        img_b = pix.tobytes("jpeg")
+        p_doc.close()
+        return (pno, f"page_{pno + 1}.jpg", img_b)
+
+    import concurrent.futures
+    workers = min(16, total)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        results = list(executor.map(render_page, range(total)))
+
+    results.sort(key=lambda x: x[0])
+    return [(name, b) for _, name, b in results]
 
 def pdf_to_word(pdf_bytes: bytes) -> bytes:
     # 0. Cloudmersive Enterprise Engine

@@ -180,26 +180,49 @@ async def api_pdf_thumbnails(
         content = await file.read()
         if content.startswith(b"%PDF"):
             doc = fitz.open(stream=content, filetype="pdf")
+            total_pages = len(doc)
+            doc.close()
+
+            def render_thumb(idx: int):
+                p_doc = fitz.open(stream=content, filetype="pdf")
+                p = p_doc[idx]
+                pix = p.get_pixmap(dpi=75)
+                b64 = base64.b64encode(pix.tobytes("jpeg")).decode("utf-8")
+                w, h = p.rect.width, p.rect.height
+                p_doc.close()
+                return {
+                    "page_num": idx + 1,
+                    "width": w,
+                    "height": h,
+                    "thumbnail": f"data:image/jpeg;base64,{b64}"
+                }
+
+            import concurrent.futures
+            workers = min(16, max(1, total_pages))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                thumbnails = list(executor.map(render_thumb, range(total_pages)))
+
+            return {"success": True, "total_pages": len(thumbnails), "thumbnails": thumbnails}
         else:
             img = Image.open(io.BytesIO(content))
             doc = fitz.open()
             img_byte_arr = io.BytesIO()
-            img.convert("RGB").save(img_byte_arr, format="JPEG", quality=90)
+            img.convert("RGB").save(img_byte_arr, format="JPEG", quality=85)
             page = doc.new_page(width=img.width, height=img.height)
             page.insert_image(fitz.Rect(0, 0, img.width, img.height), stream=img_byte_arr.getvalue())
-
-        thumbnails = []
-        for idx, page in enumerate(doc):
-            pix = page.get_pixmap(dpi=90)
-            img_b64 = base64.b64encode(pix.tobytes("png")).decode("utf-8")
-            thumbnails.append({
-                "page_num": idx + 1,
-                "width": page.rect.width,
-                "height": page.rect.height,
-                "thumbnail": f"data:image/png;base64,{img_b64}"
-            })
-        doc.close()
-        return {"success": True, "total_pages": len(thumbnails), "thumbnails": thumbnails}
+            pix = page.get_pixmap(dpi=75)
+            img_b64 = base64.b64encode(pix.tobytes("jpeg")).decode("utf-8")
+            doc.close()
+            return {
+                "success": True,
+                "total_pages": 1,
+                "thumbnails": [{
+                    "page_num": 1,
+                    "width": img.width,
+                    "height": img.height,
+                    "thumbnail": f"data:image/jpeg;base64,{img_b64}"
+                }]
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate thumbnails: {str(e)}")
 

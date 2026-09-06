@@ -83,8 +83,11 @@ def run_tests():
 
     # 9. Test Razorpay Payment Signature
     order = payment_service.create_razorpay_order(9900)
-    assert order["order_id"] is not None
-    sig_valid = payment_service.verify_razorpay_signature(order["order_id"], "pay_test_123", "test_sig")
+    import hmac, hashlib
+    key_id, key_secret = payment_service.get_razorpay_keys()
+    msg = f"{order['order_id']}|pay_test_123".encode("utf-8")
+    test_sig = hmac.new(key_secret.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+    sig_valid = payment_service.verify_razorpay_signature(order["order_id"], "pay_test_123", test_sig)
     assert sig_valid is True
     print("[PASS] Razorpay Order & Signature Verification: OK")
 
