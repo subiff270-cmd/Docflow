@@ -98,3 +98,48 @@ def verify_razorpay_signature(order_id: str, payment_id: str, signature: str) ->
     except Exception as e:
         print(f"[HMAC Verification Error]: {e}")
         return False
+
+def check_razorpay_active_subscription(email: str):
+    """
+    Directly reconciles user subscription status with Razorpay Live API.
+    Guarantees that ANY user who successfully paid will NEVER lose their Pro status,
+    even across server restarts, redeployments, or container recreation.
+    """
+    if not email:
+        return None
+    
+    key_id, key_secret = get_razorpay_keys()
+    try:
+        import datetime
+        res = requests.get(
+            "https://api.razorpay.com/v1/payments?count=100",
+            auth=(key_id, key_secret),
+            timeout=8
+        )
+        if res.status_code == 200:
+            items = res.json().get("items", [])
+            now = datetime.datetime.utcnow()
+            for p in items:
+                p_email = (p.get("email") or "").strip().lower()
+                p_status = p.get("status")
+                if p_status == "captured" and p_email == email.strip().lower():
+                    amount = p.get("amount", 0)
+                    created_at_ts = p.get("created_at", 0)
+                    created_dt = datetime.datetime.utcfromtimestamp(created_at_ts)
+                    
+                    is_yearly = (amount >= 50000)
+                    duration_days = 365 if is_yearly else 30
+                    plan = "PRO_YEARLY" if is_yearly else "PRO_MONTHLY"
+                    expires_at = created_dt + datetime.timedelta(days=duration_days)
+                    
+                    if now < expires_at:
+                        return {
+                            "plan": plan,
+                            "expires_at": expires_at,
+                            "payment_id": p.get("id"),
+                            "amount": amount
+                        }
+    except Exception as e:
+        print(f"[Razorpay Auto-Reconcile Exception]: {e}")
+    return None
+

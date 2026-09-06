@@ -8,14 +8,26 @@ FREE_MAX_SIZE = int(os.getenv("FREE_MAX_SIZE_MB", "25"))
 PRO_MAX_SIZE = 500
 
 def get_or_create_user(db: Session, firebase_uid: str, email: str = None, display_name: str = None) -> User:
+    # 1. Match by firebase_uid first
     user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
+    
+    # 2. If not found by UID, match by email
+    if not user and email:
+        user = db.query(User).filter(User.email == email.strip().lower()).first()
+        if user:
+            user.firebase_uid = firebase_uid
+            db.commit()
+            db.refresh(user)
+
+    now = datetime.datetime.utcnow()
+
     if not user:
         user = User(
             firebase_uid=firebase_uid,
-            email=email,
+            email=email.strip().lower() if email else None,
             display_name=display_name,
             plan="FREE",
-            period_start=datetime.datetime.utcnow(),
+            period_start=now,
             period_usage=0,
             total_conversions=0
         )
@@ -23,24 +35,51 @@ def get_or_create_user(db: Session, firebase_uid: str, email: str = None, displa
         db.commit()
         db.refresh(user)
     else:
-        if email and user.email != email:
-            user.email = email
+        if email and (not user.email or user.email != email.strip().lower()):
+            user.email = email.strip().lower()
         if display_name and user.display_name != display_name:
             user.display_name = display_name
         db.commit()
         db.refresh(user)
-    
-    # Check Pro Subscription Expiration (1 month for Monthly, 1 year for Yearly)
-    now = datetime.datetime.utcnow()
-    if user.plan in ["PRO_MONTHLY", "PRO_YEARLY", "PRO"] and user.plan_expires_at:
-        if now >= user.plan_expires_at:
-            user.plan = "FREE"
-            user.plan_expires_at = None
+
+    # 3. Auto-Heal / Reconcile with Razorpay Live API if plan is FREE or expired
+    check_email = user.email or (email.strip().lower() if email else None)
+    if user.plan == "FREE" and check_email:
+        from .payment_service import check_razorpay_active_subscription
+        active_sub = check_razorpay_active_subscription(check_email)
+        if active_sub and active_sub.get("expires_at") and now < active_sub["expires_at"]:
+            user.plan = active_sub["plan"]
+            user.plan_expires_at = active_sub["expires_at"]
             user.period_usage = 0
             db.commit()
             db.refresh(user)
 
-    # Check daily period reset (resets every 24 hours / new calendar day for Free tier)
+    # 4. Check Pro Subscription Expiration
+    if user.plan in ["PRO_MONTHLY", "PRO_YEARLY", "PRO"] and user.plan_expires_at:
+        if now >= user.plan_expires_at:
+            # Check Razorpay once more before downgrading
+            if check_email:
+                from .payment_service import check_razorpay_active_subscription
+                active_sub = check_razorpay_active_subscription(check_email)
+                if active_sub and active_sub.get("expires_at") and now < active_sub["expires_at"]:
+                    user.plan = active_sub["plan"]
+                    user.plan_expires_at = active_sub["expires_at"]
+                    db.commit()
+                    db.refresh(user)
+                else:
+                    user.plan = "FREE"
+                    user.plan_expires_at = None
+                    user.period_usage = 0
+                    db.commit()
+                    db.refresh(user)
+            else:
+                user.plan = "FREE"
+                user.plan_expires_at = None
+                user.period_usage = 0
+                db.commit()
+                db.refresh(user)
+
+    # 5. Check daily period reset (resets every 24 hours / new calendar day for Free tier)
     if user.period_start.date() < now.date() or (now - user.period_start).total_seconds() >= 86400:
         user.period_start = now
         user.period_usage = 0

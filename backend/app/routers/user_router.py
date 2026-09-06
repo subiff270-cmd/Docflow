@@ -10,11 +10,11 @@ from ..models import ConversionHistory
 router = APIRouter(prefix="/api/user", tags=["user"])
 
 @router.get("/profile", response_model=UserProfileResponse)
-def get_user_profile(x_firebase_uid: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_user_profile(x_firebase_uid: Optional[str] = Header(None), x_firebase_email: Optional[str] = Header(None), db: Session = Depends(get_db)):
     if not x_firebase_uid:
         raise HTTPException(status_code=401, detail="Authentication header missing.")
     
-    user = get_or_create_user(db, x_firebase_uid)
+    user = get_or_create_user(db, x_firebase_uid, email=x_firebase_email)
     is_pro = user.plan in ["PRO_MONTHLY", "PRO_YEARLY", "PRO"]
     max_quota = -1 if is_pro else FREE_LIMIT
     max_file_size = PRO_MAX_SIZE if is_pro else FREE_MAX_SIZE
