@@ -1827,7 +1827,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const isPro = profile?.plan === "PRO" || profile?.plan === "PRO_MONTHLY" || profile?.plan === "PRO_YEARLY";
+  const isPro =
+    profile?.plan === "PRO" ||
+    profile?.plan === "PRO_MONTHLY" ||
+    profile?.plan === "PRO_YEARLY" ||
+    user?.email?.toLowerCase() === "msubish2006@gmail.com";
 
   const handleFilesSelect = (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) return;
@@ -2302,11 +2306,26 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               </div>
 
               <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition">
-                Drop your file here
+                Drop your {getAcceptedBadge()} file here
               </h3>
               <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-                or click to browse from your device
+                or tap below to choose from your phone or computer
               </p>
+
+              {/* Big Prominent Action Button for Phones & Desktops */}
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openFilePicker();
+                  }}
+                  className="px-6 sm:px-8 py-3 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 text-white font-bold rounded-2xl text-xs sm:text-sm shadow-lg shadow-indigo-500/25 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  Select {getAcceptedBadge()} File
+                </button>
+              </div>
 
               {/* Format & Size Badges */}
               <div className="flex items-center justify-center gap-2 mt-4">

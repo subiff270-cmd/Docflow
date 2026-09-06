@@ -243,12 +243,14 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* Mobile Menu Trigger */}
+            {/* Mobile / Tablet Menu Trigger (3 Lines) */}
             <button
+              type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl"
+              aria-label="Open menu"
+              className="lg:hidden flex items-center justify-center p-2 sm:p-2.5 bg-slate-100/90 hover:bg-indigo-50 hover:text-indigo-600 text-slate-800 rounded-xl border border-slate-200/80 transition active:scale-95 shadow-xs"
             >
-              {isMobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
+              {isMobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6 text-slate-900" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-slate-900" />}
             </button>
           </div>
         </div>
@@ -256,7 +258,7 @@ export default function Navbar() {
 
       {/* Full-Screen Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-x-0 bottom-0 top-16 z-50 bg-white/98 backdrop-blur-xl border-t border-slate-200/80 overflow-y-auto animate-slide-up shadow-2xl">
+        <div className="lg:hidden fixed inset-x-0 bottom-0 top-16 sm:top-20 z-50 bg-white/98 backdrop-blur-xl border-t border-slate-200/80 overflow-y-auto animate-slide-up shadow-2xl">
           <div className="px-4 py-5 space-y-1">
             {/* If user is logged in, show user info header in mobile menu */}
             {user && (

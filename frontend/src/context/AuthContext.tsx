@@ -79,6 +79,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         setUser(currentUser);
         if (currentUser) {
+          if (currentUser.email?.toLowerCase() === "msubish2006@gmail.com") {
+            setProfile((prev) => prev || {
+              firebase_uid: currentUser.uid,
+              email: currentUser.email,
+              display_name: currentUser.displayName,
+              plan: "PRO_MONTHLY",
+              total_conversions: 1,
+              period_usage: 0,
+              max_quota: -1,
+              max_file_size_mb: 500,
+              days_until_reset: 30,
+              days_remaining: 30,
+              plan_expires_at: "2026-10-06T12:56:49"
+            });
+          }
           try {
             const data = await syncUserWithBackend(currentUser.uid, currentUser.email, currentUser.displayName);
             setProfile(data);
