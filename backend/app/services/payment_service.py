@@ -4,8 +4,8 @@ import hashlib
 import requests
 
 def get_razorpay_keys():
-    key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TYgVBWV0HNw2dJ").strip()
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "LQiaAWBO4a6HdPRRxxwK9mNi").strip()
+    key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_live_TYkp6ACbHVOXok").strip()
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "0pRnzOZwgMGOeNTjaQjx2AjD").strip()
     return key_id, key_secret
 
 def create_razorpay_order(amount_paise: int, receipt: str = None) -> dict:
