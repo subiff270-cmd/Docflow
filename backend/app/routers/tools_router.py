@@ -1023,6 +1023,9 @@ async def api_translate_pdf(
     if not allowed:
         raise HTTPException(status_code=403, detail=msg)
 
+    user = get_or_create_user(db, uid)
+    is_pro = user.plan in ["PRO_MONTHLY", "PRO_YEARLY", "PRO"]
+
     try:
         from app.services import translation_service
         result = translation_service.process_pdf_translation(
@@ -1031,7 +1034,8 @@ async def api_translate_pdf(
             source_language=source_language,
             output_format=output_format,
             password=password,
-            job_id=job_id
+            job_id=job_id,
+            is_pro=is_pro
         )
         base_name = os.path.splitext(file.filename)[0] if file.filename else "document"
         out_name = f"DocFlow_Translated_{target_language}_{base_name}.{result['ext']}"

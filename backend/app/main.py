@@ -18,7 +18,7 @@ Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Background task to clean up old temporary files every 10 minutes
+    # Background task 1: Clean up old temporary files every 10 minutes
     async def periodic_purge():
         while True:
             await asyncio.sleep(600)
@@ -28,9 +28,25 @@ async def lifespan(app: FastAPI):
                 db.close()
             except Exception as e:
                 print(f"File purge error: {e}")
-    task = asyncio.create_task(periodic_purge())
+
+    # Background task 2: Keep-alive self ping to prevent Render free tier idle sleep
+    async def periodic_keepalive():
+        import httpx
+        await asyncio.sleep(15)
+        while True:
+            try:
+                render_url = os.getenv("RENDER_EXTERNAL_URL", "https://docflow-backend-8rwy.onrender.com")
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    await client.get(f"{render_url}/health")
+            except Exception:
+                pass
+            await asyncio.sleep(540) # Ping every 9 minutes
+
+    purge_task = asyncio.create_task(periodic_purge())
+    keepalive_task = asyncio.create_task(periodic_keepalive())
     yield
-    task.cancel()
+    purge_task.cancel()
+    keepalive_task.cancel()
 
 app = FastAPI(
     title="DocFlow API",

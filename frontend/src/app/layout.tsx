@@ -5,6 +5,7 @@ import { AuthProvider } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import AuthModal from "../components/AuthModal";
+import BackendWarmer from "../components/BackendWarmer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -37,6 +38,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} bg-slate-50 text-slate-900 antialiased min-h-screen flex flex-col`}>
         <AuthProvider>
+          <BackendWarmer />
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />

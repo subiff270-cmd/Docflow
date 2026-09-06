@@ -3,6 +3,7 @@ import os
 import re
 import time
 import uuid
+import concurrent.futures
 import fitz  # PyMuPDF
 import docx
 from typing import Dict, Any, List, Optional, Tuple
@@ -273,10 +274,13 @@ def restore_tokens(text: str, replacements: Dict[str, str]) -> str:
         restored = re.sub(r'__\s*TOKEN\s*_\s*(\d+)\s*__', lambda m: replacements.get(f"__TOKEN_{m.group(1)}__", m.group(0)), restored)
     return restored
 
+_GLOBAL_TRANSLATION_CACHE: Dict[Tuple[str, str, str], str] = {}
+
 class TranslationEngine:
-    def __init__(self, source_lang: str = "auto", target_lang: str = "Spanish"):
+    def __init__(self, source_lang: str = "auto", target_lang: str = "Spanish", is_pro: bool = False):
         self.src_code = resolve_lang_code(source_lang)
         self.tgt_code = resolve_lang_code(target_lang)
+        self.is_pro = is_pro
         if self.tgt_code == "auto":
             self.tgt_code = "en"
         self.translator = GoogleTranslator(source=self.src_code, target=self.tgt_code)
@@ -288,30 +292,65 @@ class TranslationEngine:
         if self.src_code != "auto" and self.src_code == self.tgt_code:
             return text
 
+        cache_key = (self.src_code, self.tgt_code, text.strip())
+        if cache_key in _GLOBAL_TRANSLATION_CACHE:
+            return _GLOBAL_TRANSLATION_CACHE[cache_key]
+
         protected_text, replacements = protect_tokens(text)
         paragraphs = [p.strip() for p in protected_text.split("\n\n") if p.strip()]
-        translated_paras = []
 
-        for p in paragraphs:
-            if len(p) <= 2500:
-                trans = self._translate_chunk_with_retry(p)
-                translated_paras.append(trans)
+        if not paragraphs:
+            return ""
+
+        if len(paragraphs) == 1:
+            trans = self._translate_chunk_with_retry(paragraphs[0])
+            full_trans = restore_tokens(trans, replacements)
+            _GLOBAL_TRANSLATION_CACHE[cache_key] = full_trans
+            return full_trans
+
+        # Parallel translation for multi-paragraph blocks
+        workers = 16 if self.is_pro else 8
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(workers, len(paragraphs))) as executor:
+            translated_paras = list(executor.map(self._translate_chunk_with_retry, paragraphs))
+
+        full_trans = restore_tokens("\n\n".join(translated_paras), replacements)
+        _GLOBAL_TRANSLATION_CACHE[cache_key] = full_trans
+        return full_trans
+
+    def translate_batch(self, texts: List[str]) -> List[str]:
+        """Translates a batch of distinct text blocks in parallel with high-speed caching."""
+        if not texts:
+            return []
+
+        results: List[Optional[str]] = [None] * len(texts)
+        to_translate_indices: List[int] = []
+        to_translate_texts: List[str] = []
+
+        for idx, t in enumerate(texts):
+            clean_t = t.strip()
+            if not clean_t:
+                results[idx] = ""
+            elif self.src_code != "auto" and self.src_code == self.tgt_code:
+                results[idx] = t
             else:
-                sentences = re.split(r'(?<=[.!?])\s+', p)
-                curr_chunk = ""
-                sub_trans = []
-                for s in sentences:
-                    if len(curr_chunk) + len(s) + 1 > 2000:
-                        sub_trans.append(self._translate_chunk_with_retry(curr_chunk))
-                        curr_chunk = s
-                    else:
-                        curr_chunk = f"{curr_chunk} {s}".strip()
-                if curr_chunk:
-                    sub_trans.append(self._translate_chunk_with_retry(curr_chunk))
-                translated_paras.append(" ".join(sub_trans))
+                cache_key = (self.src_code, self.tgt_code, clean_t)
+                if cache_key in _GLOBAL_TRANSLATION_CACHE:
+                    results[idx] = _GLOBAL_TRANSLATION_CACHE[cache_key]
+                else:
+                    to_translate_indices.append(idx)
+                    to_translate_texts.append(t)
 
-        full_trans = "\n\n".join(translated_paras)
-        return restore_tokens(full_trans, replacements)
+        if to_translate_texts:
+            workers = 16 if self.is_pro else 10
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(workers, len(to_translate_texts))) as executor:
+                translated_list = list(executor.map(self.translate_text, to_translate_texts))
+
+            for original_idx, trans_val in zip(to_translate_indices, translated_list):
+                results[original_idx] = trans_val
+                cache_key = (self.src_code, self.tgt_code, texts[original_idx].strip())
+                _GLOBAL_TRANSLATION_CACHE[cache_key] = trans_val
+
+        return [r if r is not None else "" for r in results]
 
     def _translate_chunk_with_retry(self, chunk: str, max_retries: int = 3) -> str:
         if not chunk.strip():
@@ -322,9 +361,9 @@ class TranslationEngine:
                 res = self.translator.translate(chunk)
                 if res and not res.startswith("Error 500"):
                     return res
-                time.sleep(0.4 * (attempt + 1))
+                time.sleep(0.15 * (attempt + 1) if not self.is_pro else 0.05)
             except Exception:
-                time.sleep(0.4 * (attempt + 1))
+                time.sleep(0.15 * (attempt + 1) if not self.is_pro else 0.05)
 
         return chunk
 
@@ -388,7 +427,8 @@ def process_pdf_translation(
     source_language: str = "auto",
     output_format: str = "pdf",
     password: Optional[str] = None,
-    job_id: Optional[str] = None
+    job_id: Optional[str] = None,
+    is_pro: bool = False
 ) -> Dict[str, Any]:
     if job_id:
         update_job_status(job_id, status="processing", stage="analyzing", stage_label="Analyzing document structure...")
@@ -419,7 +459,7 @@ def process_pdf_translation(
         )
 
     effective_source = detected_lang if source_language == "auto" else source_language
-    engine = TranslationEngine(source_lang=effective_source, target_lang=target_language)
+    engine = TranslationEngine(source_lang=effective_source, target_lang=target_language, is_pro=is_pro)
 
     fmt = output_format.lower().strip()
 
@@ -489,6 +529,10 @@ def process_pdf_translation(
 
             page.apply_redactions()
 
+            # Turbo Parallel Batch Translation across all page blocks simultaneously
+            raw_texts = [item["text"] for item in blocks_to_replace]
+            translated_texts = engine.translate_batch(raw_texts)
+
             # Render translated blocks using HarfBuzz OpenType Story engine into an overlay PDF
             import html as html_module
             import tempfile
@@ -499,8 +543,7 @@ def process_pdf_translation(
             writer = fitz.DocumentWriter(overlay_path)
             dev = writer.begin_page(page.rect)
 
-            for item in blocks_to_replace:
-                trans_txt = engine.translate_text(item["text"])
+            for item, trans_txt in zip(blocks_to_replace, translated_texts):
                 all_orig_text_parts.append(item["text"])
                 all_trans_text_parts.append(trans_txt)
 
