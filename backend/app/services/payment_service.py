@@ -3,8 +3,8 @@ import hmac
 import hashlib
 
 def get_razorpay_client():
-    key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_test_docflow_key_id")
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "test_docflow_key_secret")
+    key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TYgVBWV0HNw2dj")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "lQiaAWBOmA6HdPRRxxwK9mNi")
     try:
         import razorpay
         return razorpay.Client(auth=(key_id, key_secret)), key_id, key_secret
