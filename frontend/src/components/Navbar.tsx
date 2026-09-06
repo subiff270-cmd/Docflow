@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
@@ -23,15 +24,20 @@ export default function Navbar() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close mobile menu on route changes
-  React.useEffect(() => {
+  useEffect(() => {
     setIsMobileMenuOpen(false);
     setMobileExpanded(null);
   }, [pathname]);
 
   // Lock body scroll when mobile menu is open
-  React.useEffect(() => {
+  useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = "hidden";
     } else {
@@ -256,10 +262,29 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Full-Screen Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-x-0 bottom-0 top-16 sm:top-20 z-50 bg-white/98 backdrop-blur-xl border-t border-slate-200/80 overflow-y-auto animate-slide-up shadow-2xl">
-          <div className="px-4 py-5 space-y-1">
+      {/* Full-Screen Portaled Mobile Menu (Guaranteed to fill phone screen and never be trapped by backdrop-blur) */}
+      {mounted && isMobileMenuOpen && createPortal(
+        <div className="fixed inset-0 z-[99999] bg-white flex flex-col h-[100dvh] w-screen overflow-hidden animate-in fade-in">
+          {/* Mobile Drawer Top Header */}
+          <div className="flex items-center justify-between px-5 h-16 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl shrink-0">
+            <Link href="/" className="flex items-center gap-2.5" onClick={closeMobile}>
+              <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/30">
+                <FileText className="w-5 h-5" />
+              </div>
+              <span className="text-xl font-black tracking-tight text-slate-900">DocFlow</span>
+            </Link>
+            <button
+              type="button"
+              onClick={closeMobile}
+              className="p-2 text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition active:scale-95"
+              aria-label="Close menu"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Scrollable Menu Items */}
+          <div className="flex-1 overflow-y-auto px-4 py-5 space-y-1 pb-20">
             {/* If user is logged in, show user info header in mobile menu */}
             {user && (
               <div className="mb-4 p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
@@ -293,6 +318,7 @@ export default function Navbar() {
             {/* Convert PDF Section */}
             <div>
               <button
+                type="button"
                 onClick={() => toggleMobileSection("convert")}
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
               >
@@ -316,6 +342,7 @@ export default function Navbar() {
             {/* PDF Tools Section */}
             <div>
               <button
+                type="button"
                 onClick={() => toggleMobileSection("pdf")}
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
               >
@@ -338,6 +365,7 @@ export default function Navbar() {
             {/* OCR Tools Section */}
             <div>
               <button
+                type="button"
                 onClick={() => toggleMobileSection("ocr")}
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
               >
@@ -376,12 +404,14 @@ export default function Navbar() {
             {!user ? (
               <div className="pt-4 space-y-2.5">
                 <button
+                  type="button"
                   onClick={() => { closeMobile(); openAuthModal(); }}
                   className="w-full py-3 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 text-white font-bold rounded-xl text-sm shadow-lg shadow-indigo-500/30 transition"
                 >
                   Get Started — It&apos;s Free
                 </button>
                 <button
+                  type="button"
                   onClick={() => { closeMobile(); openAuthModal(); }}
                   className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl text-sm hover:bg-slate-50 transition"
                 >
@@ -391,6 +421,7 @@ export default function Navbar() {
             ) : (
               <div className="pt-3">
                 <button
+                  type="button"
                   onClick={() => { closeMobile(); signOut(); }}
                   className="w-full py-2.5 bg-red-50 text-red-600 border border-red-100 font-bold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-red-100 transition"
                 >
@@ -400,7 +431,8 @@ export default function Navbar() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );
