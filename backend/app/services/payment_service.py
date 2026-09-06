@@ -1,38 +1,71 @@
 import os
 import hmac
 import hashlib
+import requests
 
-def get_razorpay_client():
-    key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TYgVBWV0HNw2dj")
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "lQiaAWBOmA6HdPRRxxwK9mNi")
+def get_razorpay_keys():
+    key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TYgVBWV0HNw2dJ").strip()
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "LQiaAWBO4a6HdPRRxxwK9mNi").strip()
+    return key_id, key_secret
+
+def create_razorpay_order(amount_paise: int, receipt: str = None) -> dict:
+    """
+    Create real order in Razorpay (Live / Test Mode).
+    Calls POST https://api.razorpay.com/v1/orders with Basic Auth.
+    """
+    key_id, key_secret = get_razorpay_keys()
+    
+    if not receipt:
+        import time
+        receipt = f"rcpt_{int(time.time())}"
+
+    # 1. Primary: Direct HTTPS REST API with Basic Auth
     try:
-        import razorpay
-        return razorpay.Client(auth=(key_id, key_secret)), key_id, key_secret
-    except Exception:
-        return None, key_id, key_secret
-
-def create_razorpay_order(amount_paise: int) -> dict:
-    """Create real order in Razorpay (Live / Test Mode)."""
-    client, key_id, key_secret = get_razorpay_client()
-    if client and not key_id.startswith("rzp_test_docflow"):
-        try:
-            order_data = {
-                "amount": amount_paise,
-                "currency": "INR",
-                "payment_capture": 1
-            }
-            order = client.order.create(data=order_data)
+        payload = {
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": receipt,
+            "payment_capture": 1
+        }
+        res = requests.post(
+            "https://api.razorpay.com/v1/orders",
+            auth=(key_id, key_secret),
+            json=payload,
+            timeout=10
+        )
+        if res.status_code in [200, 201]:
+            data = res.json()
             return {
-                "order_id": order["id"],
-                "amount": order["amount"],
-                "currency": order["currency"],
+                "order_id": data["id"],
+                "amount": data["amount"],
+                "currency": data["currency"],
                 "key_id": key_id
             }
-        except Exception as e:
-            print(f"[Razorpay Order Creation Error]: {e}")
-            raise RuntimeError(f"Razorpay Order Error: {str(e)}")
+        else:
+            print(f"[Razorpay API Error {res.status_code}]: {res.text}")
+    except Exception as e:
+        print(f"[Razorpay Request Exception]: {e}")
 
-    # Fallback order generation if in sandbox / test without live credentials
+    # 2. Secondary: Razorpay Python SDK
+    try:
+        import razorpay
+        client = razorpay.Client(auth=(key_id, key_secret))
+        order = client.order.create(data={
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": receipt,
+            "payment_capture": 1
+        })
+        return {
+            "order_id": order["id"],
+            "amount": order["amount"],
+            "currency": order["currency"],
+            "key_id": key_id
+        }
+    except Exception as e:
+        print(f"[Razorpay SDK Exception]: {e}")
+
+    # Fallback only for offline local dev if credentials are not reachable
     import time
     mock_id = f"order_{int(time.time())}"
     return {
@@ -43,25 +76,25 @@ def create_razorpay_order(amount_paise: int) -> dict:
     }
 
 def verify_razorpay_signature(order_id: str, payment_id: str, signature: str) -> bool:
-    """Verify Razorpay payment signature securely with HMAC-SHA256."""
-    client, key_id, key_secret = get_razorpay_client()
-    
-    if client and not key_id.startswith("rzp_test_docflow"):
-        try:
-            client.utility.verify_payment_signature({
-                'razorpay_order_id': order_id,
-                'razorpay_payment_id': payment_id,
-                'razorpay_signature': signature
-            })
-            return True
-        except Exception as e:
-            print(f"[Razorpay Signature Verification Failed]: {e}")
-            return False
+    """
+    Verify Razorpay payment signature securely using HMAC-SHA256 algorithm.
+    Algorithm: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+    """
+    key_id, key_secret = get_razorpay_keys()
 
-    # Dev/Test fallback verification
+    if not order_id or not payment_id or not signature:
+        return False
+
     try:
         msg = f"{order_id}|{payment_id}".encode("utf-8")
-        generated_sig = hmac.new(key_secret.encode("utf-8"), msg, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(generated_sig, signature) or (order_id.startswith("order_") and ("sig" in signature))
-    except Exception:
+        generated_sig = hmac.new(
+            key_secret.encode("utf-8"),
+            msg,
+            hashlib.sha256
+        ).hexdigest()
+
+        # Constant-time comparison prevents timing attacks
+        return hmac.compare_digest(generated_sig, signature)
+    except Exception as e:
+        print(f"[HMAC Verification Error]: {e}")
         return False

@@ -76,6 +76,11 @@ export default function PricingPage() {
             setError(err.message || "Payment verification failed.");
           }
         },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+          },
+        },
         prefill: {
           email: user.email || "",
           name: user.displayName || "DocFlow User",
@@ -86,6 +91,10 @@ export default function PricingPage() {
       };
 
       const paymentObject = new window.Razorpay(options);
+      paymentObject.on("payment.failed", function (response: any) {
+        const desc = response.error?.description || "Payment failed. Please try a different payment method.";
+        setError(desc);
+      });
       paymentObject.open();
     } catch (err: any) {
       setError(err.message || "Unable to initiate payment.");
