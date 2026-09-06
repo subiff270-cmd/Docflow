@@ -12,7 +12,6 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 import openpyxl
 from openpyxl import Workbook
-import pdfplumber
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle

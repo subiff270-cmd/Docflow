@@ -43,11 +43,14 @@ def get_or_create_user(db: Session, firebase_uid: str, email: str = None, displa
 def check_user_quota(db: Session, firebase_uid: str, file_size_mb: float):
     user = get_or_create_user(db, firebase_uid)
     
-    max_size = PRO_MAX_SIZE if user.plan in ["PRO_MONTHLY", "PRO_YEARLY"] else FREE_MAX_SIZE
+    is_pro = user.plan in ["PRO_MONTHLY", "PRO_YEARLY", "PRO"]
+    max_size = PRO_MAX_SIZE if is_pro else FREE_MAX_SIZE
     if file_size_mb > max_size:
-        return False, f"File size ({file_size_mb:.1f} MB) exceeds the Free limit of {max_size} MB. Please upgrade to DocFlow Pro for files up to 500 MB."
+        if is_pro:
+            return False, f"File size ({file_size_mb:.1f} MB) exceeds the Pro limit of 500 MB."
+        return False, f"File size ({file_size_mb:.1f} MB) exceeds the Free limit of 25 MB. Please upgrade to DocFlow Pro for files up to 500 MB."
     
-    if user.plan in ["PRO_MONTHLY", "PRO_YEARLY"]:
+    if is_pro:
         return True, "OK"
     
     if user.period_usage >= FREE_LIMIT:

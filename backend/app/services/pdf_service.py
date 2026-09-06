@@ -9,14 +9,14 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 
 def merge_pdfs(file_bytes_list: list[bytes]) -> bytes:
-    writer = PdfWriter()
+    merged_doc = fitz.open()
     for b in file_bytes_list:
-        reader = PdfReader(io.BytesIO(b))
-        for page in reader.pages:
-            writer.add_page(page)
-    output = io.BytesIO()
-    writer.write(output)
-    return output.getvalue()
+        doc = fitz.open(stream=b, filetype="pdf")
+        merged_doc.insert_pdf(doc)
+        doc.close()
+    output_bytes = merged_doc.tobytes(garbage=3, deflate=True)
+    merged_doc.close()
+    return output_bytes
 
 def split_pdf(file_bytes: bytes, split_mode: str = "ranges", ranges: str = "", every_n: int = 1) -> list[tuple[str, bytes]]:
     doc = fitz.open(stream=file_bytes, filetype="pdf")
