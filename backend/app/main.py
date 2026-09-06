@@ -64,13 +64,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Exception Handler to avoid [object Object] errors
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+# Exception Handler to preserve proper HTTP errors and helpful messages
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    print(f"Global Exception caught: {exc}")
+    import traceback
+    traceback.print_exc()
+    error_msg = str(exc) or "Internal server error occurred."
     return JSONResponse(
         status_code=500,
-        content={"detail": "Something went wrong. Unable to process request."}
+        content={"detail": f"Processing error: {error_msg}"}
     )
 
 # Routers
