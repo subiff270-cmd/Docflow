@@ -1833,8 +1833,19 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     profile?.plan === "PRO_YEARLY" ||
     user?.email?.toLowerCase() === "msubish2006@gmail.com";
 
+  const rawCount = isPro ? 0 : (profile ? Math.max(profile.period_usage ?? 0, clientUsage.count) : clientUsage.count);
+  const usedCount = Math.min(FREE_DAILY_MAX_QUOTA, rawCount);
+  const maxQuota = isPro ? 999999 : FREE_DAILY_MAX_QUOTA;
+  const isLimitReached = !isPro && rawCount >= FREE_DAILY_MAX_QUOTA;
+
   const handleFilesSelect = (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) return;
+
+    if (!isPro && rawCount >= FREE_DAILY_MAX_QUOTA) {
+      setShowQuotaLimitModal(true);
+      setError(`You've reached your daily free limit of ${FREE_DAILY_MAX_QUOTA} conversions. Please upgrade to Pro for unlimited access.`);
+      return;
+    }
 
     // Instant popup if any file exceeds 25 MB on free plan
     if (!isPro) {
@@ -1892,6 +1903,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   };
 
   const openFilePicker = () => {
+    if (!isPro && rawCount >= FREE_DAILY_MAX_QUOTA) {
+      setShowQuotaLimitModal(true);
+      setError(`You've reached your daily free limit of ${FREE_DAILY_MAX_QUOTA} conversions. Please upgrade to Pro for unlimited access.`);
+      return;
+    }
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -1900,7 +1916,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const handleDownloadFile = async () => {
     if (!result) return;
 
-    if (!isPro && usedCount >= FREE_DAILY_MAX_QUOTA) {
+    if (!isPro && rawCount >= FREE_DAILY_MAX_QUOTA) {
       setShowQuotaLimitModal(true);
       return;
     }
@@ -1955,6 +1971,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isPro && rawCount >= FREE_DAILY_MAX_QUOTA) {
+      setShowQuotaLimitModal(true);
+      setError(`You've reached your daily free limit of ${FREE_DAILY_MAX_QUOTA} conversions. Please upgrade to DocFlow Pro for unlimited access.`);
+      return;
+    }
     if (hasOversized) {
       setError("One or more selected files exceed the 25 MB Free limit. Please upgrade to Pro for files up to 500 MB.");
       return;
@@ -2165,9 +2186,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     return tool.accept.replace(/\./g, "").toUpperCase();
   };
 
-  const usedCount = isPro ? 0 : (profile ? Math.max(profile.period_usage ?? 0, clientUsage.count) : clientUsage.count);
-  const maxQuota = isPro ? 999999 : FREE_DAILY_MAX_QUOTA;
-  const isLimitReached = !isPro && usedCount >= FREE_DAILY_MAX_QUOTA;
   const oversizedFiles = !isPro ? files.filter((f) => f.size > 25 * 1024 * 1024) : [];
   const hasOversized = oversizedFiles.length > 0;
   const removeOversizedFiles = () => setFiles((prev) => prev.filter((f) => f.size <= 25 * 1024 * 1024));
@@ -6233,7 +6251,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
             </div>
           )}
 
-          {/* 8. Process Button & Real Loading State / Upgrade Action */}
           {hasOversized ? (
             <Link
               href="/pricing"
@@ -6243,6 +6260,16 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               <span>Upgrade to Pro to Process Files Over 25 MB</span>
               <ArrowRight className="w-5 h-5" />
             </Link>
+          ) : isLimitReached ? (
+            <button
+              type="button"
+              onClick={() => setShowQuotaLimitModal(true)}
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
+            >
+              <AlertCircle className="w-5 h-5" />
+              <span>Daily Free Limit Reached (10/10) — Upgrade to Pro</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
           ) : (
             <button
               type="submit"

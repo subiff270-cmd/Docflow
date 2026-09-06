@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 const USAGE_STORAGE_KEY = "docflow_daily_free_usage";
 export const FREE_DAILY_MAX_QUOTA = 10;
@@ -44,7 +44,7 @@ export const getClientDailyUsage = (): { count: number; hoursRemaining: number }
     }
 
     const hoursRemaining = Math.max(1, Math.ceil((24 * 60 * 60 * 1000 - elapsedMs) / (60 * 60 * 1000)));
-    return { count: Math.max(0, data.count || 0), hoursRemaining };
+    return { count: Math.min(FREE_DAILY_MAX_QUOTA, Math.max(0, data.count || 0)), hoursRemaining };
   } catch (e) {
     return { count: 0, hoursRemaining: 24 };
   }
@@ -57,7 +57,7 @@ export const incrementClientDailyUsage = (): { count: number; hoursRemaining: nu
 
   try {
     const current = getClientDailyUsage();
-    const newCount = current.count + 1;
+    const newCount = Math.min(FREE_DAILY_MAX_QUOTA, current.count + 1);
     const now = Date.now();
     const today = getTodayString();
 
