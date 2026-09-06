@@ -94,7 +94,7 @@ export default function DashboardPage() {
         {/* Usage Quota */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">30-Day Usage Quota</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Daily Usage Quota</span>
             <Clock className="w-5 h-5 text-indigo-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-slate-900">
@@ -110,7 +110,7 @@ export default function DashboardPage() {
                 />
               </div>
               <p className="text-[11px] text-slate-500 flex justify-between">
-                <span>Resets in {profile?.days_until_reset ?? 30} days</span>
+                <span>Resets in 24 hours</span>
                 <span>Max size: 25 MB</span>
               </p>
             </div>
@@ -128,7 +128,7 @@ export default function DashboardPage() {
             {isPro && <span className="text-xs bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full font-bold">ACTIVE</span>}
           </div>
           <p className="text-[11px] text-slate-500">
-            {isPro ? "Unlimited conversions & 500 MB file limit." : "Free tier limited to 10 conversions per 30 days."}
+            {isPro ? "Unlimited conversions & 500 MB file limit." : "Free tier limited to 10 conversions per day (Resets daily)."}
           </p>
         </div>
       </div>

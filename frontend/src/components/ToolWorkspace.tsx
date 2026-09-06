@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ToolItem } from "../lib/toolsData";
 import { useAuth } from "../context/AuthContext";
 import { processToolApi, getDownloadUrl, fetchPdfThumbnails, searchPdfMatches } from "../lib/api";
+import { getClientDailyUsage, incrementClientDailyUsage, FREE_DAILY_MAX_QUOTA } from "../lib/usage";
 import {
   clientMergePdf,
   clientSplitPdf,
@@ -91,12 +92,24 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
   const [files, setFiles] = useState<File[]>([]);
   const [proModalFile, setProModalFile] = useState<File | null>(null);
+  const [showQuotaLimitModal, setShowQuotaLimitModal] = useState(false);
+  const [clientUsage, setClientUsage] = useState<{ count: number; hoursRemaining: number }>({ count: 0, hoursRemaining: 24 });
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync client-side usage from localStorage on mount and on custom event
+  useEffect(() => {
+    const syncUsage = () => {
+      setClientUsage(getClientDailyUsage());
+    };
+    syncUsage();
+    window.addEventListener("docflow_usage_updated", syncUsage);
+    return () => window.removeEventListener("docflow_usage_updated", syncUsage);
+  }, []);
 
   // Tool Specific Options
   const [splitMode, setSplitMode] = useState("ranges");
@@ -1882,6 +1895,12 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
   const handleDownloadFile = async () => {
     if (!result) return;
+
+    if (!isPro && usedCount >= FREE_DAILY_MAX_QUOTA) {
+      setShowQuotaLimitModal(true);
+      return;
+    }
+
     setDownloading(true);
 
     try {
@@ -1893,6 +1912,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         document.body.appendChild(link);
         link.click();
         link.remove();
+        
+        incrementClientDailyUsage();
         if (refreshProfile) await refreshProfile();
         return;
       }
@@ -1912,6 +1933,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         link.remove();
         window.URL.revokeObjectURL(blobUrl);
 
+        incrementClientDailyUsage();
         if (refreshProfile) {
           await refreshProfile();
         }
@@ -1919,6 +1941,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     } catch (err) {
       if (result.download_key) {
         window.open(getDownloadUrl(result.download_key), "_blank");
+        incrementClientDailyUsage();
         if (refreshProfile) setTimeout(refreshProfile, 1000);
       }
     } finally {
@@ -2136,9 +2159,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     return tool.accept.replace(/\./g, "").toUpperCase();
   };
 
-  const usedCount = profile?.period_usage ?? 0;
-  const maxQuota = profile?.max_quota ?? 10;
-  const isLimitReached = !isPro && usedCount >= maxQuota;
+  const usedCount = isPro ? 0 : (profile ? Math.max(profile.period_usage ?? 0, clientUsage.count) : clientUsage.count);
+  const maxQuota = isPro ? 999999 : FREE_DAILY_MAX_QUOTA;
+  const isLimitReached = !isPro && usedCount >= FREE_DAILY_MAX_QUOTA;
   const oversizedFiles = !isPro ? files.filter((f) => f.size > 25 * 1024 * 1024) : [];
   const hasOversized = oversizedFiles.length > 0;
   const removeOversizedFiles = () => setFiles((prev) => prev.filter((f) => f.size <= 25 * 1024 * 1024));
@@ -6592,6 +6615,68 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 className="w-full py-3 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-bold rounded-2xl text-xs transition"
               >
                 Choose a smaller file (&lt; 25 MB)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 13. Daily Quota Limit Reached Modal (10 Conversions Daily Limit) */}
+      {showQuotaLimitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-6 relative overflow-hidden animate-in zoom-in-95">
+            <button
+              type="button"
+              onClick={() => setShowQuotaLimitModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
+                <Crown className="w-8 h-8" />
+              </div>
+              <span className="inline-block bg-amber-100 text-amber-900 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                DAILY LIMIT REACHED
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
+                Daily Free Limit Reached (10/10)
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                You have used all <strong>10 free conversions</strong> for today. Free quota resets every 24 hours. Upgrade to <strong>DocFlow Pro</strong> for instant unlimited access.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between font-bold text-slate-800">
+                <span>Free Plan:</span>
+                <span className="text-slate-500">10 conversions/day (25 MB max)</span>
+              </div>
+              <div className="flex items-center justify-between font-bold text-indigo-950">
+                <span className="flex items-center gap-1.5">
+                  <Crown className="w-4 h-4 text-amber-500" />
+                  DocFlow Pro:
+                </span>
+                <span className="text-emerald-600 font-extrabold text-sm">Unlimited (500 MB max)</span>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              <Link
+                href="/pricing"
+                className="w-full py-4 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5"
+              >
+                <Crown className="w-4 h-4 text-amber-400" />
+                <span>Upgrade to Pro — ₹99/month</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowQuotaLimitModal(false)}
+                className="w-full py-3 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-bold rounded-2xl text-xs transition"
+              >
+                Wait for 24-Hour Reset
               </button>
             </div>
           </div>
