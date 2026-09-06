@@ -359,19 +359,6 @@ export const TOOLS: ToolItem[] = [
     popular: true,
   },
 
-  // AI & DOCUMENT TOOLS
-  {
-    id: "translate-pdf",
-    name: "Translate PDF",
-    category: "AI TOOLS",
-    description: "Translate entire PDF documents into 50+ languages with instant PDF, Word, and text exports.",
-    iconName: "Languages",
-    href: "/translate-pdf",
-    endpoint: "translate-pdf",
-    accept: ".pdf",
-    multiple: false,
-    popular: true,
-  },
 
   // INDIAN LANGUAGE DOCUMENTS & OCR
   {
