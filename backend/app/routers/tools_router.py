@@ -1175,33 +1175,6 @@ async def api_ai_pdf_summarizer(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF Summarization failed: {str(e)}")
 
-@router.post("/translate-pdf")
-async def api_translate_pdf(
-    file: UploadFile = File(...),
-    target_language: str = Form("Spanish"),
-    x_firebase_uid: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    uid = get_uid_from_header(x_firebase_uid)
-    content = await file.read()
-    allowed, msg = check_user_quota(db, uid, len(content) / (1024*1024))
-    if not allowed:
-        raise HTTPException(status_code=403, detail=msg)
-
-    try:
-        trans_pdf_bytes, trans_text = translate_service.translate_pdf_document(content, target_language)
-        out_name = f"translated_{target_language}_{file.filename}"
-        item = save_generated_bytes(db, trans_pdf_bytes, out_name, "application/pdf", uid)
-        return {
-            "success": True,
-            "download_key": item.file_key,
-            "filename": out_name,
-            "size": len(trans_pdf_bytes),
-            "translated_text": trans_text
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF Translation failed: {str(e)}")
-
 # Download Stream Endpoint
 @router.get("/download/{file_key}")
 def download_file(file_key: str, db: Session = Depends(get_db)):

@@ -60,24 +60,54 @@ export async function fetchPdfThumbnails(file: File) {
   }
 }
 
-export async function processToolApi(endpoint: string, formData: FormData, firebaseUid?: string) {
+export async function processToolApi(endpoint: string, formData: FormData, firebaseUid?: string, retries = 2) {
   const headers: Record<string, string> = {};
   if (firebaseUid) {
     headers["X-Firebase-UID"] = firebaseUid;
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/tools/${endpoint}`, {
-    method: "POST",
-    headers,
-    body: formData,
-  });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tools/${endpoint}`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
 
-  const data = await res.json();
-  if (!res.ok) {
-    const errorMsg = typeof data.detail === "string" ? data.detail : "Unable to process this file.";
-    throw new Error(errorMsg);
+      if (res.status === 502 || res.status === 503) {
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, 2500));
+          continue;
+        }
+      }
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+        throw new Error("Unable to parse server response. Please try again in a few seconds.");
+      }
+
+      if (!res.ok) {
+        const errorMsg = typeof data.detail === "string" ? data.detail : "Unable to process this file.";
+        throw new Error(errorMsg);
+      }
+      return data;
+    } catch (err: any) {
+      if (attempt < retries && (err.name === "TypeError" || String(err.message).includes("Failed to fetch"))) {
+        await new Promise((r) => setTimeout(r, 3000));
+        continue;
+      }
+      if (String(err.message).includes("Failed to fetch")) {
+        throw new Error("Cloud processing engine is currently warming up. Please click Process once more in a few seconds.");
+      }
+      throw err;
+    }
   }
-  return data;
 }
 
 export async function searchPdfMatches(file: File, searchText: string) {
