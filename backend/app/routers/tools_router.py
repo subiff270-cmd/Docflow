@@ -13,7 +13,7 @@ from typing import List, Optional
 
 from ..database import get_db
 from ..models import ConversionHistory
-from ..services.usage_service import check_user_quota, record_conversion_success
+from ..services.usage_service import check_user_quota, record_conversion_success, get_or_create_user
 from ..services.storage_service import save_generated_bytes, get_file_by_key
 from ..services import pdf_service, conversion_service, ocr_service, voice_service, image_service, validation_service, ai_service, translate_service
 
