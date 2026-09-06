@@ -342,59 +342,45 @@ def validate_output_pdf(pdf_bytes: bytes, min_pages: int = 1):
 
 FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts")
 
-def get_pdf_font_for_target_language(target_lang: str) -> Tuple[str, Optional[str]]:
-    """Returns (font_name, font_file_path) suitable for target language on Windows & Linux."""
+def get_font_filename_for_language(target_lang: str) -> Tuple[str, str]:
+    """Returns (css_font_family, font_filename) from FONTS_DIR for HarfBuzz shaped rendering."""
     lang = target_lang.lower().strip()
-    
-    # 1. Bundled Pan-Unicode Font (ARIALUNI.TTF supports Latin, Indic, Arabic, Cyrillic, etc.)
-    pan_unicode = os.path.join(FONTS_DIR, "ARIALUNI.TTF")
-    if os.path.exists(pan_unicode):
-        return "f_pan_uni", pan_unicode
-
-    # 2. Bundled Script-Specific TrueType Fonts
-    bundled_fonts = [
-        (["telugu", "te"], "NotoSansTelugu-Regular.ttf"),
-        (["tamil", "ta"], "NotoSansTamil-Regular.ttf"),
-        (["kannada", "kn"], "NotoSansKannada-Regular.ttf"),
-        (["hindi", "hi", "marathi", "mr", "sanskrit", "sa", "nepali", "ne"], "NotoSansDevanagari-Regular.ttf"),
-        (["malayalam", "ml"], "NotoSansMalayalam-Regular.ttf"),
-        (["bengali", "bn", "assamese", "as"], "NotoSansBengali-Regular.ttf"),
-        (["gujarati", "gu"], "NotoSansGujarati-Regular.ttf"),
-        (["punjabi", "pa", "gurmukhi"], "NotoSansGurmukhi-Regular.ttf"),
-        (["urdu", "ur", "arabic", "ar", "persian", "fa"], "NotoSansArabic-Regular.ttf"),
+    m = [
+        (["telugu", "te"], "NotoSansTelugu", "NotoSansTelugu-Regular.ttf"),
+        (["tamil", "ta"], "NotoSansTamil", "NotoSansTamil-Regular.ttf"),
+        (["kannada", "kn"], "NotoSansKannada", "NotoSansKannada-Regular.ttf"),
+        (["hindi", "hi", "marathi", "mr", "sanskrit", "sa", "nepali", "ne"], "NotoSansDevanagari", "NotoSansDevanagari-Regular.ttf"),
+        (["malayalam", "ml"], "NotoSansMalayalam", "NotoSansMalayalam-Regular.ttf"),
+        (["bengali", "bn", "assamese", "as"], "NotoSansBengali", "NotoSansBengali-Regular.ttf"),
+        (["gujarati", "gu"], "NotoSansGujarati", "NotoSansGujarati-Regular.ttf"),
+        (["punjabi", "pa", "gurmukhi"], "NotoSansGurmukhi", "NotoSansGurmukhi-Regular.ttf"),
+        (["urdu", "ur", "arabic", "ar", "persian", "fa"], "NotoSansArabic", "NotoSansArabic-Regular.ttf"),
     ]
-
-    for aliases, fname in bundled_fonts:
+    for aliases, family, fname in m:
         if any(a in lang for a in aliases):
             fpath = os.path.join(FONTS_DIR, fname)
             if os.path.exists(fpath):
-                return f"f_{aliases[0]}", fpath
+                return family, fname
 
-    default_bundled = os.path.join(FONTS_DIR, "NotoSans-Regular.ttf")
-    if os.path.exists(default_bundled):
-        return "f_noto_default", default_bundled
+    if os.path.exists(os.path.join(FONTS_DIR, "ARIALUNI.TTF")):
+        return "ArialUnicode", "ARIALUNI.TTF"
+    if os.path.exists(os.path.join(FONTS_DIR, "NotoSans-Regular.ttf")):
+        return "NotoSans", "NotoSans-Regular.ttf"
 
-    # 3. Linux OS TrueType fonts
-    for p in [
-        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
-    ]:
-        if os.path.exists(p):
-            return "f_noto_linux", p
+    return "sans-serif", "NotoSans-Regular.ttf"
 
-    # 4. Windows Unicode TrueType Fonts
-    for p in [
-        "C:/Windows/Fonts/ARIALUNI.ttf",
-        "C:/Windows/Fonts/Nirmala.ttf",
-        "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/NotoSans-Regular.ttf",
-        "C:/Windows/Fonts/arial.ttf"
-    ]:
-        if os.path.exists(p):
-            return "f_win_uni", p
-
-    return "helv", None
+def determine_block_alignment(lines: list, rect: fitz.Rect, page_w: float) -> str:
+    """Accurately extracts text alignment (left, center, right, justify) from block geometry."""
+    if not lines:
+        return "left"
+    if rect.width > page_w * 0.65 and rect.x0 <= 75:
+        return "left"
+    if rect.x0 > page_w * 0.50 and rect.x1 >= page_w - 75:
+        return "right"
+    mid_x = (rect.x0 + rect.x1) / 2.0
+    if abs(mid_x - (page_w / 2.0)) < 40 and rect.width < page_w * 0.75:
+        return "center"
+    return "left"
 
 def process_pdf_translation(
     pdf_bytes: bytes,
@@ -445,7 +431,8 @@ def process_pdf_translation(
             has_layout_blocks = True
             break
 
-    font_name, font_path = get_pdf_font_for_target_language(target_language)
+    font_family, font_filename = get_font_filename_for_language(target_language)
+    font_archive = fitz.Archive(FONTS_DIR) if os.path.exists(FONTS_DIR) else None
 
     if fmt == "pdf" and has_layout_blocks:
         all_orig_text_parts = []
@@ -460,78 +447,114 @@ def process_pdf_translation(
                     current_page=pno + 1
                 )
 
+            page_w = page.rect.width
             text_dict = page.get_text("dict")
             blocks_to_replace = []
 
             for b in text_dict.get("blocks", []):
                 if b.get("type") == 0:
                     block_rect = fitz.Rect(b["bbox"])
-                    block_text = ""
-                    sample_size = 10
-                    sample_color = (0, 0, 0)
+                    full_block_text = ""
+                    sizes = []
+                    colors_list = []
 
                     for line in b.get("lines", []):
                         line_text = ""
                         for span in line.get("spans", []):
-                            line_text += span.get("text", "") + " "
-                            sample_size = span.get("size", 10)
-                            c_int = span.get("color", 0)
-                            r = ((c_int >> 16) & 255) / 255.0
-                            g = ((c_int >> 8) & 255) / 255.0
-                            bl = (c_int & 255) / 255.0
-                            sample_color = (r, g, bl)
-                        block_text += line_text.strip() + "\n"
+                            t = span.get("text", "")
+                            if t:
+                                line_text += t
+                                sizes.append(span.get("size", 10.0))
+                                c_int = span.get("color", 0)
+                                r = ((c_int >> 16) & 255) / 255.0
+                                g = ((c_int >> 8) & 255) / 255.0
+                                bl = (c_int & 255) / 255.0
+                                colors_list.append((r, g, bl))
+                        full_block_text += line_text.strip() + "\n"
 
-                    clean_text = block_text.strip()
+                    clean_text = full_block_text.strip()
                     if clean_text:
-                        page_w = page.rect.width
-                        align = 0
-                        if block_rect.width < page_w * 0.75:
-                            center_diff = abs((block_rect.x0 + block_rect.x1)/2 - page_w/2)
-                            if center_diff < 35:
-                                align = 1
-                            elif block_rect.x0 > page_w * 0.55:
-                                align = 2
+                        avg_size = sum(sizes) / max(1, len(sizes)) if sizes else 10.0
+                        avg_color = colors_list[0] if colors_list else (0.1, 0.1, 0.1)
+                        align = determine_block_alignment(b.get("lines", []), block_rect, page_w)
 
                         blocks_to_replace.append({
                             "rect": block_rect,
                             "text": clean_text,
-                            "size": sample_size,
-                            "color": sample_color,
+                            "size": avg_size,
+                            "color": avg_color,
                             "align": align
                         })
                         page.add_redact_annot(block_rect, fill=(1, 1, 1))
 
             page.apply_redactions()
 
-            font_id = f"f_{pno}"
-            if font_path and os.path.exists(font_path):
-                try:
-                    page.insert_font(fontname=font_id, fontfile=font_path)
-                except Exception:
-                    font_id = "helv"
-            else:
-                font_id = "helv"
+            # Render translated blocks using HarfBuzz OpenType Story engine into an overlay PDF
+            import html as html_module
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
+                overlay_path = tf.name
+
+            writer = fitz.DocumentWriter(overlay_path)
+            dev = writer.begin_page(page.rect)
 
             for item in blocks_to_replace:
                 trans_txt = engine.translate_text(item["text"])
                 all_orig_text_parts.append(item["text"])
                 all_trans_text_parts.append(trans_txt)
 
-                # Professional adaptive font sizing loop (100% down to 50%)
-                base_size = item["size"]
-                for scale in [1.0, 0.90, 0.80, 0.70, 0.60, 0.50]:
-                    cur_size = max(5.0, base_size * scale)
-                    rc = page.insert_textbox(
-                        item["rect"],
-                        trans_txt,
-                        fontname=font_id,
-                        fontsize=cur_size,
-                        color=item["color"],
-                        align=item["align"]
-                    )
-                    if rc >= 0:
+                safe_html = html_module.escape(trans_txt).replace("\n", "<br/>")
+                hex_c = '#%02x%02x%02x' % (int(item["color"][0] * 255), int(item["color"][1] * 255), int(item["color"][2] * 255))
+                
+                place_rect = fitz.Rect(item["rect"].x0, item["rect"].y0, item["rect"].x1, item["rect"].y1 + 18)
+
+                fitted = False
+                for scale in [1.0, 0.95, 0.90, 0.85, 0.80, 0.70, 0.60, 0.50]:
+                    cur_sz = max(5.0, item["size"] * scale)
+                    css_html = f'''
+                    <style>
+                    @font-face {{
+                        font-family: 'DocFont';
+                        src: url({font_filename});
+                    }}
+                    p {{
+                        font-family: 'DocFont', sans-serif;
+                        font-size: {cur_sz}pt;
+                        color: {hex_c};
+                        text-align: {item["align"]};
+                        margin: 0;
+                        padding: 0;
+                        line-height: 1.25;
+                    }}
+                    </style>
+                    <p>{safe_html}</p>
+                    '''
+                    if font_archive:
+                        st = fitz.Story(html=css_html, archive=font_archive)
+                    else:
+                        st = fitz.Story(html=css_html)
+
+                    more, filled = st.place(place_rect)
+                    if more == 0:
+                        st.draw(dev)
+                        fitted = True
                         break
+
+                if not fitted:
+                    st.draw(dev)
+
+            writer.end_page()
+            writer.close()
+
+            overlay_doc = fitz.open(overlay_path)
+            page.show_pdf_page(page.rect, overlay_doc, 0)
+            overlay_doc.close()
+            if os.path.exists(overlay_path):
+                try:
+                    os.remove(overlay_path)
+                except Exception:
+                    pass
 
         if job_id:
             update_job_status(job_id, stage="generating", stage_label="Reconstructing layout-preserved PDF...")
