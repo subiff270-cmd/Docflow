@@ -11,6 +11,7 @@ class User(Base):
     email = Column(String(255), index=True, nullable=True)
     display_name = Column(String(255), nullable=True)
     plan = Column(String(50), default="FREE")  # "FREE", "PRO_MONTHLY", "PRO_YEARLY"
+    plan_expires_at = Column(DateTime, nullable=True)
     period_start = Column(DateTime, default=datetime.datetime.utcnow)
     period_usage = Column(Integer, default=0)
     total_conversions = Column(Integer, default=0)
@@ -31,6 +32,7 @@ class Subscription(Base):
     plan = Column(String(50), nullable=False) # "PRO_MONTHLY", "PRO_YEARLY"
     amount = Column(Integer, nullable=False) # in paise (e.g. 9900 = ₹99)
     status = Column(String(50), default="CREATED") # "CREATED", "ACTIVE", "FAILED"
+    expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="subscriptions")

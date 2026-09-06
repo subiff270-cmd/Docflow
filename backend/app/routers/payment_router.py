@@ -51,8 +51,15 @@ def verify_payment(req: VerifyPaymentRequest, x_firebase_uid: Optional[str] = He
     if not valid:
         raise HTTPException(status_code=400, detail="Payment verification failed.")
 
+    import datetime
+    now = datetime.datetime.utcnow()
+    duration_days = 365 if req.plan == "PRO_YEARLY" else 30
+    expires_at = now + datetime.timedelta(days=duration_days)
+
     user = get_or_create_user(db, x_firebase_uid)
     user.plan = req.plan
+    user.plan_expires_at = expires_at
+    user.period_usage = 0
     db.commit()
 
     sub = db.query(Subscription).filter(Subscription.razorpay_order_id == req.razorpay_order_id).first()
@@ -60,6 +67,7 @@ def verify_payment(req: VerifyPaymentRequest, x_firebase_uid: Optional[str] = He
         sub.razorpay_payment_id = req.razorpay_payment_id
         sub.razorpay_signature = req.razorpay_signature
         sub.status = "ACTIVE"
+        sub.expires_at = expires_at
         db.commit()
 
     return VerifyPaymentResponse(

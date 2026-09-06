@@ -17,6 +17,8 @@ class UserProfileResponse(BaseModel):
     max_quota: int # 10 for FREE, -1 (unlimited) for PRO
     max_file_size_mb: int # 25 for FREE, 500 for PRO
     days_until_reset: int
+    plan_expires_at: Optional[datetime] = None
+    days_remaining: Optional[int] = None
 
 class ConversionHistoryItem(BaseModel):
     id: int

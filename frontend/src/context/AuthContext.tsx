@@ -15,6 +15,8 @@ interface UserProfile {
   max_quota: number;
   max_file_size_mb: number;
   days_until_reset: number;
+  plan_expires_at?: string | null;
+  days_remaining?: number | null;
 }
 
 interface AuthContextType {

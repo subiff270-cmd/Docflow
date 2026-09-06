@@ -108,6 +108,18 @@ export default function PricingPage() {
   const isMonthly = profile?.plan === "PRO_MONTHLY" || profile?.plan === "PRO";
   const isYearly = profile?.plan === "PRO_YEARLY";
 
+  const formatExpiryDate = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+      return null;
+    }
+  };
+
+  const formattedExpiry = formatExpiryDate(profile?.plan_expires_at);
+
   return (
     <div className="max-w-7xl mx-auto py-8 sm:py-12 px-4 sm:px-6 lg:px-8 space-y-8 sm:space-y-12">
       {/* Active Pro Member Hero Card */}
@@ -118,7 +130,7 @@ export default function PricingPage() {
             <div className="space-y-3 text-center md:text-left">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-wider">
                 <Crown className="w-4 h-4 text-amber-400" />
-                <span>DocFlow Pro Active Member</span>
+                <span>{isYearly ? "DocFlow Pro Yearly Member (1 Year Plan)" : "DocFlow Pro Monthly Member (1 Month Plan)"}</span>
               </div>
               <h1 className="text-2xl sm:text-4xl font-black tracking-tight">
                 You have Unlimited Pro Access!
@@ -126,6 +138,14 @@ export default function PricingPage() {
               <p className="text-slate-300 text-xs sm:text-sm max-w-xl leading-relaxed">
                 Enjoy 500 MB file uploads, multi-core parallel rendering, instant client-side tools, and completely ad-free unlimited document workflows.
               </p>
+              {formattedExpiry && (
+                <div className="inline-flex items-center gap-2 text-xs font-medium text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 px-3.5 py-1.5 rounded-xl mt-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>
+                    Valid until <strong>{formattedExpiry}</strong> ({profile?.days_remaining ?? (isYearly ? 365 : 30)} days remaining)
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row gap-3 shrink-0">
               <Link
@@ -213,7 +233,7 @@ export default function PricingPage() {
           {isMonthly ? (
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-400 text-slate-950 text-[10px] font-black px-3.5 py-1 rounded-full uppercase tracking-wider shadow-md flex items-center gap-1">
               <Check className="w-3.5 h-3.5" />
-              <span>YOUR ACTIVE PLAN</span>
+              <span>ACTIVE MONTHLY PLAN</span>
             </div>
           ) : (
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-slate-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md">
@@ -226,11 +246,11 @@ export default function PricingPage() {
             <div className="text-3xl sm:text-4xl font-black">
               ₹99 <span className="text-xs font-semibold text-slate-400">/ month</span>
             </div>
-            <p className="text-xs text-slate-300">Unlimited operations for power users.</p>
+            <p className="text-xs text-slate-300">Valid for exactly 1 month (30 days) of unlimited power.</p>
             <ul className="space-y-3 pt-4 text-xs font-medium text-slate-200">
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-amber-400" />
-                <strong>Unlimited conversions & splits</strong>
+                <strong>1 Full Month Unlimited Access (30 Days)</strong>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-amber-400" />
@@ -242,19 +262,26 @@ export default function PricingPage() {
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-amber-400" />
-                High speed document processing
+                Multi-core high speed document processing
               </li>
             </ul>
           </div>
 
           {isMonthly ? (
-            <button
-              disabled
-              className="w-full py-3.5 bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold rounded-xl text-xs cursor-default flex items-center justify-center gap-2"
-            >
-              <Check className="w-4 h-4 text-emerald-400" />
-              Active Subscription
-            </button>
+            <div className="space-y-2">
+              <button
+                disabled
+                className="w-full py-3.5 bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold rounded-xl text-xs cursor-default flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4 text-emerald-400" />
+                Active Pro Monthly
+              </button>
+              {formattedExpiry && (
+                <p className="text-center text-[11px] text-emerald-300/80">
+                  Expires {formattedExpiry} ({profile?.days_remaining ?? 30} days left)
+                </p>
+              )}
+            </div>
           ) : (
             <button
               onClick={() => handleSubscribe("PRO_MONTHLY")}
@@ -275,10 +302,14 @@ export default function PricingPage() {
 
         {/* PRO YEARLY */}
         <div className={`bg-white rounded-2xl sm:rounded-3xl border ${isYearly ? "border-emerald-500 ring-2 ring-emerald-500/30" : "border-slate-200"} p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6 relative`}>
-          {isYearly && (
+          {isYearly ? (
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] font-black px-3.5 py-1 rounded-full uppercase tracking-wider shadow-md flex items-center gap-1">
               <Check className="w-3.5 h-3.5" />
-              <span>YOUR ACTIVE PLAN</span>
+              <span>ACTIVE YEARLY PLAN</span>
+            </div>
+          ) : (
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md">
+              BEST VALUE (SAVE 16%)
             </div>
           )}
 
@@ -287,11 +318,11 @@ export default function PricingPage() {
             <div className="text-3xl sm:text-4xl font-black text-slate-900">
               ₹999 <span className="text-xs font-semibold text-slate-500">/ year</span>
             </div>
-            <p className="text-xs text-slate-500">Save 16% annually compared to monthly billing.</p>
+            <p className="text-xs text-slate-500">Valid for exactly 1 full year (365 days) — Save 16% annually.</p>
             <ul className="space-y-3 pt-4 text-xs font-medium text-slate-700">
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-500" />
-                <strong>Unlimited conversions for a full year</strong>
+                <strong>1 Full Year Unlimited Access (365 Days)</strong>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-500" />
@@ -303,19 +334,26 @@ export default function PricingPage() {
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-500" />
-                Priority customer support
+                Priority conversion server queue
               </li>
             </ul>
           </div>
 
           {isYearly ? (
-            <button
-              disabled
-              className="w-full py-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded-xl text-xs cursor-default flex items-center justify-center gap-2"
-            >
-              <Check className="w-4 h-4 text-emerald-600" />
-              Active Yearly Plan
-            </button>
+            <div className="space-y-2">
+              <button
+                disabled
+                className="w-full py-3.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded-xl text-xs cursor-default flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4 text-emerald-600" />
+                Active Pro Yearly
+              </button>
+              {formattedExpiry && (
+                <p className="text-center text-[11px] text-emerald-700 font-medium">
+                  Expires {formattedExpiry} ({profile?.days_remaining ?? 365} days left)
+                </p>
+              )}
+            </div>
           ) : (
             <button
               onClick={() => handleSubscribe("PRO_YEARLY")}

@@ -49,13 +49,27 @@ export default function DashboardPage() {
     );
   }
 
-  const isPro = profile?.plan !== "FREE";
+  const isPro = profile?.plan !== "FREE" && profile?.plan !== undefined && profile?.plan !== null;
+  const isMonthly = profile?.plan === "PRO_MONTHLY" || profile?.plan === "PRO";
+  const isYearly = profile?.plan === "PRO_YEARLY";
+
+  const formatExpiryDate = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+      return null;
+    }
+  };
+
+  const formattedExpiry = formatExpiryDate(profile?.plan_expires_at);
   const usagePercentage = isPro ? 0 : Math.min(100, ((profile?.period_usage || 0) / 10) * 100);
 
   return (
     <div className="max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
       {/* Top Welcome Header */}
-      <div className="flex flex-col gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-sm">
         <div>
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">USER DASHBOARD</span>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900">
@@ -70,12 +84,16 @@ export default function DashboardPage() {
           href="/pricing"
           className={`px-4 sm:px-5 py-2.5 rounded-xl sm:rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition w-full sm:w-auto ${
             isPro
-              ? "bg-slate-900 text-amber-400 border border-slate-800"
+              ? "bg-slate-900 text-amber-400 border border-slate-800 hover:bg-slate-800"
               : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
           }`}
         >
           <Zap className="w-4 h-4 text-amber-400" />
-          {isPro ? "Current Plan: PRO" : "Upgrade to Unlimited Pro"}
+          {isYearly
+            ? "Active Pro Yearly (₹999/yr)"
+            : isMonthly
+            ? "Active Pro Monthly (₹99/mo)"
+            : "Upgrade to Unlimited Pro"}
         </Link>
       </div>
 
@@ -88,7 +106,7 @@ export default function DashboardPage() {
             <FileText className="w-5 h-5 text-indigo-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-slate-900">{profile?.total_conversions ?? 0}</div>
-          <p className="text-[11px] text-slate-500">Only successfully completed operations counted.</p>
+          <p className="text-[11px] text-slate-500">All successful document operations performed.</p>
         </div>
 
         {/* Usage Quota */}
@@ -101,7 +119,7 @@ export default function DashboardPage() {
             {isPro ? "Unlimited" : `${profile?.period_usage ?? 0} / 10`}
           </div>
 
-          {!isPro && (
+          {!isPro ? (
             <div className="space-y-1">
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div
@@ -114,6 +132,11 @@ export default function DashboardPage() {
                 <span>Max size: 25 MB</span>
               </p>
             </div>
+          ) : (
+            <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              No daily caps • 500 MB max file size
+            </p>
           )}
         </div>
 
@@ -123,13 +146,32 @@ export default function DashboardPage() {
             <span className="text-xs font-bold uppercase tracking-wider">Subscription Status</span>
             <CreditCard className="w-5 h-5 text-indigo-600" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2 flex-wrap">
-            {profile?.plan || "FREE"}
-            {isPro && <span className="text-xs bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full font-bold">ACTIVE</span>}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xl sm:text-2xl font-black text-slate-900">
+              {isYearly ? "PRO YEARLY" : isMonthly ? "PRO MONTHLY" : "FREE PLAN"}
+            </span>
+            {isPro && (
+              <span className="text-[10px] bg-emerald-500 text-white px-2.5 py-0.5 rounded-full font-extrabold uppercase">
+                ACTIVE
+              </span>
+            )}
           </div>
-          <p className="text-[11px] text-slate-500">
-            {isPro ? "Unlimited conversions & 500 MB file limit." : "Free tier limited to 10 conversions per day (Resets daily)."}
-          </p>
+          {isPro && formattedExpiry ? (
+            <div className="text-[11px] text-slate-600 space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <p className="font-semibold text-slate-800">
+                Expires: <span className="text-indigo-600 font-bold">{formattedExpiry}</span>
+              </p>
+              <p className="text-emerald-700 font-medium">
+                {profile?.days_remaining ?? (isYearly ? 365 : 30)} days remaining ({isYearly ? "1 Year Plan" : "1 Month Plan"})
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-500">
+              {isPro
+                ? "Unlimited conversions & 500 MB file limit."
+                : "Free tier limited to 10 conversions per day (Resets daily)."}
+            </p>
+          )}
         </div>
       </div>
 

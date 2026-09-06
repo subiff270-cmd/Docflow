@@ -30,8 +30,17 @@ def get_or_create_user(db: Session, firebase_uid: str, email: str = None, displa
         db.commit()
         db.refresh(user)
     
-    # Check daily period reset (resets every 24 hours / new calendar day)
+    # Check Pro Subscription Expiration (1 month for Monthly, 1 year for Yearly)
     now = datetime.datetime.utcnow()
+    if user.plan in ["PRO_MONTHLY", "PRO_YEARLY", "PRO"] and user.plan_expires_at:
+        if now >= user.plan_expires_at:
+            user.plan = "FREE"
+            user.plan_expires_at = None
+            user.period_usage = 0
+            db.commit()
+            db.refresh(user)
+
+    # Check daily period reset (resets every 24 hours / new calendar day for Free tier)
     if user.period_start.date() < now.date() or (now - user.period_start).total_seconds() >= 86400:
         user.period_start = now
         user.period_usage = 0
