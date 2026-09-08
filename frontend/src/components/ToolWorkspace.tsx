@@ -5766,11 +5766,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="text-base font-extrabold text-slate-900 tracking-tight">
-                            AI Document &amp; Image Scanner
+                            Image to Text
                           </h4>
                           <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            AUTO AI OCR ACTIVE
+                            AUTO OCR ACTIVE
                           </span>
                         </div>
                         <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -6834,7 +6834,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
-                          AI OCR Extracted Text Studio
+                          Extracted Text Studio
                         </h4>
                         <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
                           ✓ All Pages Scanned

@@ -18,7 +18,7 @@ export const CATEGORIES = [
   "OPTIMIZE PDF",
   "EDIT PDF",
   "PDF SECURITY",
-  "INDIAN LANGUAGE DOCUMENTS",
+  "OCR TOOLS",
   "IMAGE TOOLS"
 ] as const;
 
@@ -110,11 +110,23 @@ export const TOOLS: ToolItem[] = [
   },
   {
     id: "jpg-to-pdf",
-    name: "JPG to PDF",
+    name: "Image to PDF",
     category: "CONVERT TO PDF",
     description: "Convert JPG, PNG, and WebP images to PDF in seconds.",
     iconName: "Image",
     href: "/jpg-to-pdf",
+    endpoint: "jpg-to-pdf",
+    accept: "image/*",
+    multiple: true,
+    popular: true,
+  },
+  {
+    id: "image-to-pdf",
+    name: "Image to PDF",
+    category: "CONVERT TO PDF",
+    description: "Convert JPG, PNG, and WebP images to PDF in seconds.",
+    iconName: "Image",
+    href: "/image-to-pdf",
     endpoint: "jpg-to-pdf",
     accept: "image/*",
     multiple: true,
@@ -231,7 +243,7 @@ export const TOOLS: ToolItem[] = [
   {
     id: "ocr-pdf",
     name: "OCR PDF",
-    category: "OPTIMIZE PDF",
+    category: "OCR TOOLS",
     description: "Convert scanned PDFs into searchable documents with selectable text layer.",
     iconName: "ScanText",
     href: "/ocr-pdf",
@@ -338,13 +350,13 @@ export const TOOLS: ToolItem[] = [
   },
 
 
-  // INDIAN LANGUAGE DOCUMENTS & OCR
+  // OCR TOOLS
   {
     id: "image-to-text",
-    name: "AI Image & Document Scanner (OCR)",
-    category: "INDIAN LANGUAGE DOCUMENTS",
-    description: "Scan photos, document images, or PDFs to extract editable text with multi-lingual OCR support.",
-    iconName: "FileSearch",
+    name: "Image to Text",
+    category: "OCR TOOLS",
+    description: "Extract text from images and PDF documents instantly.",
+    iconName: "FileText",
     href: "/image-to-text",
     endpoint: "image-to-text",
     accept: "image/*,.pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff",

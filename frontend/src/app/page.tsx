@@ -151,7 +151,7 @@ export default function HomePage() {
   const TAB_CATEGORY_MAP: Record<string, string[]> = {
     CONVERT: ["CONVERT FROM PDF", "CONVERT TO PDF"],
     PDF_TOOLS: ["ORGANIZE PDF", "OPTIMIZE PDF", "EDIT PDF", "PDF SECURITY"],
-    OCR: ["INDIAN LANGUAGE DOCUMENTS"],
+    OCR: ["OCR TOOLS"],
     IMAGE: ["IMAGE TOOLS"],
   };
 
