@@ -49,6 +49,7 @@ import {
   Trash2,
   Smartphone,
   ChevronRight,
+  ChevronLeft,
   Check,
   Crown,
   PlusCircle,
@@ -140,6 +141,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [ocrEditedText, setOcrEditedText] = useState<string | null>(null);
   const [ocrViewTab, setOcrViewTab] = useState<"text" | "sidebyside" | "preview">("text");
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
+  const [ocrThumbnails, setOcrThumbnails] = useState<Array<{ page_num: number; thumbnail: string }>>([]);
+  const [ocrCurrentPageIndex, setOcrCurrentPageIndex] = useState<number>(1);
+  const [ocrOriginalViewMode, setOcrOriginalViewMode] = useState<"single" | "continuous">("single");
   const ocrTextAreaRef = useRef<HTMLTextAreaElement>(null);
 
   // Resize Image State
@@ -644,6 +648,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       if (file.type.startsWith("image/") || /\.(png|jpg|jpeg|webp|bmp|tiff)$/i.test(file.name)) {
         const url = URL.createObjectURL(file);
         setOcrPreviewUrl(url);
+        setOcrThumbnails([{ page_num: 1, thumbnail: url }]);
+        setOcrCurrentPageIndex(1);
         return () => {
           isMounted = false;
           URL.revokeObjectURL(url);
@@ -652,6 +658,8 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         fetchPdfThumbnails(file)
           .then((res) => {
             if (isMounted && res.success && Array.isArray(res.thumbnails) && res.thumbnails.length > 0) {
+              setOcrThumbnails(res.thumbnails);
+              setOcrCurrentPageIndex(1);
               setOcrPreviewUrl(res.thumbnails[0].thumbnail);
             }
           })
@@ -662,8 +670,19 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       };
     } else {
       setOcrPreviewUrl(null);
+      setOcrThumbnails([]);
+      setOcrCurrentPageIndex(1);
     }
   }, [files, tool.id]);
+
+  const handleSwitchOcrPage = (pageNum: number) => {
+    if (pageNum < 1 || pageNum > ocrThumbnails.length) return;
+    setOcrCurrentPageIndex(pageNum);
+    const target = ocrThumbnails.find((t) => t.page_num === pageNum);
+    if (target) {
+      setOcrPreviewUrl(target.thumbnail);
+    }
+  };
 
   // Sync OCR Extracted Text into Editable State
   useEffect(() => {
@@ -2012,6 +2031,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     setFiles([]);
     setResult(null);
     setError(null);
+    setOcrPreviewUrl(null);
+    setOcrThumbnails([]);
+    setOcrCurrentPageIndex(1);
+    setOcrEditedText(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -6863,11 +6886,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           AI OCR Extracted Text Studio
                         </h4>
                         <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
-                          ✓ Scanned
+                          ✓ All Pages Scanned
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-400 font-medium">
-                        Live editable canvas • Select, copy, or export in any format
+                        Live editable canvas • Multi-page document scan &amp; export in any format
                       </p>
                     </div>
                   </div>
@@ -6877,6 +6900,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100">
                       {result.language || ocrLanguage}
                     </span>
+                    {ocrThumbnails.length > 1 && (
+                      <span className="bg-violet-50 text-violet-700 px-2.5 py-1 rounded-lg border border-violet-100 font-mono">
+                        {ocrThumbnails.length} Pages
+                      </span>
+                    )}
                     <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
                       {((ocrEditedText ?? result.extracted_text).split(/\s+/).filter(Boolean).length)} words
                     </span>
@@ -6928,7 +6956,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       }`}
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>Original Scan</span>
+                      <span>Original Scan {ocrThumbnails.length > 1 ? `(${ocrThumbnails.length} Pages)` : ""}</span>
                     </button>
                   </div>
                 )}
@@ -7036,38 +7064,95 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       value={ocrEditedText ?? result.extracted_text}
                       onChange={(e) => setOcrEditedText(e.target.value)}
                       style={{ fontSize: `${ocrTextFontSize}px` }}
-                      rows={12}
-                      className="w-full p-4 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200/90 focus:border-indigo-600 rounded-2xl font-sans text-slate-800 leading-relaxed outline-hidden transition shadow-inner select-text resize-y min-h-[220px]"
+                      rows={14}
+                      className="w-full p-4 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200/90 focus:border-indigo-600 rounded-2xl font-sans text-slate-800 leading-relaxed outline-hidden transition shadow-inner select-text resize-y min-h-[260px]"
                       placeholder="Extracted document text appears here..."
                     />
-                    <div className="absolute bottom-3 right-3 pointer-events-none bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-md border border-slate-200 text-[10px] font-bold text-slate-400">
-                      Editable Canvas
+                    <div className="absolute bottom-3 right-3 pointer-events-none bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md border border-slate-200 text-[10px] font-bold text-slate-500 shadow-2xs">
+                      All Pages Editable Canvas
                     </div>
                   </div>
                 )}
 
                 {ocrViewTab === "sidebyside" && ocrPreviewUrl && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Left: Original Scan */}
-                    <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex flex-col min-h-[360px] max-h-[480px]">
-                      <div className="p-2.5 bg-slate-800/90 text-white text-[11px] font-bold flex items-center justify-between border-b border-slate-700">
-                        <span>Original Document Scan</span>
-                        <span className="text-slate-400 font-mono text-[10px]">Page 1</span>
+                    {/* Left: Original Scan with Multi-Page Navigation */}
+                    <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex flex-col min-h-[400px] max-h-[560px]">
+                      <div className="p-2.5 bg-slate-800/95 text-white text-[11px] font-bold flex items-center justify-between border-b border-slate-700">
+                        <div className="flex items-center gap-2">
+                          <span>Original Document Scan</span>
+                          <span className="text-slate-400 font-mono text-[10px] bg-slate-700/80 px-2 py-0.5 rounded-md">
+                            Page {ocrCurrentPageIndex} of {ocrThumbnails.length || 1}
+                          </span>
+                        </div>
+
+                        {ocrThumbnails.length > 1 && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              disabled={ocrCurrentPageIndex <= 1}
+                              onClick={() => handleSwitchOcrPage(ocrCurrentPageIndex - 1)}
+                              className="p-1 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:hover:bg-slate-700 text-white transition cursor-pointer"
+                              title="Previous Page"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-[10px] font-mono px-1">
+                              {ocrCurrentPageIndex}/{ocrThumbnails.length}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={ocrCurrentPageIndex >= ocrThumbnails.length}
+                              onClick={() => handleSwitchOcrPage(ocrCurrentPageIndex + 1)}
+                              className="p-1 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:hover:bg-slate-700 text-white transition cursor-pointer"
+                              title="Next Page"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+
+                      {/* Active Page Image View */}
+                      <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-950/60">
                         <img
-                          src={ocrPreviewUrl}
-                          alt="Original Scan"
-                          className="max-h-[400px] w-auto object-contain rounded shadow-lg"
+                          src={ocrPreviewUrl || ocrThumbnails[ocrCurrentPageIndex - 1]?.thumbnail}
+                          alt={`Original Scan Page ${ocrCurrentPageIndex}`}
+                          className="max-h-[380px] w-auto object-contain rounded shadow-lg transition-transform duration-200"
                         />
                       </div>
+
+                      {/* Multi-Page Filmstrip */}
+                      {ocrThumbnails.length > 1 && (
+                        <div className="p-2 bg-slate-800/95 border-t border-slate-700 flex items-center gap-2 overflow-x-auto">
+                          {ocrThumbnails.map((t) => (
+                            <button
+                              key={t.page_num}
+                              type="button"
+                              onClick={() => handleSwitchOcrPage(t.page_num)}
+                              className={`relative shrink-0 rounded-lg overflow-hidden border-2 transition cursor-pointer ${
+                                ocrCurrentPageIndex === t.page_num
+                                  ? "border-indigo-500 ring-2 ring-indigo-400/50 scale-105"
+                                  : "border-slate-600 opacity-60 hover:opacity-100"
+                              }`}
+                            >
+                              <img src={t.thumbnail} alt={`Page ${t.page_num}`} className="w-9 h-12 object-cover" />
+                              <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[8px] font-mono text-center text-white py-0.2">
+                                {t.page_num}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Right: Editable Extracted Text */}
-                    <div className="flex flex-col min-h-[360px] max-h-[480px]">
+                    <div className="flex flex-col min-h-[400px] max-h-[560px]">
                       <div className="p-2.5 bg-indigo-50 text-indigo-900 text-[11px] font-bold flex items-center justify-between rounded-t-2xl border border-b-0 border-indigo-200">
                         <span>Recognized Text ({result.language || ocrLanguage})</span>
-                        <span className="text-[10px] text-indigo-600">Editable</span>
+                        <span className="text-[10px] text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-full">
+                          All Pages Included • Editable
+                        </span>
                       </div>
                       <textarea
                         ref={ocrTextAreaRef}
@@ -7081,12 +7166,123 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 )}
 
                 {ocrViewTab === "preview" && ocrPreviewUrl && (
-                  <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-300 p-6 flex items-center justify-center min-h-[380px] max-h-[520px]">
-                    <img
-                      src={ocrPreviewUrl}
-                      alt="Full Document Preview"
-                      className="max-h-[460px] w-auto object-contain rounded-lg shadow-2xl"
-                    />
+                  <div className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-300 flex flex-col">
+                    {/* Preview Mode Toolbar */}
+                    <div className="p-3 bg-slate-800/95 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-700">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold">Document Scan</span>
+                        <span className="text-slate-400 font-mono text-[11px] bg-slate-700 px-2 py-0.5 rounded-md">
+                          {ocrThumbnails.length || 1} {ocrThumbnails.length === 1 ? "Page" : "Pages"}
+                        </span>
+                      </div>
+
+                      {ocrThumbnails.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          {/* View Mode Toggle: Single Page vs All Pages */}
+                          <div className="flex items-center bg-slate-900/80 p-0.5 rounded-xl border border-slate-700 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => setOcrOriginalViewMode("single")}
+                              className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                                ocrOriginalViewMode === "single"
+                                  ? "bg-indigo-600 text-white shadow-xs"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              Single Page
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOcrOriginalViewMode("continuous")}
+                              className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                                ocrOriginalViewMode === "continuous"
+                                  ? "bg-indigo-600 text-white shadow-xs"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              All Pages (Scroll)
+                            </button>
+                          </div>
+
+                          {ocrOriginalViewMode === "single" && (
+                            <div className="flex items-center gap-1.5 ml-2">
+                              <button
+                                type="button"
+                                disabled={ocrCurrentPageIndex <= 1}
+                                onClick={() => handleSwitchOcrPage(ocrCurrentPageIndex - 1)}
+                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:hover:bg-slate-700 text-white transition cursor-pointer"
+                                title="Previous Page"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <span className="text-xs font-mono font-bold px-1.5">
+                                Page {ocrCurrentPageIndex} / {ocrThumbnails.length}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={ocrCurrentPageIndex >= ocrThumbnails.length}
+                                onClick={() => handleSwitchOcrPage(ocrCurrentPageIndex + 1)}
+                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:hover:bg-slate-700 text-white transition cursor-pointer"
+                                title="Next Page"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content: Single Page View or Continuous All Pages View */}
+                    {ocrOriginalViewMode === "single" ? (
+                      <div className="p-6 flex flex-col items-center justify-center min-h-[420px] max-h-[620px] overflow-auto bg-slate-950/70">
+                        <img
+                          src={ocrPreviewUrl || ocrThumbnails[ocrCurrentPageIndex - 1]?.thumbnail}
+                          alt={`Full Document Scan - Page ${ocrCurrentPageIndex}`}
+                          className="max-h-[540px] w-auto object-contain rounded-lg shadow-2xl transition-all"
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-6 overflow-y-auto max-h-[680px] bg-slate-950/80 space-y-6 flex flex-col items-center">
+                        {ocrThumbnails.map((t) => (
+                          <div key={t.page_num} className="flex flex-col items-center max-w-2xl w-full">
+                            <div className="w-full flex items-center justify-between pb-1.5 text-xs text-slate-400 font-mono">
+                              <span className="font-bold text-slate-300">Page {t.page_num} of {ocrThumbnails.length}</span>
+                            </div>
+                            <div className="bg-white/5 p-2 rounded-2xl border border-slate-700/80 shadow-2xl w-full flex justify-center">
+                              <img
+                                src={t.thumbnail}
+                                alt={`Page ${t.page_num}`}
+                                className="max-h-[700px] w-auto object-contain rounded-lg shadow-lg"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Bottom Filmstrip in Single Mode */}
+                    {ocrOriginalViewMode === "single" && ocrThumbnails.length > 1 && (
+                      <div className="p-3 bg-slate-800/90 border-t border-slate-700 flex items-center gap-3 overflow-x-auto justify-center">
+                        {ocrThumbnails.map((t) => (
+                          <button
+                            key={t.page_num}
+                            type="button"
+                            onClick={() => handleSwitchOcrPage(t.page_num)}
+                            className={`relative shrink-0 rounded-xl overflow-hidden border-2 transition cursor-pointer group ${
+                              ocrCurrentPageIndex === t.page_num
+                                ? "border-indigo-500 ring-4 ring-indigo-500/30 scale-105"
+                                : "border-slate-700 opacity-60 hover:opacity-100 hover:border-slate-500"
+                            }`}
+                          >
+                            <img src={t.thumbnail} alt={`Page ${t.page_num}`} className="w-14 h-18 object-cover" />
+                            <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[10px] font-mono text-center text-white py-0.5 font-bold">
+                              Page {t.page_num}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
