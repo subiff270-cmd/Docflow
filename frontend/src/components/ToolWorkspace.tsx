@@ -5655,8 +5655,83 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
-              {/* AI OCR Document & Image Scanner Studio */}
-              {(tool.id === "ocr-pdf" || tool.id === "image-to-text") && (
+              {/* OCR PDF: Dedicated Searchable PDF Generator */}
+              {tool.id === "ocr-pdf" && (
+                <div className="p-5 sm:p-7 bg-slate-50/95 rounded-3xl border border-slate-200/90 shadow-xs space-y-5">
+                  <div className="flex items-center gap-3 border-b border-slate-200/80 pb-4">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+                      <ScanText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-extrabold text-slate-900">
+                        Create Searchable PDF
+                      </h4>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Extracts text and embeds an invisible searchable layer into your PDF, preserving original layout.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Document Language */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>OCR Recognition Language / Script</span>
+                      </label>
+                      <select
+                        value={ocrLanguage}
+                        onChange={(e) => setOcrLanguage(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-bold text-slate-800 outline-hidden cursor-pointer"
+                      >
+                        {indianLanguageOptions.map((lang) => (
+                          <option key={lang.id} value={lang.id}>
+                            {lang.flag} {lang.name} — {lang.script}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Select the language of your scanned document for maximum recognition accuracy.
+                      </p>
+                    </div>
+
+                    {/* Output Note */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <FileType className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Output Format</span>
+                      </label>
+                      <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">Searchable PDF (.pdf)</p>
+                          <p className="text-[10px] text-slate-500">Selectable &amp; searchable text overlay</p>
+                        </div>
+                        <span className="bg-emerald-50 text-emerald-700 font-bold text-[10px] px-2 py-0.5 rounded-md border border-emerald-200">
+                          Preserves Layout
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Password field if protected */}
+                    <div className="sm:col-span-2 pt-2 border-t border-slate-100">
+                      <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Document Password (Optional — if your PDF is protected)</span>
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Enter PDF password to unlock before OCR..."
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-medium text-slate-800 outline-hidden"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Image to Text: Full AI OCR Document & Image Scanner Studio */}
+              {tool.id === "image-to-text" && (
                 <div className="p-5 sm:p-7 bg-gradient-to-br from-slate-50/95 via-indigo-50/30 to-violet-50/40 rounded-3xl border border-indigo-100/90 shadow-sm space-y-6">
                   {/* Studio Header & Status HUD */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-100/80 pb-5">
@@ -5667,7 +5742,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="text-base font-extrabold text-slate-900 tracking-tight">
-                            AI Document & Image Scanner
+                            AI Document &amp; Image Scanner
                           </h4>
                           <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -6573,6 +6648,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       ? `Sign & Download PDF (${placedFields.length} placed)`
                       : tool.id === "redact-pdf"
                       ? `Permanently Redact PDF (${redactBoxes.length} marked area${redactBoxes.length === 1 ? "" : "s"})`
+                      : tool.id === "ocr-pdf"
+                      ? "Make PDF Searchable"
+                      : tool.id === "image-to-text"
+                      ? `Scan & Extract Text (${indianLanguageOptions.find((l) => l.id === ocrLanguage)?.name.split(" ")[0] || ocrLanguage})`
                       : `Process ${tool.name}`}
                   </span>
                   <ArrowRight className="w-5 h-5" />
@@ -6770,7 +6849,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     : (result.original_text || "Original text not available.")}
                 </div>
               </div>
-            ) : result.extracted_text && (
+            ) : (tool.id === "image-to-text" && result.extracted_text) ? (
               <div className="space-y-4 p-5 sm:p-7 bg-white rounded-3xl border border-slate-200 shadow-sm">
                 {/* 1. Studio Header & Live Intelligence HUD */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
@@ -7026,7 +7105,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Balanced Action Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
