@@ -5754,6 +5754,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               )}
 
               {/* Image to Text: Full AI OCR Document & Image Scanner Studio */}
+              {/* Image to Text: Full AI OCR Document & Image Scanner Studio */}
               {tool.id === "image-to-text" && (
                 <div className="p-5 sm:p-7 bg-gradient-to-br from-slate-50/95 via-indigo-50/30 to-violet-50/40 rounded-3xl border border-indigo-100/90 shadow-sm space-y-6">
                   {/* Studio Header & Status HUD */}
@@ -5767,24 +5768,20 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                           <h4 className="text-base font-extrabold text-slate-900 tracking-tight">
                             AI Document &amp; Image Scanner
                           </h4>
-                          <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            AI OCR ACTIVE
+                            AUTO AI OCR ACTIVE
                           </span>
                         </div>
                         <p className="text-xs text-slate-500 font-medium mt-0.5">
-                          High-accuracy multi-tier OCR engine for English &amp; 10 Indian Regional Languages
+                          Universal automatic text extraction engine for all documents, scans, and images
                         </p>
                       </div>
                     </div>
 
-                    {/* Active Selected Language Pill */}
                     <div className="flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-2xl border border-indigo-200/80 shadow-xs">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Language:</span>
-                      <span className="font-extrabold text-xs text-indigo-700 flex items-center gap-1.5">
-                        <span>{indianLanguageOptions.find((l) => l.id === ocrLanguage)?.flag || "🌐"}</span>
-                        <span>{indianLanguageOptions.find((l) => l.id === ocrLanguage)?.name || ocrLanguage}</span>
-                      </span>
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                      <span className="font-bold text-xs text-indigo-700">Universal Auto Recognition</span>
                     </div>
                   </div>
 
@@ -5809,6 +5806,12 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                             </span>
                             <span>•</span>
                             <span>{formatFileSize(files[0]?.size || 0)}</span>
+                            {ocrThumbnails.length > 1 && (
+                              <>
+                                <span>•</span>
+                                <span className="font-bold text-violet-700">{ocrThumbnails.length} Pages</span>
+                              </>
+                            )}
                             <span>•</span>
                             <span className="text-emerald-600 font-bold flex items-center gap-0.5">
                               <Check className="w-3 h-3" /> Ready to extract text
@@ -5827,63 +5830,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     </div>
                   )}
 
-                  {/* 1. Language Chooser */}
+                  {/* Output Document Format Selector */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <Globe className="w-4 h-4 text-indigo-600" />
-                        <span>Step 1: Choose Document Language / Script</span>
-                      </label>
-                      <span className="text-[11px] text-indigo-600 font-bold">
-                        11+ Languages Supported
-                      </span>
-                    </div>
-
-                    {/* Quick-Pick Interactive Language Grid Pills */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                      {indianLanguageOptions.map((lang) => {
-                        const isSelected = ocrLanguage === lang.id;
-                        return (
-                          <button
-                            key={lang.id}
-                            type="button"
-                            onClick={() => setOcrLanguage(lang.id)}
-                            className={`p-3 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex items-center justify-between gap-2 ${
-                              isSelected
-                                ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-500/30 scale-[1.02]"
-                                : "border-slate-200/90 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 text-slate-800 shadow-2xs"
-                            }`}
-                          >
-                            <div className="overflow-hidden">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm">{lang.flag}</span>
-                                <span className="text-xs font-bold truncate">
-                                  {lang.name.split(" ")[0]}
-                                </span>
-                              </div>
-                              <p className={`text-[10px] mt-0.5 truncate font-medium ${
-                                isSelected ? "text-indigo-100" : "text-slate-500"
-                              }`}>
-                                {lang.script}
-                              </p>
-                            </div>
-
-                            {isSelected && (
-                              <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                                <Check className="w-3 h-3 text-white" />
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 2. Output Document Format Selector */}
-                  <div className="space-y-3 pt-2 border-t border-indigo-100/70">
                     <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <FileType className="w-4 h-4 text-indigo-600" />
-                      <span>Step 2: Choose Text Export Format</span>
+                      <span>Choose Text Export Format</span>
                     </label>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -5939,7 +5890,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     </div>
                   </div>
 
-                  {/* 3. Optional Password for Protected PDFs */}
+                  {/* Optional Password for Protected PDFs */}
                   <div className="pt-2 border-t border-indigo-100/70">
                     <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5 text-indigo-600" />
@@ -6898,7 +6849,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                   {/* Document Stats Pills */}
                   <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
                     <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100">
-                      {result.language || ocrLanguage}
+                      Auto-Detected
                     </span>
                     {ocrThumbnails.length > 1 && (
                       <span className="bg-violet-50 text-violet-700 px-2.5 py-1 rounded-lg border border-violet-100 font-mono">
@@ -7149,7 +7100,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                     {/* Right: Editable Extracted Text */}
                     <div className="flex flex-col min-h-[400px] max-h-[560px]">
                       <div className="p-2.5 bg-indigo-50 text-indigo-900 text-[11px] font-bold flex items-center justify-between rounded-t-2xl border border-b-0 border-indigo-200">
-                        <span>Recognized Text ({result.language || ocrLanguage})</span>
+                        <span>Recognized Document Text</span>
                         <span className="text-[10px] text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-full">
                           All Pages Included • Editable
                         </span>
