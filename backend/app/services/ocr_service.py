@@ -10,6 +10,8 @@ if os.path.exists(TESSDATA_DIR):
     os.environ["TESSDATA_PREFIX"] = TESSDATA_DIR
 
 LANG_CODE_MAP = {
+    "Auto": "eng+hin+tam+tel+kan+mal+ben+mar+guj+pan+urd",
+    "Auto-Detect": "eng+hin+tam+tel+kan+mal+ben+mar+guj+pan+urd",
     "English": "eng",
     "Hindi": "hin+eng",
     "Tamil": "tam+eng",

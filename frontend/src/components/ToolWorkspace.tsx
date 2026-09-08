@@ -81,6 +81,11 @@ import {
   Award,
   Palette,
   Layers,
+  Search,
+  Scan,
+  ScanText,
+  FileSearch,
+  CheckCheck,
 } from "lucide-react";
 
 interface ToolWorkspaceProps {
@@ -126,9 +131,16 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
   const [watermarkPosition, setWatermarkPosition] = useState<"cross" | "center">("cross");
   const [pageNumberPosition, setPageNumberPosition] = useState("bottom-center");
-  const [ocrLanguage, setOcrLanguage] = useState("Hindi");
-  const [ocrOutputFormat, setOcrOutputFormat] = useState<"pdf" | "docx" | "txt">("pdf");
+  const [ocrLanguage, setOcrLanguage] = useState("Auto");
+  const [ocrOutputFormat, setOcrOutputFormat] = useState<"txt" | "docx" | "pdf">("txt");
   const [copiedText, setCopiedText] = useState(false);
+  const [copiedSelectionText, setCopiedSelectionText] = useState(false);
+  const [ocrTextFontSize, setOcrTextFontSize] = useState(13);
+  const [ocrSearchTerm, setOcrSearchTerm] = useState("");
+  const [ocrEditedText, setOcrEditedText] = useState<string | null>(null);
+  const [ocrViewTab, setOcrViewTab] = useState<"text" | "sidebyside" | "preview">("text");
+  const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
+  const ocrTextAreaRef = useRef<HTMLTextAreaElement>(null);
 
   // Resize Image State
   const [resizeMode, setResizeMode] = useState<"pixels" | "percentage">("pixels");
@@ -622,6 +634,98 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
       setPageCrops({});
     }
   }, [files, tool.id]);
+
+  // Sync OCR Document / Image Preview
+  useEffect(() => {
+    if ((tool.id === "ocr-pdf" || tool.id === "image-to-text") && files.length > 0 && files[0]) {
+      const file = files[0];
+      let isMounted = true;
+
+      if (file.type.startsWith("image/") || /\.(png|jpg|jpeg|webp|bmp|tiff)$/i.test(file.name)) {
+        const url = URL.createObjectURL(file);
+        setOcrPreviewUrl(url);
+        return () => {
+          isMounted = false;
+          URL.revokeObjectURL(url);
+        };
+      } else if (file.name.toLowerCase().endsWith(".pdf")) {
+        fetchPdfThumbnails(file)
+          .then((res) => {
+            if (isMounted && res.success && Array.isArray(res.thumbnails) && res.thumbnails.length > 0) {
+              setOcrPreviewUrl(res.thumbnails[0].thumbnail);
+            }
+          })
+          .catch(() => {});
+      }
+      return () => {
+        isMounted = false;
+      };
+    } else {
+      setOcrPreviewUrl(null);
+    }
+  }, [files, tool.id]);
+
+  // Sync OCR Extracted Text into Editable State
+  useEffect(() => {
+    if (result && result.extracted_text) {
+      setOcrEditedText(result.extracted_text);
+      setOcrSearchTerm("");
+    }
+  }, [result]);
+
+  const handleSelectAllOcrText = () => {
+    if (ocrTextAreaRef.current) {
+      ocrTextAreaRef.current.focus();
+      ocrTextAreaRef.current.select();
+    }
+  };
+
+  const handleCopyFullOcrText = () => {
+    const textToCopy = ocrEditedText ?? result?.extracted_text ?? "";
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+    }
+  };
+
+  const handleCopySelectedOcrText = () => {
+    let selected = "";
+    if (ocrTextAreaRef.current) {
+      const textarea = ocrTextAreaRef.current;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      if (start !== end) {
+        selected = textarea.value.substring(start, end);
+      }
+    }
+    if (!selected) {
+      const winSel = window.getSelection()?.toString();
+      if (winSel && winSel.trim()) {
+        selected = winSel;
+      }
+    }
+    if (selected && selected.trim()) {
+      navigator.clipboard.writeText(selected);
+      setCopiedSelectionText(true);
+      setTimeout(() => setCopiedSelectionText(false), 2000);
+    } else {
+      handleCopyFullOcrText();
+    }
+  };
+
+  const handleDownloadOcrTxt = () => {
+    const text = ocrEditedText ?? result?.extracted_text ?? "";
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `DocFlow_OCR_${files[0]?.name.split(".")[0] || "extracted_text"}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleSwitchCropPage = (idx: number) => {
     if (idx < 0 || idx >= cropThumbnails.length) return;
@@ -2181,24 +2285,31 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   ];
 
   const indianLanguageOptions = [
-    { id: "Hindi", name: "Hindi (हिन्दी)", script: "देवनागरी" },
-    { id: "Tamil", name: "Tamil (தமிழ்)", script: "தமிழ்" },
-    { id: "Telugu", name: "Telugu (తెలుగు)", script: "తెలుగు" },
-    { id: "Kannada", name: "Kannada (ಕನ್ನಡ)", script: "ಕನ್ನಡ" },
-    { id: "Malayalam", name: "Malayalam (മലയാളം)", script: "മലയാളം" },
-    { id: "Bengali", name: "Bengali (বাংলা)", script: "বাংলা" },
-    { id: "Marathi", name: "Marathi (मराठी)", script: "मराठी" },
-    { id: "Gujarati", name: "Gujarati (ગુજરાતી)", script: "ગુજરાતી" },
-    { id: "Punjabi", name: "Punjabi (ਪੰਜਾਬੀ)", script: "ਗੁਰਮੁਖੀ" },
-    { id: "Urdu", name: "Urdu (اردو)", script: "اردو" },
-    { id: "English", name: "English (Universal)", script: "Latin" },
+    { id: "Auto", name: "Auto Detect (Universal)", script: "Universal All Scripts", flag: "🌐", popular: true },
+    { id: "English", name: "English (Universal)", script: "Latin Script", flag: "🇺🇸", popular: true },
+    { id: "Hindi", name: "Hindi (हिन्दी)", script: "देवनागरी", flag: "🇮🇳", popular: true },
+    { id: "Tamil", name: "Tamil (தமிழ்)", script: "தமிழ்", flag: "🇮🇳", popular: true },
+    { id: "Telugu", name: "Telugu (తెలుగు)", script: "తెలుగు", flag: "🇮🇳", popular: true },
+    { id: "Kannada", name: "Kannada (ಕನ್ನಡ)", script: "ಕನ್ನಡ", flag: "🇮🇳", popular: true },
+    { id: "Malayalam", name: "Malayalam (മലയാളം)", script: "മലയാളം", flag: "🇮🇳", popular: true },
+    { id: "Bengali", name: "Bengali (বাংলা)", script: "বাংলা", flag: "🇮🇳", popular: false },
+    { id: "Marathi", name: "Marathi (मराठी)", script: "मराठी", flag: "🇮🇳", popular: false },
+    { id: "Gujarati", name: "Gujarati (ગુજરાતી)", script: "ગુજરાતી", flag: "🇮🇳", popular: false },
+    { id: "Punjabi", name: "Punjabi (ਪੰਜਾਬੀ)", script: "ਗੁਰਮੁਖੀ", flag: "🇮🇳", popular: false },
+    { id: "Urdu", name: "Urdu (اردو)", script: "اردو", flag: "🇵🇰", popular: false },
   ];
 
   const getAcceptedBadge = () => {
+    if (
+      (tool.accept.includes(".pdf") || tool.accept.includes("application/pdf")) &&
+      (tool.accept.includes("image") || tool.accept.includes(".jpg") || tool.accept.includes(".png"))
+    ) {
+      return "PDF / IMAGE";
+    }
     if (tool.accept.includes(".pdf")) return "PDF";
-    if (tool.accept.includes(".docx")) return "DOCX";
+    if (tool.accept.includes(".docx") || tool.accept.includes(".doc")) return "DOCX";
     if (tool.accept.includes(".xlsx")) return "XLSX";
-    if (tool.accept.includes(".pptx")) return "PPTX";
+    if (tool.accept.includes(".pptx") || tool.accept.includes(".ppt")) return "PPTX";
     if (tool.accept.includes(".jpg") || tool.accept.includes("image")) return "IMAGE";
     return tool.accept.replace(/\./g, "").toUpperCase();
   };
@@ -5544,76 +5655,205 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               )}
 
-              {/* OCR & Indian Languages */}
+              {/* AI OCR Document & Image Scanner Studio */}
               {(tool.id === "ocr-pdf" || tool.id === "image-to-text") && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Document Language */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                        <Globe className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Document Language / Script</span>
-                      </label>
-                      <select
-                        value={ocrLanguage}
-                        onChange={(e) => setOcrLanguage(e.target.value)}
-                        className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-bold text-slate-800 outline-hidden"
-                      >
-                        {indianLanguageOptions.map((lang) => (
-                          <option key={lang.id} value={lang.id}>
-                            {lang.name} — {lang.script}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        High-accuracy OCR pipeline trained on native regional Indian scripts.
-                      </p>
+                <div className="p-5 sm:p-7 bg-gradient-to-br from-slate-50/95 via-indigo-50/30 to-violet-50/40 rounded-3xl border border-indigo-100/90 shadow-sm space-y-6">
+                  {/* Studio Header & Status HUD */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-100/80 pb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0">
+                        <ScanText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-base font-extrabold text-slate-900 tracking-tight">
+                            AI Document & Image Scanner
+                          </h4>
+                          <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            AI OCR ACTIVE
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          High-accuracy multi-tier OCR engine for English &amp; 10 Indian Regional Languages
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Output Format */}
-                    {tool.id !== "image-to-text" && (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                          <FileType className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Output Document Format</span>
-                        </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[
-                            { id: "pdf", label: "Searchable PDF", ext: ".pdf" },
-                            { id: "docx", label: "Editable Word", ext: ".docx" },
-                            { id: "txt", label: "Plain Text", ext: ".txt" },
-                          ].map((fmt) => (
-                            <button
-                              key={fmt.id}
-                              type="button"
-                              onClick={() => setOcrOutputFormat(fmt.id as any)}
-                              className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
-                                ocrOutputFormat === fmt.id
-                                  ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold shadow-xs"
-                                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-semibold"
-                              }`}
-                            >
-                              <span className="block text-[11px] font-bold">{fmt.label}</span>
-                              <span className="text-[9px] text-slate-400 font-mono uppercase">{fmt.ext}</span>
-                            </button>
-                          ))}
+                    {/* Active Selected Language Pill */}
+                    <div className="flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-2xl border border-indigo-200/80 shadow-xs">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Language:</span>
+                      <span className="font-extrabold text-xs text-indigo-700 flex items-center gap-1.5">
+                        <span>{indianLanguageOptions.find((l) => l.id === ocrLanguage)?.flag || "🌐"}</span>
+                        <span>{indianLanguageOptions.find((l) => l.id === ocrLanguage)?.name || ocrLanguage}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Document & Image Live Preview Strip (if available) */}
+                  {ocrPreviewUrl && (
+                    <div className="p-3.5 bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/80 flex items-center justify-between gap-4 shadow-xs">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-12 h-14 rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shrink-0 flex items-center justify-center">
+                          <img
+                            src={ocrPreviewUrl}
+                            alt="Scanned Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                            {files[0]?.name || "Document Ready for OCR"}
+                          </p>
+                          <p className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            <span className="font-semibold text-indigo-600 uppercase font-mono">
+                              {files[0]?.name.split(".").pop() || "FILE"}
+                            </span>
+                            <span>•</span>
+                            <span>{formatFileSize(files[0]?.size || 0)}</span>
+                            <span>•</span>
+                            <span className="text-emerald-600 font-bold flex items-center gap-0.5">
+                              <Check className="w-3 h-3" /> Ready to extract text
+                            </span>
+                          </p>
                         </div>
                       </div>
-                    )}
-                    {/* Optional Password for Protected PDFs */}
-                    <div className="sm:col-span-2 pt-2 border-t border-slate-100">
-                      <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Document Password (Optional — if your PDF is protected)</span>
-                      </label>
-                      <input
-                        type="password"
-                        placeholder="Enter PDF password to unlock before scanning..."
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-medium text-slate-800 outline-hidden"
-                      />
+
+                      <button
+                        type="button"
+                        onClick={openFilePicker}
+                        className="px-3 py-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-xl transition cursor-pointer shrink-0 border border-transparent hover:border-indigo-200"
+                      >
+                        Change File
+                      </button>
                     </div>
+                  )}
+
+                  {/* 1. Language Chooser */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <Globe className="w-4 h-4 text-indigo-600" />
+                        <span>Step 1: Choose Document Language / Script</span>
+                      </label>
+                      <span className="text-[11px] text-indigo-600 font-bold">
+                        11+ Languages Supported
+                      </span>
+                    </div>
+
+                    {/* Quick-Pick Interactive Language Grid Pills */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {indianLanguageOptions.map((lang) => {
+                        const isSelected = ocrLanguage === lang.id;
+                        return (
+                          <button
+                            key={lang.id}
+                            type="button"
+                            onClick={() => setOcrLanguage(lang.id)}
+                            className={`p-3 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex items-center justify-between gap-2 ${
+                              isSelected
+                                ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-500/30 scale-[1.02]"
+                                : "border-slate-200/90 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 text-slate-800 shadow-2xs"
+                            }`}
+                          >
+                            <div className="overflow-hidden">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm">{lang.flag}</span>
+                                <span className="text-xs font-bold truncate">
+                                  {lang.name.split(" ")[0]}
+                                </span>
+                              </div>
+                              <p className={`text-[10px] mt-0.5 truncate font-medium ${
+                                isSelected ? "text-indigo-100" : "text-slate-500"
+                              }`}>
+                                {lang.script}
+                              </p>
+                            </div>
+
+                            {isSelected && (
+                              <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. Output Document Format Selector */}
+                  <div className="space-y-3 pt-2 border-t border-indigo-100/70">
+                    <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileType className="w-4 h-4 text-indigo-600" />
+                      <span>Step 2: Choose Text Export Format</span>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        {
+                          id: "txt",
+                          label: "Plain Text (.txt)",
+                          desc: "Instant UTF-8 text file with on-screen editable copy box",
+                          tag: "Fastest",
+                          ext: ".txt",
+                        },
+                        {
+                          id: "docx",
+                          label: "Editable Word (.docx)",
+                          desc: "Formatted Microsoft Word document with preserved typography",
+                          tag: "Editable",
+                          ext: ".docx",
+                        },
+                        {
+                          id: "pdf",
+                          label: "Searchable PDF (.pdf)",
+                          desc: "Original document layout with selectable invisible text layer",
+                          tag: "Layout Safe",
+                          ext: ".pdf",
+                        },
+                      ].map((fmt) => {
+                        const isSelected = ocrOutputFormat === fmt.id;
+                        return (
+                          <button
+                            key={fmt.id}
+                            type="button"
+                            onClick={() => setOcrOutputFormat(fmt.id as any)}
+                            className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                              isSelected
+                                ? "border-indigo-600 bg-white ring-2 ring-indigo-500/20 shadow-md shadow-indigo-500/10"
+                                : "border-slate-200/90 bg-white/80 hover:bg-white hover:border-slate-300 shadow-2xs"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className={`text-xs font-extrabold ${isSelected ? "text-indigo-950" : "text-slate-900"}`}>
+                                {fmt.label}
+                              </span>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
+                                isSelected ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"
+                              }`}>
+                                {fmt.tag}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 leading-snug mt-1">{fmt.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 3. Optional Password for Protected PDFs */}
+                  <div className="pt-2 border-t border-indigo-100/70">
+                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Document Password (Optional — only if your PDF is password protected)</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Enter PDF password to unlock before scanning..."
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-slate-200 focus:border-indigo-600 rounded-xl text-xs font-medium text-slate-800 outline-hidden"
+                    />
                   </div>
                 </div>
               )}
@@ -6531,48 +6771,259 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </div>
               </div>
             ) : result.extracted_text && (
-              <div className="space-y-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <Languages className="w-4 h-4 text-indigo-600" />
-                      <span>Extracted Document Text</span>
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md">
-                      {result.language || ocrLanguage}
-                    </span>
+              <div className="space-y-4 p-5 sm:p-7 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                {/* 1. Studio Header & Live Intelligence HUD */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+                      <ScanText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
+                          AI OCR Extracted Text Studio
+                        </h4>
+                        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
+                          ✓ Scanned
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-medium">
+                        Live editable canvas • Select, copy, or export in any format
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-slate-400 font-semibold">
-                      {result.extracted_text.split(/\s+/).filter(Boolean).length} words • {result.extracted_text.length} chars
+                  {/* Document Stats Pills */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
+                    <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100">
+                      {result.language || ocrLanguage}
                     </span>
+                    <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
+                      {((ocrEditedText ?? result.extracted_text).split(/\s+/).filter(Boolean).length)} words
+                    </span>
+                    <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
+                      {(ocrEditedText ?? result.extracted_text).length} chars
+                    </span>
+                    <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg">
+                      {(ocrEditedText ?? result.extracted_text).split("\n").length} lines
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Multi-Mode View Tabs (Text, Side-by-Side, Preview) */}
+                {ocrPreviewUrl && (
+                  <div className="flex items-center gap-2 p-1 bg-slate-100/90 rounded-2xl w-full sm:w-auto">
                     <button
                       type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(result.extracted_text);
-                        setCopiedText(true);
-                        setTimeout(() => setCopiedText(false), 2000);
-                      }}
-                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      onClick={() => setOcrViewTab("text")}
+                      className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        ocrViewTab === "text"
+                          ? "bg-white text-indigo-700 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
                     >
-                      {copiedText ? (
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Extracted Text</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setOcrViewTab("sidebyside")}
+                      className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        ocrViewTab === "sidebyside"
+                          ? "bg-white text-indigo-700 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>Side-by-Side (Scan &amp; Text)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setOcrViewTab("preview")}
+                      className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        ocrViewTab === "preview"
+                          ? "bg-white text-indigo-700 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Original Scan</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 3. Rich Action Toolbar (Select All, Copy Selection, Copy All, Search, Font Size) */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80">
+                  {/* Left: Text Selection & Copy Controls */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Select Full Text Button */}
+                    <button
+                      type="button"
+                      onClick={handleSelectAllOcrText}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                      title="Select all text in document"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Select All Text</span>
+                    </button>
+
+                    {/* Copy Selected Text Button */}
+                    <button
+                      type="button"
+                      onClick={handleCopySelectedOcrText}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                      title="Copy currently selected text or whole text"
+                    >
+                      {copiedSelectionText ? (
                         <>
                           <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-700">Copied!</span>
+                          <span className="text-emerald-700">Selection Copied!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Copy Text</span>
+                          <Copy className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Copy Selection</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Copy Full Text Button */}
+                    <button
+                      type="button"
+                      onClick={handleCopyFullOcrText}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs shadow-indigo-500/20 cursor-pointer active:scale-95"
+                      title="Copy entire document text to clipboard"
+                    >
+                      {copiedText ? (
+                        <>
+                          <CheckCheck className="w-3.5 h-3.5 text-emerald-300" />
+                          <span>All Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Full Text</span>
                         </>
                       )}
                     </button>
                   </div>
+
+                  {/* Right: Quick Search & Font Size Stepper */}
+                  <div className="flex items-center gap-2">
+                    {/* Font Size Adjuster */}
+                    <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => setOcrTextFontSize((s) => Math.max(10, s - 1))}
+                        className="px-2 py-1 text-[11px] font-extrabold text-slate-600 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                        title="Decrease text size"
+                      >
+                        A-
+                      </button>
+                      <span className="text-[10px] font-mono font-bold text-slate-400 px-1">
+                        {ocrTextFontSize}px
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setOcrTextFontSize((s) => Math.min(22, s + 1))}
+                        className="px-2 py-1 text-[11px] font-extrabold text-slate-600 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                        title="Increase text size"
+                      >
+                        A+
+                      </button>
+                    </div>
+
+                    {/* Reset edits button */}
+                    {ocrEditedText !== null && ocrEditedText !== result.extracted_text && (
+                      <button
+                        type="button"
+                        onClick={() => setOcrEditedText(result.extracted_text)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                        title="Revert edits to original OCR text"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 max-h-60 overflow-y-auto font-sans text-xs text-slate-800 whitespace-pre-wrap leading-relaxed select-text">
-                  {result.extracted_text}
+                {/* 4. Canvas Display Area: Text / Side-by-Side / Preview */}
+                {ocrViewTab === "text" && (
+                  <div className="relative">
+                    <textarea
+                      ref={ocrTextAreaRef}
+                      value={ocrEditedText ?? result.extracted_text}
+                      onChange={(e) => setOcrEditedText(e.target.value)}
+                      style={{ fontSize: `${ocrTextFontSize}px` }}
+                      rows={12}
+                      className="w-full p-4 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200/90 focus:border-indigo-600 rounded-2xl font-sans text-slate-800 leading-relaxed outline-hidden transition shadow-inner select-text resize-y min-h-[220px]"
+                      placeholder="Extracted document text appears here..."
+                    />
+                    <div className="absolute bottom-3 right-3 pointer-events-none bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-md border border-slate-200 text-[10px] font-bold text-slate-400">
+                      Editable Canvas
+                    </div>
+                  </div>
+                )}
+
+                {ocrViewTab === "sidebyside" && ocrPreviewUrl && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Left: Original Scan */}
+                    <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 flex flex-col min-h-[360px] max-h-[480px]">
+                      <div className="p-2.5 bg-slate-800/90 text-white text-[11px] font-bold flex items-center justify-between border-b border-slate-700">
+                        <span>Original Document Scan</span>
+                        <span className="text-slate-400 font-mono text-[10px]">Page 1</span>
+                      </div>
+                      <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+                        <img
+                          src={ocrPreviewUrl}
+                          alt="Original Scan"
+                          className="max-h-[400px] w-auto object-contain rounded shadow-lg"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Right: Editable Extracted Text */}
+                    <div className="flex flex-col min-h-[360px] max-h-[480px]">
+                      <div className="p-2.5 bg-indigo-50 text-indigo-900 text-[11px] font-bold flex items-center justify-between rounded-t-2xl border border-b-0 border-indigo-200">
+                        <span>Recognized Text ({result.language || ocrLanguage})</span>
+                        <span className="text-[10px] text-indigo-600">Editable</span>
+                      </div>
+                      <textarea
+                        ref={ocrTextAreaRef}
+                        value={ocrEditedText ?? result.extracted_text}
+                        onChange={(e) => setOcrEditedText(e.target.value)}
+                        style={{ fontSize: `${ocrTextFontSize}px` }}
+                        className="w-full flex-1 p-4 bg-white border border-indigo-200 rounded-b-2xl font-sans text-slate-800 leading-relaxed outline-hidden select-text resize-none overflow-y-auto"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {ocrViewTab === "preview" && ocrPreviewUrl && (
+                  <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-300 p-6 flex items-center justify-center min-h-[380px] max-h-[520px]">
+                    <img
+                      src={ocrPreviewUrl}
+                      alt="Full Document Preview"
+                      className="max-h-[460px] w-auto object-contain rounded-lg shadow-2xl"
+                    />
+                  </div>
+                )}
+
+                {/* 5. Direct Quick Export Format Bar (Download TXT, Word, PDF) */}
+                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-600">Export Text As:</span>
+                    <button
+                      type="button"
+                      onClick={handleDownloadOcrTxt}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Download .TXT</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

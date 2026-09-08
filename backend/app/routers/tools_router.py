@@ -980,6 +980,8 @@ async def api_convert_image(
 async def api_image_to_text(
     file: UploadFile = File(...),
     language: str = Form("English"),
+    output_format: str = Form("txt"),
+    password: Optional[str] = Form(None),
     x_firebase_uid: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
@@ -990,12 +992,21 @@ async def api_image_to_text(
         raise HTTPException(status_code=403, detail=msg)
 
     try:
-        extracted = ocr_service.ocr_image(content, language)
-        out_name = f"{os.path.splitext(file.filename)[0]}_extracted_text.txt"
-        item = save_generated_bytes(db, extracted.encode("utf-8"), out_name, "text/plain", uid)
-        return {"success": True, "download_key": item.file_key, "filename": out_name, "size": len(extracted), "extracted_text": extracted}
+        out_bytes, text, out_ext, mime = ocr_service.ocr_pdf(content, language, output_format, password=password)
+        base_name = os.path.splitext(file.filename)[0] if file.filename else "document"
+        out_name = f"DocFlow_Extracted_{base_name}.{out_ext}"
+        item = save_generated_bytes(db, out_bytes, out_name, mime, uid)
+        return {
+            "success": True,
+            "download_key": item.file_key,
+            "filename": out_name,
+            "size": len(out_bytes),
+            "extracted_text": text,
+            "language": language,
+            "output_format": out_ext
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image to Text failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI Scanner to Text OCR failed: {str(e)}")
 
 @router.post("/indian-language-documents")
 async def api_indian_language_documents(
