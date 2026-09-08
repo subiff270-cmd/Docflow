@@ -48,18 +48,7 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
-  {
-    id: "pdf-to-excel",
-    name: "PDF to Excel",
-    category: "CONVERT FROM PDF",
-    description: "Extract PDF tables into editable Excel (XLSX) spreadsheets.",
-    iconName: "Sheet",
-    href: "/pdf-to-excel",
-    endpoint: "pdf-to-excel",
-    accept: ".pdf",
-    multiple: false,
-    popular: true,
-  },
+
   {
     id: "pdf-to-ppt",
     name: "PDF to PowerPoint",
@@ -143,18 +132,7 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
-  {
-    id: "excel-to-pdf",
-    name: "Excel to PDF",
-    category: "CONVERT TO PDF",
-    description: "Convert XLS and XLSX spreadsheets to clean PDF documents.",
-    iconName: "Table",
-    href: "/excel-to-pdf",
-    endpoint: "excel-to-pdf",
-    accept: ".xls,.xlsx",
-    multiple: false,
-    popular: true,
-  },
+
   {
     id: "html-to-pdf",
     name: "HTML to PDF",

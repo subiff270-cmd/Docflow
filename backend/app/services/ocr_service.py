@@ -3,8 +3,11 @@ import os
 import fitz  # PyMuPDF
 from PIL import Image
 import docx
+import pytesseract
 
 TESSDATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "tessdata"))
+if os.path.exists(TESSDATA_DIR):
+    os.environ["TESSDATA_PREFIX"] = TESSDATA_DIR
 
 LANG_CODE_MAP = {
     "English": "eng",
@@ -21,7 +24,7 @@ LANG_CODE_MAP = {
 }
 
 def create_docx_from_text(text: str, title: str = "Extracted Document") -> bytes:
-    """Generate an editable Microsoft Word (.docx) document containing Indian language text."""
+    """Generate an editable Microsoft Word (.docx) document containing Indian language and English text."""
     doc = docx.Document()
     
     # Title
@@ -46,9 +49,42 @@ def create_docx_from_text(text: str, title: str = "Extracted Document") -> bytes
     doc.save(buf)
     return buf.getvalue()
 
+def extract_ocr_from_page(page, tess_lang: str, tess_dir: str = None) -> str:
+    """Extract OCR text from a single PyMuPDF page using multiple fallback mechanisms."""
+    # 1. First attempt: PyMuPDF embedded Tesseract with textpage
+    try:
+        if tess_dir and os.path.exists(tess_dir):
+            tp = page.get_textpage_ocr(language=tess_lang, tessdata=tess_dir, dpi=200)
+            t = page.get_text("text", textpage=tp).strip()
+            if t:
+                return t
+    except Exception as e:
+        print(f"PyMuPDF textpage OCR notice: {e}")
+
+    # 2. Second attempt: Render page to high-res image and run pytesseract
+    try:
+        pix = page.get_pixmap(dpi=200)
+        img = Image.open(io.BytesIO(pix.tobytes("png")))
+        config = f'--tessdata-dir "{tess_dir}"' if tess_dir and os.path.exists(tess_dir) else ""
+        text = pytesseract.image_to_string(img, lang=tess_lang, config=config).strip()
+        if text:
+            return text
+    except Exception as e:
+        print(f"Pytesseract fallback notice: {e}")
+
+    # 3. Third attempt: Native text layer
+    try:
+        native = page.get_text().strip()
+        if native:
+            return native
+    except Exception:
+        pass
+
+    return ""
+
 def ocr_pdf(
     file_bytes: bytes,
-    language: str = "Hindi",
+    language: str = "English",
     output_format: str = "pdf",
     password: str = None
 ) -> tuple[bytes, str, str, str]:
@@ -59,7 +95,7 @@ def ocr_pdf(
     Returns:
       (output_bytes, full_extracted_text, out_filename_ext, mime_type)
     """
-    tess_lang = LANG_CODE_MAP.get(language, "hin+eng")
+    tess_lang = LANG_CODE_MAP.get(language, "eng")
     tess_dir = TESSDATA_DIR if os.path.exists(TESSDATA_DIR) else None
 
     # Handle image uploads by wrapping them into a PDF document
@@ -67,53 +103,33 @@ def ocr_pdf(
     if is_pdf:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         if doc.is_encrypted:
-            # 1. Try empty password first (unlocks standard permission-locked PDFs)
             doc.authenticate("")
-            # 2. If password provided, try it
             if doc.is_encrypted and password:
                 doc.authenticate(password.strip())
-            # 3. If still encrypted, raise a clean informative error
             if doc.is_encrypted:
                 raise ValueError("This PDF document is password protected. Please unlock it using the 'Unlock PDF' tool or provide the correct password.")
     else:
         # It's an image file (PNG, JPG, TIFF, etc.)
         img = Image.open(io.BytesIO(file_bytes))
         doc = fitz.open()
-        # Convert image to PDF page
         img_byte_arr = io.BytesIO()
         img.convert("RGB").save(img_byte_arr, format="JPEG", quality=95)
         img_bytes = img_byte_arr.getvalue()
-        rect = fitz.Rect(0, 0, img.width, img.height)
         page = doc.new_page(width=img.width, height=img.height)
-        page.insert_image(rect, stream=img_bytes)
+        page.insert_image(fitz.Rect(0, 0, img.width, img.height), stream=img_bytes)
 
     extracted_text_chunks = []
     
     for i, page in enumerate(doc):
-        page_text = ""
-        # 1. First check if native text already exists (e.g. digital PDF)
-        native_text = page.get_text().strip()
-        
-        # 2. Perform OCR on the page using PyMuPDF embedded Tesseract with Indian language models
-        try:
-            if tess_dir:
-                tp = page.get_textpage_ocr(language=tess_lang, tessdata=tess_dir, dpi=200)
-                ocr_text = tp.extractText().strip()
-            else:
-                ocr_text = ""
-        except Exception as ocr_err:
-            print(f"OCR warning for page {i+1}: {ocr_err}")
-            ocr_text = ""
+        page_text = extract_ocr_from_page(page, tess_lang, tess_dir)
+        if not page_text:
+            # Check single language code if composite language failed
+            single_lang = tess_lang.split("+")[0]
+            if single_lang != tess_lang:
+                page_text = extract_ocr_from_page(page, single_lang, tess_dir)
 
-        # Choose the richest text source
-        if len(ocr_text) > len(native_text):
-            page_text = ocr_text
-        elif native_text:
-            page_text = native_text
-        elif ocr_text:
-            page_text = ocr_text
-        else:
-            page_text = f"[Page {i+1} scanned document in {language}]"
+        if not page_text:
+            page_text = f"[No readable text found on page {i+1}]"
 
         extracted_text_chunks.append(f"--- Page {i+1} [{language}] ---\n" + page_text)
 
@@ -128,9 +144,9 @@ def ocr_pdf(
     elif fmt == "txt":
         out_bytes = full_extracted_text.encode("utf-8")
         out_ext = "txt"
-        mime = "text/plain"
+        mime = "text/plain; charset=utf-8"
     else:
-        # Default searchable PDF
+        # Default PDF format
         out_bytes = doc.tobytes()
         out_ext = "pdf"
         mime = "application/pdf"
@@ -145,23 +161,27 @@ def ocr_image(image_bytes: bytes, language: str = "English") -> str:
     
     try:
         img = Image.open(io.BytesIO(image_bytes))
+        config = f'--tessdata-dir "{tess_dir}"' if tess_dir and os.path.exists(tess_dir) else ""
+        text = pytesseract.image_to_string(img, lang=tess_lang, config=config).strip()
+        if text:
+            return text
+    except Exception as e:
+        print(f"Pytesseract direct image OCR notice: {e}")
+
+    try:
+        # Fallback via PyMuPDF image page
+        img = Image.open(io.BytesIO(image_bytes))
         doc = fitz.open()
         img_byte_arr = io.BytesIO()
         img.convert("RGB").save(img_byte_arr, format="JPEG", quality=95)
         page = doc.new_page(width=img.width, height=img.height)
         page.insert_image(fitz.Rect(0, 0, img.width, img.height), stream=img_byte_arr.getvalue())
-        
-        if tess_dir:
-            tp = page.get_textpage_ocr(language=tess_lang, tessdata=tess_dir, dpi=200)
-            text = tp.extractText().strip()
-        else:
-            text = page.get_text().strip()
-            
+        text = extract_ocr_from_page(page, tess_lang, tess_dir)
         doc.close()
         if text:
             return text
     except Exception as e:
-        print(f"Image OCR error: {e}")
+        print(f"PyMuPDF fallback notice: {e}")
 
-    return f"Text extracted from image ({language})."
+    return "No text could be recognized from the provided image."
 

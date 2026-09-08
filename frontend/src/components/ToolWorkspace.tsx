@@ -1841,6 +1841,11 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const handleFilesSelect = (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) return;
 
+    if (!user) {
+      openAuthModal();
+      return;
+    }
+
     if (!isPro && rawCount >= FREE_DAILY_MAX_QUOTA) {
       setShowQuotaLimitModal(true);
       setError(`You've reached your daily free limit of ${FREE_DAILY_MAX_QUOTA} conversions. Please upgrade to Pro for unlimited access.`);
@@ -1886,6 +1891,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     if (e.dataTransfer.files) {
       handleFilesSelect(Array.from(e.dataTransfer.files));
     }
@@ -1903,6 +1912,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   };
 
   const openFilePicker = () => {
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     if (!isPro && rawCount >= FREE_DAILY_MAX_QUOTA) {
       setShowQuotaLimitModal(true);
       setError(`You've reached your daily free limit of ${FREE_DAILY_MAX_QUOTA} conversions. Please upgrade to Pro for unlimited access.`);
@@ -1971,6 +1984,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     if (!isPro && rawCount >= FREE_DAILY_MAX_QUOTA) {
       setShowQuotaLimitModal(true);
       setError(`You've reached your daily free limit of ${FREE_DAILY_MAX_QUOTA} conversions. Please upgrade to DocFlow Pro for unlimited access.`);
@@ -2301,6 +2318,28 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         </div>
       )}
 
+      {/* 4.5 Mandatory Sign-in Banner (Shown when not authenticated) */}
+      {!user && (
+        <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-indigo-50 via-violet-50 to-indigo-50 border border-indigo-200/80 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-500/25 shrink-0">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-slate-900 text-sm">Please Sign In to use {tool.name}</p>
+              <p className="text-slate-600 text-xs mt-0.5">Sign in or create a free account to access all tools (Includes 10 free conversions daily).</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openAuthModal}
+            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md shadow-indigo-500/20 shrink-0 transition"
+          >
+            Sign In / Sign Up Free
+          </button>
+        </div>
+      )}
+
       {/* 5. Main Workspace Container */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-8 shadow-xl shadow-slate-100/50 relative overflow-hidden">
 
@@ -2324,10 +2363,10 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               </div>
 
               <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition">
-                Drop your {getAcceptedBadge()} file here
+                {user ? `Drop your ${getAcceptedBadge()} file here` : "Sign In to Select or Drop Files"}
               </h3>
               <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-                or tap below to choose from your phone or computer
+                {user ? "or tap below to choose from your phone or computer" : "Free account includes 10 daily conversions & 25 MB max file size"}
               </p>
 
               {/* Big Prominent Action Button for Phones & Desktops */}
@@ -2341,7 +2380,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                   className="px-6 sm:px-8 py-3 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 hover:from-indigo-500 hover:via-violet-500 hover:to-indigo-600 text-white font-bold rounded-2xl text-xs sm:text-sm shadow-lg shadow-indigo-500/25 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 >
                   <UploadCloud className="w-4 h-4" />
-                  Select {getAcceptedBadge()} File
+                  {user ? `Select ${getAcceptedBadge()} File` : "Sign In to Choose File"}
                 </button>
               </div>
 

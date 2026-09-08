@@ -36,7 +36,7 @@ export default function Footer() {
               <li><Link href="/compress-pdf" className="hover:text-indigo-400 transition">Compress PDF</Link></li>
               <li><Link href="/pdf-to-word" className="hover:text-indigo-400 transition">PDF to Word</Link></li>
               <li><Link href="/word-to-pdf" className="hover:text-indigo-400 transition">Word to PDF</Link></li>
-              <li><Link href="/pdf-to-excel" className="hover:text-indigo-400 transition">PDF to Excel</Link></li>
+              <li><Link href="/pdf-to-ppt" className="hover:text-indigo-400 transition">PDF to PowerPoint</Link></li>
             </ul>
           </div>
 

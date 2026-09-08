@@ -60,8 +60,6 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
       return renderConversionPair("PDF", "DOCX", "bg-red-50 text-red-700 border border-red-200/60", "bg-blue-50 text-blue-700 border border-blue-200/60");
     case "pdf-to-jpg":
       return renderConversionPair("PDF", "JPG", "bg-red-50 text-red-700 border border-red-200/60", "bg-emerald-50 text-emerald-700 border border-emerald-200/60");
-    case "pdf-to-excel":
-      return renderConversionPair("PDF", "XLSX", "bg-red-50 text-red-700 border border-red-200/60", "bg-green-50 text-green-700 border border-green-200/60");
     case "pdf-to-powerpoint":
     case "pdf-to-ppt":
       return renderConversionPair("PDF", "PPTX", "bg-red-50 text-red-700 border border-red-200/60", "bg-amber-50 text-amber-700 border border-amber-200/60");
@@ -75,8 +73,6 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
       return renderConversionPair("DOCX", "PDF", "bg-blue-50 text-blue-700 border border-blue-200/60", "bg-red-50 text-red-700 border border-red-200/60");
     case "jpg-to-pdf":
       return renderConversionPair("JPG", "PDF", "bg-emerald-50 text-emerald-700 border border-emerald-200/60", "bg-red-50 text-red-700 border border-red-200/60");
-    case "excel-to-pdf":
-      return renderConversionPair("XLSX", "PDF", "bg-green-50 text-green-700 border border-green-200/60", "bg-red-50 text-red-700 border border-red-200/60");
     case "powerpoint-to-pdf":
     case "ppt-to-pdf":
       return renderConversionPair("PPTX", "PDF", "bg-amber-50 text-amber-700 border border-amber-200/60", "bg-red-50 text-red-700 border border-red-200/60");

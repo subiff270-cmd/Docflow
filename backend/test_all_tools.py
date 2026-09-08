@@ -152,18 +152,16 @@ run_test("Compress PDF", "compress-pdf", {"file": ("test.pdf", pdf_bytes, "appli
 run_test("Repair PDF", "repair-pdf", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {}, "PDF", "PyMuPDF Xref Stream Reconstruction")
 run_test("OCR PDF", "ocr-pdf", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {"language": "English"}, "PDF", "Tesseract OCR / PyMuPDF")
 
-# 10-14 CONVERT TO PDF
+# 10-13 CONVERT TO PDF
 run_test("JPG to PDF", "jpg-to-pdf", [("files", ("photo.png", img_bytes, "image/png"))], {}, "PDF", "Pillow / img2pdf")
 run_test("Word to PDF", "word-to-pdf", {"file": ("document.docx", docx_bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}, {}, "PDF", "python-docx / ReportLab")
 run_test("PowerPoint to PDF", "ppt-to-pdf", {"file": ("slides.pptx", pptx_bytes, "application/vnd.openxmlformats-officedocument.presentationml.presentation")}, {}, "PDF", "python-pptx / ReportLab")
-run_test("Excel to PDF", "excel-to-pdf", {"file": ("sheet.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}, {}, "PDF", "openpyxl / ReportLab")
 run_test("HTML to PDF", "html-to-pdf", {}, {"html_text": "<h1>DocFlow Enterprise</h1><p>Genuine HTML to PDF rendering engine test.</p>"}, "PDF", "ReportLab SimpleDocTemplate")
 
-# 15-20 CONVERT FROM PDF
+# 14-18 CONVERT FROM PDF
 run_test("PDF to JPG", "pdf-to-jpg", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {}, "JPG/ZIP", "PyMuPDF Pixmap (150 DPI)")
 run_test("PDF to Word", "pdf-to-word", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {}, "DOCX", "pdf2docx / python-docx Engine")
 run_test("PDF to PowerPoint", "pdf-to-ppt", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {}, "PPTX", "python-pptx 16:9 Widescreen Engine")
-run_test("PDF to Excel", "pdf-to-excel", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {}, "XLSX", "openpyxl Multi-Sheet Tabular Engine")
 run_test("PDF to PDF/A", "pdf-to-pdfa", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {}, "PDF/A", "PyMuPDF PDF/A Stream Formatter")
 run_test("PDF to Markdown", "pdf-to-markdown", {"file": ("test.pdf", pdf_bytes, "application/pdf")}, {}, "MD", "PyMuPDF Text Structure Extractor")
 
