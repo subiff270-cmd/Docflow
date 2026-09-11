@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { TOOLS, ToolItem } from "../../lib/toolsData";
 import ToolWorkspace from "../../components/ToolWorkspace";
 import VoiceWorkspace from "../../components/VoiceWorkspace";
+import ErrorBoundary from "../../components/ErrorBoundary";
 import AdSlot from "../../components/AdSlot";
 import Link from "next/link";
 import {
@@ -144,8 +145,13 @@ export default async function ToolPage({ params }: { params: Promise<{ toolId: s
         dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
       />
 
-      {/* Main Tool Workspace Component */}
-      {tool.id === "voice-to-document" ? <VoiceWorkspace /> : <ToolWorkspace tool={tool} />}
+      {/* Main Tool Workspace Component with Error Isolation */}
+      <ErrorBoundary
+        fallbackTitle={`Error loading ${tool.name}`}
+        fallbackMessage="Something went wrong while loading this tool. Please refresh the page or try again."
+      >
+        {tool.id === "voice-to-document" ? <VoiceWorkspace /> : <ToolWorkspace tool={tool} />}
+      </ErrorBoundary>
 
       {/* AdSlot */}
       <AdSlot format="banner" />

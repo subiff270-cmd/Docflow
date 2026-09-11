@@ -89,6 +89,38 @@ import {
   CheckCheck,
 } from "lucide-react";
 
+const safeCopyToClipboard = async (text: string): Promise<boolean> => {
+  if (!text) return false;
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (err) {
+    console.warn("navigator.clipboard failed, attempting fallback:", err);
+  }
+
+  try {
+    if (typeof document !== "undefined") {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.top = "-9999px";
+      textArea.style.left = "-9999px";
+      textArea.setAttribute("readonly", "");
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand("copy");
+      document.body.removeChild(textArea);
+      return successful;
+    }
+  } catch (err) {
+    console.error("Fallback clipboard copy failed:", err);
+  }
+  return false;
+};
+
 interface ToolWorkspaceProps {
   tool: ToolItem;
 }
@@ -699,16 +731,18 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     }
   };
 
-  const handleCopyFullOcrText = () => {
+  const handleCopyFullOcrText = async () => {
     const textToCopy = ocrEditedText ?? result?.extracted_text ?? "";
     if (textToCopy) {
-      navigator.clipboard.writeText(textToCopy);
-      setCopiedText(true);
-      setTimeout(() => setCopiedText(false), 2000);
+      const ok = await safeCopyToClipboard(textToCopy);
+      if (ok) {
+        setCopiedText(true);
+        setTimeout(() => setCopiedText(false), 2000);
+      }
     }
   };
 
-  const handleCopySelectedOcrText = () => {
+  const handleCopySelectedOcrText = async () => {
     let selected = "";
     if (ocrTextAreaRef.current) {
       const textarea = ocrTextAreaRef.current;
@@ -718,16 +752,18 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         selected = textarea.value.substring(start, end);
       }
     }
-    if (!selected) {
+    if (!selected && typeof window !== "undefined") {
       const winSel = window.getSelection()?.toString();
       if (winSel && winSel.trim()) {
         selected = winSel;
       }
     }
     if (selected && selected.trim()) {
-      navigator.clipboard.writeText(selected);
-      setCopiedSelectionText(true);
-      setTimeout(() => setCopiedSelectionText(false), 2000);
+      const ok = await safeCopyToClipboard(selected);
+      if (ok) {
+        setCopiedSelectionText(true);
+        setTimeout(() => setCopiedSelectionText(false), 2000);
+      }
     } else {
       handleCopyFullOcrText();
     }
@@ -6762,13 +6798,15 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         const copyContent = translateActiveTab === "translated"
                           ? (result.translated_text || result.extracted_text)
                           : (result.original_text || "");
-                        navigator.clipboard.writeText(copyContent);
-                        setCopiedText(true);
-                        setTimeout(() => setCopiedText(false), 2000);
+                        const ok = await safeCopyToClipboard(copyContent);
+                        if (ok) {
+                          setCopiedText(true);
+                          setTimeout(() => setCopiedText(false), 2000);
+                        }
                       }}
                       className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                     >

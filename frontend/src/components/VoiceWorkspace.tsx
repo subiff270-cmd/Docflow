@@ -175,6 +175,9 @@ export default function VoiceWorkspace() {
     setResult(null);
 
     try {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Microphone recording is not supported on this browser or connection. Please upload an audio file directly.");
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
       const mediaRecorder = new MediaRecorder(stream);

@@ -278,7 +278,7 @@ export default function Navbar() {
       </div>
 
       {/* Full-Screen Portaled Mobile Menu (Guaranteed to fill phone screen and never be trapped by backdrop-blur) */}
-      {mounted && isMobileMenuOpen && createPortal(
+      {mounted && isMobileMenuOpen && typeof document !== "undefined" && document.body && createPortal(
         <div className="fixed inset-0 z-[99999] bg-white flex flex-col h-[100dvh] w-screen overflow-hidden animate-in fade-in">
           {/* Mobile Drawer Top Header */}
           <div className="flex items-center justify-between px-5 h-16 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl shrink-0">
