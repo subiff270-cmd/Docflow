@@ -26,19 +26,6 @@ import {
 } from "lucide-react";
 
 /* ──────────────────────────────────────────
-   Scroll-reveal hook (Safe: reveals on mount)
-   ────────────────────────────────────────── */
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.classList.add("revealed");
-  }, []);
-  return ref;
-}
-
-/* ──────────────────────────────────────────
    Featured tools data
    ────────────────────────────────────────── */
 const FEATURED_TOOLS = [
@@ -131,12 +118,6 @@ export default function HomePage() {
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const toolsGridRef = useRef<HTMLDivElement>(null);
 
-  /* Scroll-reveal refs for sections */
-  const featuredRef = useScrollReveal();
-  const toolsRef = useScrollReveal();
-  const langRef = useScrollReveal();
-  const bannerRef = useScrollReveal();
-
   /* Map grouped tabs to underlying categories */
   const TAB_CATEGORY_MAP: Record<string, string[]> = {
     CONVERT: ["CONVERT FROM PDF", "CONVERT TO PDF"],
@@ -209,7 +190,7 @@ export default function HomePage() {
       {/* ============================================
           HERO SECTION — Premium Ambient Glow
           ============================================ */}
-      <section className="hero-ambient relative z-10 bg-gradient-to-b from-white via-indigo-50/30 to-slate-50 pt-10 sm:pt-20 pb-20 sm:pb-32 px-4 sm:px-6 lg:px-8 border-b border-slate-100/60">
+      <section className="hero-ambient relative z-10 bg-gradient-to-b from-white via-indigo-50/30 to-slate-50 pt-6 sm:pt-14 pb-8 sm:pb-16 px-4 sm:px-6 lg:px-8 border-b border-slate-100/60">
         {/* Ambient glow layers */}
         <div className="hero-glow-extra" aria-hidden="true" />
         <div className="hero-light-beam" aria-hidden="true" />
@@ -345,9 +326,9 @@ export default function HomePage() {
           ============================================ */}
       <section
         ref={toolsGridRef}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-24"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 scroll-mt-24"
       >
-        <div ref={toolsRef} className="scroll-reveal space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {/* Category Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-slate-200">
             {[
@@ -416,7 +397,7 @@ export default function HomePage() {
           INDIAN LANGUAGES SECTION
           ============================================ */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div ref={langRef} className="scroll-reveal">
+        <div className="space-y-6">
           <div className="text-center space-y-4 mb-8">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 uppercase tracking-widest">
               <Globe className="w-3.5 h-3.5" />
@@ -453,7 +434,7 @@ export default function HomePage() {
           FEATURED CAPABILITIES BANNER
           ============================================ */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div ref={bannerRef} className="scroll-reveal">
+        <div>
           <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-8 sm:p-12 text-white shadow-2xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div className="space-y-4">
               <span className="bg-indigo-500/20 text-indigo-300 text-xs font-bold px-3 py-1 rounded-full uppercase">
