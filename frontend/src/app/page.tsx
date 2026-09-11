@@ -330,7 +330,7 @@ export default function HomePage() {
       >
         <div className="space-y-6 sm:space-y-8">
           {/* Category Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-slate-200">
+          <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pb-3 pt-1 scrollbar-none border-b border-slate-200/80 -mx-4 px-4 sm:mx-0 sm:px-0 touch-pan-x select-none">
             {[
               { label: "All Tools", value: "ALL", count: TOOLS.length },
               { label: "Convert", value: "CONVERT" },
@@ -341,10 +341,10 @@ export default function HomePage() {
               <button
                 key={tab.value}
                 onClick={() => setActiveTab(tab.value)}
-                className={`category-pill px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition ${
+                className={`category-pill shrink-0 px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all duration-200 ${
                   activeTab === tab.value
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
+                    : "bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/90 shadow-xs"
                 }`}
               >
                 {tab.label}{tab.count ? ` (${tab.count})` : ""}
