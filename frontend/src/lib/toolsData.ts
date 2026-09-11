@@ -121,18 +121,6 @@ export const TOOLS: ToolItem[] = [
     popular: true,
   },
   {
-    id: "image-to-pdf",
-    name: "Image to PDF",
-    category: "CONVERT TO PDF",
-    description: "Convert JPG, PNG, and WebP images to PDF in seconds.",
-    iconName: "Image",
-    href: "/image-to-pdf",
-    endpoint: "jpg-to-pdf",
-    accept: "image/*",
-    multiple: true,
-    popular: true,
-  },
-  {
     id: "ppt-to-pdf",
     name: "PowerPoint to PDF",
     category: "CONVERT TO PDF",
