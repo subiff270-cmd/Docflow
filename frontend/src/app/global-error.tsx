@@ -23,7 +23,7 @@ export default function GlobalError({
               Something went wrong
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-              DocFlow encountered an unexpected error. You can recover immediately by reloading the page.
+              Nexdoc encountered an unexpected error. You can recover immediately by reloading the page.
             </p>
           </div>
 

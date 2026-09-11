@@ -46,7 +46,7 @@ export default function ContactPage() {
         <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-950 tracking-tight">Contact Us</h1>
 
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-medium">
-          Have questions about DocFlow, document conversion formats, or custom API tools? Drop us a message and our support team will get back to you promptly.
+          Have questions about Nexdoc, document conversion formats, or custom API tools? Drop us a message and our support team will get back to you promptly.
         </p>
       </div>
 

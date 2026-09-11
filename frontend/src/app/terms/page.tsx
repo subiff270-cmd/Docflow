@@ -18,14 +18,14 @@ export default function TermsPage() {
         <section className="space-y-3">
           <h2 className="text-base font-bold text-slate-900">1. Agreement to Terms</h2>
           <p>
-            By accessing or using the DocFlow SaaS platform ("DocFlow", "Service"), accessible from our website, you agree to be bound by these Terms of Service. If you do not agree with any part of these terms, you are prohibited from using our services.
+            By accessing or using the Nexdoc SaaS platform ("Nexdoc", "Service"), accessible from our website, you agree to be bound by these Terms of Service. If you do not agree with any part of these terms, you are prohibited from using our services.
           </p>
         </section>
 
         <section className="space-y-3">
           <h2 className="text-base font-bold text-slate-900">2. Use of Services & Account Responsibilities</h2>
           <p>
-            DocFlow grants you a non-exclusive, non-transferable, revocable license to access and use our document processing tools in accordance with these Terms:
+            Nexdoc grants you a non-exclusive, non-transferable, revocable license to access and use our document processing tools in accordance with these Terms:
           </p>
           <ul className="list-disc pl-5 space-y-1 text-slate-600">
             <li><strong>Permitted Files:</strong> You may only upload document and image files that you own or have explicit legal authority to process.</li>
@@ -46,14 +46,14 @@ export default function TermsPage() {
         <section className="space-y-3">
           <h2 className="text-base font-bold text-slate-900">4. Intellectual Property & Document Ownership</h2>
           <p>
-            DocFlow claims <strong>zero ownership rights</strong> over the files, text, images, or documents you upload to our platform. All title, ownership, and intellectual property rights in your uploaded documents remain strictly with you.
+            Nexdoc claims <strong>zero ownership rights</strong> over the files, text, images, or documents you upload to our platform. All title, ownership, and intellectual property rights in your uploaded documents remain strictly with you.
           </p>
         </section>
 
         <section className="space-y-3">
           <h2 className="text-base font-bold text-slate-900">5. Limitation of Liability</h2>
           <p>
-            To the maximum extent permitted by law, DocFlow SaaS Inc. shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits, data, or content resulting from your access to or inability to access our services.
+            To the maximum extent permitted by law, Nexdoc SaaS Inc. shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits, data, or content resulting from your access to or inability to access our services.
           </p>
         </section>
 

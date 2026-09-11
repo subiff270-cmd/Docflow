@@ -22,7 +22,7 @@ export default function AboutPage() {
       {/* Hero Header */}
       <div className="text-center space-y-4 max-w-3xl mx-auto">
         <span className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider">
-          ABOUT DOCFLOW
+          ABOUT NEXDOC
         </span>
         <h1 className="text-3xl sm:text-5xl font-black text-slate-950 tracking-tight leading-tight">
           Everything you need for your documents, <br className="hidden sm:inline" />
@@ -31,7 +31,7 @@ export default function AboutPage() {
           </span>
         </h1>
         <p className="text-slate-600 text-sm sm:text-base font-medium leading-relaxed">
-          DocFlow is a production-grade document management SaaS platform designed to make document processing fast, secure, accessible, and hassle-free for individuals, students, professionals, and enterprise organizations worldwide.
+          Nexdoc is a production-grade document management SaaS platform designed to make document processing fast, secure, accessible, and hassle-free for individuals, students, professionals, and enterprise organizations worldwide.
         </p>
       </div>
 
@@ -43,7 +43,7 @@ export default function AboutPage() {
           </div>
           <h3 className="text-lg font-bold text-slate-900">Real Backend Processing</h3>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Unlike superficial web demos, DocFlow is powered by high-performance Python FastAPI engine and dedicated PyMuPDF, PDFium, and Tesseract OCR pipelines. Every tool handles real-world documents efficiently.
+            Unlike superficial web demos, Nexdoc is powered by high-performance Python FastAPI engine and dedicated PyMuPDF, PDFium, and Tesseract OCR pipelines. Every tool handles real-world documents efficiently.
           </p>
         </div>
 
@@ -53,7 +53,7 @@ export default function AboutPage() {
           </div>
           <h3 className="text-lg font-bold text-slate-900">Privacy & Security First</h3>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Your data is strictly your own. Files uploaded to DocFlow are protected with AES-256 encryption in transit and rest, and strictly deleted after 30 minutes via automated background retention purge services.
+            Your data is strictly your own. Files uploaded to Nexdoc are protected with AES-256 encryption in transit and rest, and strictly deleted after 30 minutes via automated background retention purge services.
           </p>
         </div>
 
@@ -63,7 +63,7 @@ export default function AboutPage() {
           </div>
           <h3 className="text-lg font-bold text-slate-900">Multilingual & Voice Intelligence</h3>
           <p className="text-xs text-slate-600 leading-relaxed">
-            DocFlow pioneers specialized OCR document processing for 10+ Indian regional languages (Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, etc.) alongside browser MediaRecorder Voice-to-Document reporting.
+            Nexdoc pioneers specialized OCR document processing for 10+ Indian regional languages (Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, etc.) alongside browser MediaRecorder Voice-to-Document reporting.
           </p>
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function AboutPage() {
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold">Zero Permanent Data Retention</h2>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            DocFlow operates on strict confidentiality principles. We do not analyze, sell, or retain your personal document content. Files uploaded to our platform reside in isolated temporary buffers and are automatically removed after 30 minutes.
+            Nexdoc operates on strict confidentiality principles. We do not analyze, sell, or retain your personal document content. Files uploaded to our platform reside in isolated temporary buffers and are automatically removed after 30 minutes.
           </p>
         </div>
 

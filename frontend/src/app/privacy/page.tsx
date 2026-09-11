@@ -19,7 +19,7 @@ export default function PrivacyPolicyPage() {
         <section className="space-y-3">
           <h2 className="text-base font-bold text-slate-900">1. Introduction</h2>
           <p>
-            DocFlow ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website <strong>DocFlow</strong> (the "Site") and utilize our online document tools, including PDF conversion, merging, compression, OCR, voice-to-document, and editing services.
+            Nexdoc ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website <strong>Nexdoc</strong> (the "Site") and utilize our online document tools, including PDF conversion, merging, compression, OCR, voice-to-document, and editing services.
           </p>
         </section>
 
@@ -29,7 +29,7 @@ export default function PrivacyPolicyPage() {
             We prioritize the absolute security of your documents:
           </p>
           <ul className="list-disc pl-5 space-y-1 text-slate-600">
-            <li><strong>No Permanent Storage:</strong> Files uploaded to DocFlow are stored temporarily in isolated server storage solely to process your requested operations (e.g. merge, split, convert).</li>
+            <li><strong>No Permanent Storage:</strong> Files uploaded to Nexdoc are stored temporarily in isolated server storage solely to process your requested operations (e.g. merge, split, convert).</li>
             <li><strong>Automated 30-Minute Purge:</strong> All uploaded files and processed output documents are automatically and permanently deleted from our servers after 30 minutes via automated background cleanup services.</li>
             <li><strong>No Content Inspection:</strong> We do not read, view, copy, share, or sell the contents of your uploaded documents.</li>
           </ul>
@@ -38,7 +38,7 @@ export default function PrivacyPolicyPage() {
         <section className="space-y-3">
           <h2 className="text-base font-bold text-slate-900">3. Information We Collect</h2>
           <p>
-            When you interact with DocFlow, we may collect minimal necessary information:
+            When you interact with Nexdoc, we may collect minimal necessary information:
           </p>
           <ul className="list-disc pl-5 space-y-1 text-slate-600">
             <li><strong>Account Data:</strong> If you register or log in via Firebase Authentication (Email/Password or Google Sign-In), we store your email address and display name.</li>
@@ -50,14 +50,14 @@ export default function PrivacyPolicyPage() {
         <section className="space-y-3">
           <h2 className="text-base font-bold text-slate-900">4. Google AdSense & Third-Party Advertising Cookies</h2>
           <p>
-            DocFlow uses Google AdSense to serve advertisements on our website:
+            Nexdoc uses Google AdSense to serve advertisements on our website:
           </p>
           <ul className="list-disc pl-5 space-y-2 text-slate-600">
             <li>
-              <strong>Third Party Vendors:</strong> Third-party vendors, including Google, use cookies to serve ads based on a user's prior visits to DocFlow or other websites.
+              <strong>Third Party Vendors:</strong> Third-party vendors, including Google, use cookies to serve ads based on a user's prior visits to Nexdoc or other websites.
             </li>
             <li>
-              <strong>DoubleClick Cookie:</strong> Google's use of advertising cookies enables it and its partners to serve ads to users based on their visit to DocFlow and/or other sites on the Internet.
+              <strong>DoubleClick Cookie:</strong> Google's use of advertising cookies enables it and its partners to serve ads to users based on their visit to Nexdoc and/or other sites on the Internet.
             </li>
             <li>
               <strong>Opt-Out Options:</strong> Users may opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Google Ads Settings</a>. Alternatively, users can opt out of third-party vendor's use of cookies for personalized advertising by visiting <a href="https://www.aboutads.info" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">aboutads.info</a>.
@@ -108,7 +108,7 @@ export default function PrivacyPolicyPage() {
             If you have any questions or concerns regarding this Privacy Policy, please contact our privacy compliance team:
           </p>
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 font-mono text-xs space-y-1 text-slate-700">
-            <div><strong>Entity:</strong> DocFlow SaaS Inc.</div>
+            <div><strong>Entity:</strong> Nexdoc SaaS Inc.</div>
             <div><strong>Support Email:</strong> support.docflow@gmail.com</div>
             <div><strong>Website:</strong> <Link href="/contact" className="text-indigo-600 underline">https://docflow.com/contact</Link></div>
           </div>

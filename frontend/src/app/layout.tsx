@@ -17,7 +17,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "DocFlow — Everything you need for your documents, in one place",
+  title: "Nexdoc — Everything you need for your documents, in one place",
   description: "Complete production SaaS platform for merging, splitting, compressing, converting, editing, signing, redacting PDFs, Voice to Document, and Indian Language OCR.",
 };
 

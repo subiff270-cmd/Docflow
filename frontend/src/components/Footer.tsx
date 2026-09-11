@@ -15,7 +15,7 @@ export default function Footer() {
               <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
                 <FileText className="w-5 h-5" />
               </div>
-              <span className="text-xl font-black tracking-tight">DocFlow</span>
+              <span className="text-xl font-black tracking-tight">Nexdoc</span>
             </Link>
             <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
               "Everything you need for your documents, in one place."
@@ -68,7 +68,7 @@ export default function Footer() {
 
         {/* Bottom copyright & SEO links */}
         <div className="pt-6 sm:pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3 sm:gap-4">
-          <p>© {new Date().getFullYear()} DocFlow SaaS Inc. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Nexdoc SaaS Inc. All rights reserved.</p>
           <div className="flex items-center gap-4 text-[11px]">
             <Link href="/sitemap.xml" className="hover:text-slate-400 transition">Sitemap</Link>
             <span>•</span>

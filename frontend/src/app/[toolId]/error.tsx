@@ -12,7 +12,7 @@ export default function ToolError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("DocFlow Tool Route Error:", error);
+    console.error("Nexdoc Tool Route Error:", error);
   }, [error]);
 
   return (

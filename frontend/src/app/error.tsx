@@ -12,7 +12,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("DocFlow App Error:", error);
+    console.error("Nexdoc App Error:", error);
   }, [error]);
 
   return (
@@ -27,7 +27,7 @@ export default function Error({
             Unexpected Error Occurred
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
-            DocFlow ran into a problem loading this page. Please try refreshing or return to the main dashboard.
+            Nexdoc ran into a problem loading this page. Please try refreshing or return to the main dashboard.
           </p>
         </div>
 

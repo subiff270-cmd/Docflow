@@ -56,7 +56,7 @@ export default function PricingPage() {
         key: orderData.key_id,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "DocFlow SaaS",
+        name: "Nexdoc SaaS",
         description: `Upgrade to ${plan === "PRO_MONTHLY" ? "Pro Monthly (₹99/mo)" : "Pro Yearly (₹999/yr)"}`,
         order_id: orderData.order_id,
         handler: async function (response: any) {
@@ -84,7 +84,7 @@ export default function PricingPage() {
         },
         prefill: {
           email: user.email || "",
-          name: user.displayName || "DocFlow User",
+          name: user.displayName || "Nexdoc User",
         },
         theme: {
           color: "#4f46e5",
@@ -130,7 +130,7 @@ export default function PricingPage() {
             <div className="space-y-3 text-center md:text-left">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-wider">
                 <Crown className="w-4 h-4 text-amber-400" />
-                <span>{isYearly ? "DocFlow Pro Yearly Member (1 Year Plan)" : "DocFlow Pro Monthly Member (1 Month Plan)"}</span>
+                <span>{isYearly ? "Nexdoc Pro Yearly Member (1 Year Plan)" : "Nexdoc Pro Monthly Member (1 Month Plan)"}</span>
               </div>
               <h1 className="text-2xl sm:text-4xl font-black tracking-tight">
                 You have Unlimited Pro Access!

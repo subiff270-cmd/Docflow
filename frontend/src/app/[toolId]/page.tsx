@@ -31,8 +31,8 @@ export async function generateMetadata({ params }: { params: Promise<{ toolId: s
   if (!tool) return {};
   
   return {
-    title: `${tool.name} — Convert & Process Online Free | DocFlow`,
-    description: `${tool.description} Fast, secure, AES-256 encrypted production document processing with DocFlow. Instant download without email registration required.`,
+    title: `${tool.name} — Convert & Process Online Free | Nexdoc`,
+    description: `${tool.description} Fast, secure, AES-256 encrypted production document processing with Nexdoc. Instant download without email registration required.`,
     keywords: [
       tool.name,
       `${tool.name} online`,
@@ -40,19 +40,19 @@ export async function generateMetadata({ params }: { params: Promise<{ toolId: s
       `convert ${tool.name}`,
       `best ${tool.name} tool`,
       `online ${tool.name} free`,
-      "docflow document tools",
+      "nexdoc document tools",
       tool.category.toLowerCase()
     ],
     openGraph: {
-      title: `${tool.name} — DocFlow Online Document Tool`,
+      title: `${tool.name} — Nexdoc Online Document Tool`,
       description: tool.description,
       url: `https://docflow.com${tool.href}`,
-      siteName: "DocFlow",
+      siteName: "Nexdoc",
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
-      title: `${tool.name} — DocFlow`,
+      title: `${tool.name} — Nexdoc`,
       description: tool.description,
     },
     alternates: {
@@ -75,7 +75,7 @@ export default async function ToolPage({ params }: { params: Promise<{ toolId: s
   const webAppSchema = {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": `${tool.name} — DocFlow`,
+    "name": `${tool.name} — Nexdoc`,
     "description": tool.description,
     "url": `https://docflow.com${tool.href}`,
     "applicationCategory": "BusinessApplication",
@@ -92,7 +92,7 @@ export default async function ToolPage({ params }: { params: Promise<{ toolId: s
   const howToSchema = {
     "@context": "https://schema.org",
     "@type": "HowTo",
-    "name": `How to use ${tool.name} on DocFlow`,
+    "name": `How to use ${tool.name} on Nexdoc`,
     "description": tool.description,
     "step": [
       {
@@ -116,7 +116,7 @@ export default async function ToolPage({ params }: { params: Promise<{ toolId: s
   const faqs = [
     {
       q: `Is ${tool.name} completely free to use?`,
-      a: `Yes! DocFlow offers free usage with up to 10 conversions per period for standard files. For high-volume batch processing and larger file limits up to 500 MB, DocFlow Pro is available.`
+      a: `Yes! Nexdoc offers free usage with up to 10 conversions per period for standard files. For high-volume batch processing and larger file limits up to 500 MB, Nexdoc Pro is available.`
     },
     {
       q: "Are my documents secure and private?",
@@ -124,11 +124,11 @@ export default async function ToolPage({ params }: { params: Promise<{ toolId: s
     },
     {
       q: "Does this tool work on mobile and tablet devices?",
-      a: "Yes! DocFlow is fully web-based and responsive. You can convert and manage documents on iPhone, Android, iPad, Mac, and Windows without installing any apps or software."
+      a: "Yes! Nexdoc is fully web-based and responsive. You can convert and manage documents on iPhone, Android, iPad, Mac, and Windows without installing any apps or software."
     },
     {
       q: "What is the maximum file size allowed?",
-      a: "Free accounts can process files up to 25 MB. DocFlow Pro subscribers can upload and convert large files up to 500 MB."
+      a: "Free accounts can process files up to 25 MB. Nexdoc Pro subscribers can upload and convert large files up to 500 MB."
     }
   ];
 
@@ -206,7 +206,7 @@ export default async function ToolPage({ params }: { params: Promise<{ toolId: s
           </div>
         </div>
 
-        {/* 2. Why Choose DocFlow? */}
+        {/* 2. Why Choose Nexdoc? */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
             <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">

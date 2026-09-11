@@ -66,7 +66,7 @@ export default function Navbar() {
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
               <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">DocFlow</span>
+            <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">Nexdoc</span>
           </Link>
 
           {/* Center Navigation Links - Desktop Only */}
@@ -287,7 +287,7 @@ export default function Navbar() {
               <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/30">
                 <FileText className="w-5 h-5" />
               </div>
-              <span className="text-xl font-black tracking-tight text-slate-900">DocFlow</span>
+              <span className="text-xl font-black tracking-tight text-slate-900">Nexdoc</span>
             </Link>
             <button
               type="button"

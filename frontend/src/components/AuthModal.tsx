@@ -99,8 +99,8 @@ export default function AuthModal() {
         <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 flex items-center justify-between border-b border-slate-100">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-              {mode === "login" && "Welcome to DocFlow"}
-              {mode === "signup" && "Create your DocFlow Account"}
+              {mode === "login" && "Welcome to Nexdoc"}
+              {mode === "signup" && "Create your Nexdoc Account"}
               {mode === "forgot" && "Reset Password"}
             </h2>
             <p className="text-xs text-slate-500 mt-1">
