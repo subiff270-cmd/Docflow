@@ -93,13 +93,11 @@ export default function Navbar() {
                 <div className="absolute top-full left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-500/5 border border-indigo-100/50 p-3 space-y-1 z-50 animate-in fade-in">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1">CONVERT TO PDF</div>
                   <Link href="/word-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Word to PDF</Link>
-                  <Link href="/excel-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Excel to PDF</Link>
                   <Link href="/jpg-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Image to PDF</Link>
                   <Link href="/ppt-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PowerPoint to PDF</Link>
                   <Link href="/html-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">HTML to PDF</Link>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1 pt-2 border-t border-slate-100">CONVERT FROM PDF</div>
                   <Link href="/pdf-to-word" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to Word</Link>
-                  <Link href="/pdf-to-excel" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to Excel</Link>
                   <Link href="/pdf-to-jpg" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to JPG</Link>
                   <Link href="/pdf-to-ppt" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to PowerPoint</Link>
                   <Link href="/pdf-to-html" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to HTML</Link>
@@ -344,13 +342,11 @@ export default function Navbar() {
                 <div className="pl-4 space-y-0.5 pb-2 animate-in">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 py-1">CONVERT TO PDF</div>
                   <Link href="/word-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Word to PDF</Link>
-                  <Link href="/excel-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Excel to PDF</Link>
                   <Link href="/jpg-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to PDF</Link>
                   <Link href="/ppt-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PowerPoint to PDF</Link>
                   <Link href="/html-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">HTML to PDF</Link>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 py-1 pt-2 border-t border-slate-100">CONVERT FROM PDF</div>
                   <Link href="/pdf-to-word" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Word</Link>
-                  <Link href="/pdf-to-excel" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Excel</Link>
                   <Link href="/pdf-to-jpg" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to JPG</Link>
                   <Link href="/pdf-to-ppt" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to PowerPoint</Link>
                   <Link href="/pdf-to-html" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to HTML</Link>
