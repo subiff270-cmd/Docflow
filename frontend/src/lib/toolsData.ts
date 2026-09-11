@@ -226,6 +226,17 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
+  {
+    id: "repair-pdf",
+    name: "Repair PDF",
+    category: "OPTIMIZE PDF",
+    description: "Repair damaged or corrupted PDF files and recover recoverable text.",
+    iconName: "Wrench",
+    href: "/repair-pdf",
+    endpoint: "repair-pdf",
+    accept: ".pdf",
+    multiple: false,
+  },
 
   // OCR TOOLS
   {

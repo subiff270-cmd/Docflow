@@ -125,6 +125,7 @@ export default function Navbar() {
                   <Link href="/organize-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
                   <Link href="/scan-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Scan to PDF</Link>
                   <Link href="/compress-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
+                  <Link href="/repair-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Repair PDF</Link>
                   <Link href="/rotate-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Rotate PDF</Link>
                   <Link href="/add-page-numbers" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Add Page Numbers</Link>
                   <Link href="/add-watermark" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Add Watermark</Link>
@@ -377,6 +378,7 @@ export default function Navbar() {
                   <Link href="/organize-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
                   <Link href="/scan-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Scan to PDF</Link>
                   <Link href="/compress-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
+                  <Link href="/repair-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Repair PDF</Link>
                   <Link href="/rotate-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Rotate PDF</Link>
                   <Link href="/add-page-numbers" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Add Page Numbers</Link>
                   <Link href="/add-watermark" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Add Watermark</Link>
