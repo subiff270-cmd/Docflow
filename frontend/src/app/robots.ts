@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/", "/dashboard/private"],
     },
-    sitemap: "https://docflow.com/sitemap.xml",
+    sitemap: "https://nexdocmain.vercel.app/sitemap.xml",
   };
 }

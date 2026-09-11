@@ -2,7 +2,7 @@ import { MetadataRoute } from "next";
 import { TOOLS } from "../lib/toolsData";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://docflow.com";
+  const baseUrl = "https://nexdocmain.vercel.app";
 
   const staticPages = [
     "",

@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: { params: Promise<{ toolId: s
     openGraph: {
       title: `${tool.name} — Nexdoc Online Document Tool`,
       description: tool.description,
-      url: `https://docflow.com${tool.href}`,
+      url: `https://nexdocmain.vercel.app${tool.href}`,
       siteName: "Nexdoc",
       type: "website",
     },
@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: { params: Promise<{ toolId: s
       description: tool.description,
     },
     alternates: {
-      canonical: `https://docflow.com${tool.href}`,
+      canonical: `https://nexdocmain.vercel.app${tool.href}`,
     },
   };
 }
@@ -77,7 +77,7 @@ export default async function ToolPage({ params }: { params: Promise<{ toolId: s
     "@type": "WebApplication",
     "name": `${tool.name} — Nexdoc`,
     "description": tool.description,
-    "url": `https://docflow.com${tool.href}`,
+    "url": `https://nexdocmain.vercel.app${tool.href}`,
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "All",
     "browserRequirements": "Requires JavaScript. Requires HTML5.",
