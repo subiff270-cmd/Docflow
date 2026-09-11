@@ -2152,7 +2152,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     }
     if (!isPro && rawCount >= FREE_DAILY_MAX_QUOTA) {
       setShowQuotaLimitModal(true);
-      setError(`You've reached your daily free limit of ${FREE_DAILY_MAX_QUOTA} conversions. Please upgrade to DocFlow Pro for unlimited access.`);
+      setError(`You've reached your daily free limit of ${FREE_DAILY_MAX_QUOTA} conversions. Please upgrade to Nexdoc Pro for unlimited access.`);
       return;
     }
     if (hasOversized) {
@@ -2436,7 +2436,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
           </div>
           <div>
             <div className="font-bold text-slate-800 flex items-center gap-1.5">
-              <span>{isPro ? "DocFlow Pro Plan" : "Free Plan"}</span>
+              <span>{isPro ? "Nexdoc Pro Plan" : "Free Plan"}</span>
               {isPro && (
                 <span className="bg-amber-400 text-slate-950 font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase">
                   UNLIMITED
@@ -2476,7 +2476,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-            <span>You&apos;ve reached your free daily conversion limit ({maxQuota} conversions today). Upgrade to DocFlow Pro for unlimited access or wait for tomorrow&apos;s reset.</span>
+            <span>You&apos;ve reached your free daily conversion limit ({maxQuota} conversions today). Upgrade to Nexdoc Pro for unlimited access or wait for tomorrow&apos;s reset.</span>
           </div>
           <Link
             href="/pricing"
@@ -6547,7 +6547,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Free accounts can process files up to <strong>25 MB</strong>. Upgrade to <strong>DocFlow Pro</strong> to process large files up to <strong>500 MB</strong> with priority cloud conversion speed.
+                Free accounts can process files up to <strong>25 MB</strong>. Upgrade to <strong>Nexdoc Pro</strong> to process large files up to <strong>500 MB</strong> with priority cloud conversion speed.
               </p>
               <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
                 <Link
@@ -6645,7 +6645,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         {loading && (
           <div className="mt-6 p-6 bg-indigo-50/70 border border-indigo-100 rounded-2xl text-center space-y-3 animate-in">
             <p className="text-xs font-extrabold text-indigo-700 uppercase tracking-widest">
-              DOCFLOW CLOUD ENGINE ACTIVE
+              NEXDOC CLOUD ENGINE ACTIVE
             </p>
             <div className="flex items-center justify-center gap-4 text-xs font-semibold text-slate-600">
               <span className="flex items-center gap-1 text-emerald-600 font-bold">
@@ -7339,7 +7339,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 25 MB LIMIT REACHED
               </span>
               <h3 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
-                Upgrade to DocFlow Pro
+                Upgrade to Nexdoc Pro
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
                 The file <strong className="text-slate-900 break-all">{proModalFile.name}</strong> is <strong>{formatFileSize(proModalFile.size)}</strong>, which exceeds the <strong>25 MB Free plan limit</strong>.
@@ -7355,7 +7355,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               <div className="flex items-center justify-between font-bold text-indigo-950">
                 <span className="flex items-center gap-1.5">
                   <Crown className="w-4 h-4 text-amber-500" />
-                  DocFlow Pro:
+                  Nexdoc Pro:
                 </span>
                 <span className="text-emerald-600 font-extrabold text-sm">Up to 500 MB</span>
               </div>
@@ -7416,7 +7416,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                 Daily Free Limit Reached (10/10)
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                You have used all <strong>10 free conversions</strong> for today. Free quota resets every 24 hours. Upgrade to <strong>DocFlow Pro</strong> for instant unlimited access.
+                You have used all <strong>10 free conversions</strong> for today. Free quota resets every 24 hours. Upgrade to <strong>Nexdoc Pro</strong> for instant unlimited access.
               </p>
             </div>
 
@@ -7428,7 +7428,7 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
               <div className="flex items-center justify-between font-bold text-indigo-950">
                 <span className="flex items-center gap-1.5">
                   <Crown className="w-4 h-4 text-amber-500" />
-                  DocFlow Pro:
+                  Nexdoc Pro:
                 </span>
                 <span className="text-emerald-600 font-extrabold text-sm">Unlimited (500 MB max)</span>
               </div>

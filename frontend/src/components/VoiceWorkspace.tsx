@@ -665,7 +665,7 @@ export default function VoiceWorkspace() {
                 </div>
                 <div className="overflow-hidden">
                   <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                    {result.filename || `DocFlow_${docType}.${outputFormat}`}
+                    {result.filename || `Nexdoc_${docType}.${outputFormat}`}
                   </p>
                   <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Ready for download
