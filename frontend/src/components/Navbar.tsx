@@ -120,9 +120,11 @@ export default function Navbar() {
                 <div className="absolute top-full left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-500/5 border border-indigo-100/50 p-3 space-y-1 z-50 animate-in fade-in">
                   <Link href="/merge-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Merge PDF</Link>
                   <Link href="/split-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Split PDF</Link>
-                  <Link href="/compress-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
+                  <Link href="/remove-pages" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Remove Pages</Link>
+                  <Link href="/extract-pages" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Extract Pages</Link>
                   <Link href="/organize-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
-                  <Link href="/repair-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Repair PDF</Link>
+                  <Link href="/scan-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Scan to PDF</Link>
+                  <Link href="/compress-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
                   <Link href="/rotate-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Rotate PDF</Link>
                   <Link href="/add-page-numbers" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Add Page Numbers</Link>
                   <Link href="/add-watermark" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Add Watermark</Link>
@@ -131,27 +133,27 @@ export default function Navbar() {
                   <Link href="/unlock-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Unlock PDF</Link>
                   <Link href="/sign-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Sign PDF</Link>
                   <Link href="/redact-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Redact PDF</Link>
-                  <Link href="/compare-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Compare PDF</Link>
                 </div>
               )}
             </div>
 
-            {/* AI & OCR Tools Dropdown */}
+            {/* OCR Tools Dropdown */}
             <div className="relative group" onMouseLeave={() => setActiveDropdown(null)}>
               <button
                 onMouseEnter={() => setActiveDropdown("ocr")}
                 className="px-3.5 py-2 rounded-lg hover:text-indigo-600 flex items-center gap-1 transition"
               >
-                AI & OCR
+                OCR Tools
                 <ChevronDown className="w-4 h-4 text-slate-400" />
               </button>
               {activeDropdown === "ocr" && (
                 <div className="absolute top-full left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-500/5 border border-indigo-100/50 p-3 space-y-1 z-50 animate-in fade-in">
                   <Link href="/ocr-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
                   <Link href="/image-to-text" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Image to Text</Link>
-                  <Link href="/ai-pdf-summarizer" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">AI PDF Summarizer</Link>
-                  <Link href="/translate-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Translate PDF</Link>
-                  <Link href="/voice-to-document" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Voice to Document</Link>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1 pt-2 border-t border-slate-100">IMAGE TOOLS</div>
+                  <Link href="/resize-image" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Resize Image</Link>
+                  <Link href="/crop-image" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Crop Image</Link>
+                  <Link href="/convert-image" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Convert Image Format</Link>
                 </div>
               )}
             </div>
@@ -370,9 +372,11 @@ export default function Navbar() {
                 <div className="pl-4 space-y-0.5 pb-2 animate-in">
                   <Link href="/merge-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Merge PDF</Link>
                   <Link href="/split-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Split PDF</Link>
-                  <Link href="/compress-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
+                  <Link href="/remove-pages" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Remove Pages</Link>
+                  <Link href="/extract-pages" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Extract Pages</Link>
                   <Link href="/organize-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
-                  <Link href="/repair-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Repair PDF</Link>
+                  <Link href="/scan-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Scan to PDF</Link>
+                  <Link href="/compress-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
                   <Link href="/rotate-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Rotate PDF</Link>
                   <Link href="/add-page-numbers" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Add Page Numbers</Link>
                   <Link href="/add-watermark" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Add Watermark</Link>
@@ -381,28 +385,28 @@ export default function Navbar() {
                   <Link href="/unlock-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Unlock PDF</Link>
                   <Link href="/sign-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Sign PDF</Link>
                   <Link href="/redact-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Redact PDF</Link>
-                  <Link href="/compare-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compare PDF</Link>
                 </div>
               )}
             </div>
 
-            {/* AI & OCR Tools Section */}
+            {/* OCR & Image Tools Section */}
             <div>
               <button
                 type="button"
                 onClick={() => toggleMobileSection("ocr")}
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
               >
-                AI & OCR Tools
+                OCR & Image Tools
                 <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpanded === "ocr" ? "rotate-180" : ""}`} />
               </button>
               {mobileExpanded === "ocr" && (
                 <div className="pl-4 space-y-0.5 pb-2 animate-in">
                   <Link href="/ocr-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
                   <Link href="/image-to-text" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to Text</Link>
-                  <Link href="/ai-pdf-summarizer" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">AI PDF Summarizer</Link>
-                  <Link href="/translate-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Translate PDF</Link>
-                  <Link href="/voice-to-document" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Voice to Document</Link>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 py-1 pt-2 border-t border-slate-100">IMAGE TOOLS</div>
+                  <Link href="/resize-image" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Resize Image</Link>
+                  <Link href="/crop-image" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Crop Image</Link>
+                  <Link href="/convert-image" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Convert Image Format</Link>
                 </div>
               )}
             </div>

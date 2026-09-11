@@ -19,12 +19,11 @@ export const CATEGORIES = [
   "EDIT PDF",
   "PDF SECURITY",
   "OCR TOOLS",
-  "AI TOOLS",
   "IMAGE TOOLS"
 ] as const;
 
 export const TOOLS: ToolItem[] = [
-  // CONVERT FROM PDF (PDF to whatever)
+  // CONVERT FROM PDF
   {
     id: "pdf-to-word",
     name: "PDF to Word",
@@ -227,17 +226,8 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
-  {
-    id: "repair-pdf",
-    name: "Repair PDF",
-    category: "OPTIMIZE PDF",
-    description: "Fix corrupted, damaged, or unreadable PDF files.",
-    iconName: "Sparkles",
-    href: "/repair-pdf",
-    endpoint: "repair-pdf",
-    accept: ".pdf",
-    multiple: false,
-  },
+
+  // OCR TOOLS
   {
     id: "ocr-pdf",
     name: "OCR PDF",
@@ -346,17 +336,6 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
-  {
-    id: "compare-pdf",
-    name: "Compare PDF",
-    category: "PDF SECURITY",
-    description: "Compare two PDF documents side-by-side and highlight differences.",
-    iconName: "Scissors",
-    href: "/compare-pdf",
-    endpoint: "compare-pdf",
-    accept: ".pdf",
-    multiple: true,
-  },
 
   // OCR TOOLS
   {
@@ -370,43 +349,6 @@ export const TOOLS: ToolItem[] = [
     accept: "image/*,.pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff",
     multiple: false,
     popular: true,
-  },
-
-  // AI TOOLS
-  {
-    id: "ai-pdf-summarizer",
-    name: "AI PDF Summarizer",
-    category: "AI TOOLS",
-    description: "Extract key insights and executive summaries from long PDFs using AI.",
-    iconName: "Sparkles",
-    href: "/ai-pdf-summarizer",
-    endpoint: "ai-pdf-summarizer",
-    accept: ".pdf",
-    multiple: false,
-    popular: true,
-  },
-  {
-    id: "translate-pdf",
-    name: "Translate PDF",
-    category: "AI TOOLS",
-    description: "Translate PDF documents to Spanish, Hindi, French, German, and 50+ languages.",
-    iconName: "Languages",
-    href: "/translate-pdf",
-    endpoint: "translate-pdf",
-    accept: ".pdf",
-    multiple: false,
-    popular: true,
-  },
-  {
-    id: "voice-to-document",
-    name: "Voice to Document",
-    category: "AI TOOLS",
-    description: "Dictate voice notes and generate structured PDF, DOCX, or TXT documents.",
-    iconName: "Mic",
-    href: "/voice-to-document",
-    endpoint: "voice-to-document",
-    accept: "audio/*",
-    multiple: false,
   },
 
   // IMAGE TOOLS
