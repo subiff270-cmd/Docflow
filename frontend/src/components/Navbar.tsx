@@ -92,13 +92,19 @@ export default function Navbar() {
               {activeDropdown === "convert" && (
                 <div className="absolute top-full left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-500/5 border border-indigo-100/50 p-3 space-y-1 z-50 animate-in fade-in">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1">CONVERT TO PDF</div>
-                  <Link href="/word-to-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Word to PDF</Link>
-                  <Link href="/jpg-to-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Image to PDF</Link>
-                  <Link href="/ppt-to-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PowerPoint to PDF</Link>
+                  <Link href="/word-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Word to PDF</Link>
+                  <Link href="/excel-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Excel to PDF</Link>
+                  <Link href="/jpg-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Image to PDF</Link>
+                  <Link href="/ppt-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PowerPoint to PDF</Link>
+                  <Link href="/html-to-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">HTML to PDF</Link>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1 pt-2 border-t border-slate-100">CONVERT FROM PDF</div>
-                  <Link href="/pdf-to-word" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to Word</Link>
-                  <Link href="/pdf-to-jpg" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to JPG</Link>
-                  <Link href="/pdf-to-ppt" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to PowerPoint</Link>
+                  <Link href="/pdf-to-word" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to Word</Link>
+                  <Link href="/pdf-to-excel" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to Excel</Link>
+                  <Link href="/pdf-to-jpg" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to JPG</Link>
+                  <Link href="/pdf-to-ppt" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to PowerPoint</Link>
+                  <Link href="/pdf-to-html" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to HTML</Link>
+                  <Link href="/pdf-to-markdown" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to Markdown</Link>
+                  <Link href="/pdf-to-pdfa" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">PDF to PDF/A</Link>
                 </div>
               )}
             </div>
@@ -114,30 +120,40 @@ export default function Navbar() {
               </button>
               {activeDropdown === "pdf" && (
                 <div className="absolute top-full left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-500/5 border border-indigo-100/50 p-3 space-y-1 z-50 animate-in fade-in">
-                  <Link href="/merge-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Merge PDF</Link>
-                  <Link href="/split-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Split PDF</Link>
-                  <Link href="/compress-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
-                  <Link href="/organize-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
-                  <Link href="/protect-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Protect PDF</Link>
-                  <Link href="/sign-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Sign PDF</Link>
-                  <Link href="/redact-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Redact PDF</Link>
+                  <Link href="/merge-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Merge PDF</Link>
+                  <Link href="/split-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Split PDF</Link>
+                  <Link href="/compress-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
+                  <Link href="/organize-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
+                  <Link href="/repair-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Repair PDF</Link>
+                  <Link href="/rotate-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Rotate PDF</Link>
+                  <Link href="/add-page-numbers" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Add Page Numbers</Link>
+                  <Link href="/add-watermark" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Add Watermark</Link>
+                  <Link href="/crop-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Crop PDF</Link>
+                  <Link href="/protect-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Protect PDF</Link>
+                  <Link href="/unlock-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Unlock PDF</Link>
+                  <Link href="/sign-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Sign PDF</Link>
+                  <Link href="/redact-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Redact PDF</Link>
+                  <Link href="/compare-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Compare PDF</Link>
                 </div>
               )}
             </div>
 
-            {/* OCR Tools Dropdown */}
+            {/* AI & OCR Tools Dropdown */}
             <div className="relative group" onMouseLeave={() => setActiveDropdown(null)}>
               <button
                 onMouseEnter={() => setActiveDropdown("ocr")}
                 className="px-3.5 py-2 rounded-lg hover:text-indigo-600 flex items-center gap-1 transition"
               >
-                OCR Tools
+                AI & OCR
                 <ChevronDown className="w-4 h-4 text-slate-400" />
               </button>
               {activeDropdown === "ocr" && (
                 <div className="absolute top-full left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-500/5 border border-indigo-100/50 p-3 space-y-1 z-50 animate-in fade-in">
-                  <Link href="/ocr-pdf" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
-                  <Link href="/image-to-text" className="block px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Image to Text</Link>
+                  <Link href="/ocr-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
+                  <Link href="/image-to-text" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Image to Text</Link>
+                  <Link href="/ai-pdf-summarizer" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">AI PDF Summarizer</Link>
+                  <Link href="/translate-pdf" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Translate PDF</Link>
+                  <Link href="/voice-to-document" className="block px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">Voice to Document</Link>
                 </div>
               )}
             </div>
@@ -326,13 +342,20 @@ export default function Navbar() {
               </button>
               {mobileExpanded === "convert" && (
                 <div className="pl-4 space-y-0.5 pb-2 animate-in">
-                  <Link href="/word-to-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Word to PDF</Link>
-                  <Link href="/jpg-to-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to PDF</Link>
-                  <Link href="/ppt-to-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PowerPoint to PDF</Link>
-                  <div className="border-t border-slate-100 mx-4 my-1" />
-                  <Link href="/pdf-to-word" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Word</Link>
-                  <Link href="/pdf-to-jpg" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to JPG</Link>
-                  <Link href="/pdf-to-ppt" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to PowerPoint</Link>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 py-1">CONVERT TO PDF</div>
+                  <Link href="/word-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Word to PDF</Link>
+                  <Link href="/excel-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Excel to PDF</Link>
+                  <Link href="/jpg-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to PDF</Link>
+                  <Link href="/ppt-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PowerPoint to PDF</Link>
+                  <Link href="/html-to-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">HTML to PDF</Link>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 py-1 pt-2 border-t border-slate-100">CONVERT FROM PDF</div>
+                  <Link href="/pdf-to-word" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Word</Link>
+                  <Link href="/pdf-to-excel" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Excel</Link>
+                  <Link href="/pdf-to-jpg" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to JPG</Link>
+                  <Link href="/pdf-to-ppt" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to PowerPoint</Link>
+                  <Link href="/pdf-to-html" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to HTML</Link>
+                  <Link href="/pdf-to-markdown" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to Markdown</Link>
+                  <Link href="/pdf-to-pdfa" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">PDF to PDF/A</Link>
                 </div>
               )}
             </div>
@@ -349,31 +372,41 @@ export default function Navbar() {
               </button>
               {mobileExpanded === "pdf" && (
                 <div className="pl-4 space-y-0.5 pb-2 animate-in">
-                  <Link href="/merge-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Merge PDF</Link>
-                  <Link href="/split-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Split PDF</Link>
-                  <Link href="/compress-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
-                  <Link href="/organize-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
-                  <Link href="/protect-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Protect PDF</Link>
-                  <Link href="/sign-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Sign PDF</Link>
-                  <Link href="/redact-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Redact PDF</Link>
+                  <Link href="/merge-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Merge PDF</Link>
+                  <Link href="/split-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Split PDF</Link>
+                  <Link href="/compress-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compress PDF</Link>
+                  <Link href="/organize-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Organize PDF</Link>
+                  <Link href="/repair-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Repair PDF</Link>
+                  <Link href="/rotate-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Rotate PDF</Link>
+                  <Link href="/add-page-numbers" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Add Page Numbers</Link>
+                  <Link href="/add-watermark" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Add Watermark</Link>
+                  <Link href="/crop-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Crop PDF</Link>
+                  <Link href="/protect-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Protect PDF</Link>
+                  <Link href="/unlock-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Unlock PDF</Link>
+                  <Link href="/sign-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Sign PDF</Link>
+                  <Link href="/redact-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Redact PDF</Link>
+                  <Link href="/compare-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Compare PDF</Link>
                 </div>
               )}
             </div>
 
-            {/* OCR Tools Section */}
+            {/* AI & OCR Tools Section */}
             <div>
               <button
                 type="button"
                 onClick={() => toggleMobileSection("ocr")}
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-900 hover:bg-indigo-50 rounded-xl transition"
               >
-                OCR Tools
+                AI & OCR Tools
                 <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpanded === "ocr" ? "rotate-180" : ""}`} />
               </button>
               {mobileExpanded === "ocr" && (
                 <div className="pl-4 space-y-0.5 pb-2 animate-in">
-                  <Link href="/ocr-pdf" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
-                  <Link href="/image-to-text" onClick={closeMobile} className="block px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to Text</Link>
+                  <Link href="/ocr-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">OCR PDF</Link>
+                  <Link href="/image-to-text" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Image to Text</Link>
+                  <Link href="/ai-pdf-summarizer" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">AI PDF Summarizer</Link>
+                  <Link href="/translate-pdf" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Translate PDF</Link>
+                  <Link href="/voice-to-document" onClick={closeMobile} className="block px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded-lg">Voice to Document</Link>
                 </div>
               )}
             </div>

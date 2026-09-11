@@ -19,6 +19,7 @@ export const CATEGORIES = [
   "EDIT PDF",
   "PDF SECURITY",
   "OCR TOOLS",
+  "AI TOOLS",
   "IMAGE TOOLS"
 ] as const;
 
@@ -37,6 +38,18 @@ export const TOOLS: ToolItem[] = [
     popular: true,
   },
   {
+    id: "pdf-to-excel",
+    name: "PDF to Excel",
+    category: "CONVERT FROM PDF",
+    description: "Extract PDF tables and data into editable Excel spreadsheets (XLSX).",
+    iconName: "FileSpreadsheet",
+    href: "/pdf-to-excel",
+    endpoint: "pdf-to-excel",
+    accept: ".pdf",
+    multiple: false,
+    popular: true,
+  },
+  {
     id: "pdf-to-jpg",
     name: "PDF to JPG",
     category: "CONVERT FROM PDF",
@@ -48,7 +61,6 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
-
   {
     id: "pdf-to-ppt",
     name: "PDF to PowerPoint",
@@ -109,6 +121,18 @@ export const TOOLS: ToolItem[] = [
     popular: true,
   },
   {
+    id: "excel-to-pdf",
+    name: "Excel to PDF",
+    category: "CONVERT TO PDF",
+    description: "Convert Excel spreadsheets (XLSX, XLS) to clean formatted PDF files.",
+    iconName: "FileSpreadsheet",
+    href: "/excel-to-pdf",
+    endpoint: "excel-to-pdf",
+    accept: ".xlsx,.xls",
+    multiple: false,
+    popular: true,
+  },
+  {
     id: "jpg-to-pdf",
     name: "Image to PDF",
     category: "CONVERT TO PDF",
@@ -144,7 +168,6 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
-
   {
     id: "html-to-pdf",
     name: "HTML to PDF",
@@ -239,6 +262,17 @@ export const TOOLS: ToolItem[] = [
     accept: ".pdf",
     multiple: false,
     popular: true,
+  },
+  {
+    id: "repair-pdf",
+    name: "Repair PDF",
+    category: "OPTIMIZE PDF",
+    description: "Fix corrupted, damaged, or unreadable PDF files.",
+    iconName: "Sparkles",
+    href: "/repair-pdf",
+    endpoint: "repair-pdf",
+    accept: ".pdf",
+    multiple: false,
   },
   {
     id: "ocr-pdf",
@@ -348,7 +382,17 @@ export const TOOLS: ToolItem[] = [
     multiple: false,
     popular: true,
   },
-
+  {
+    id: "compare-pdf",
+    name: "Compare PDF",
+    category: "PDF SECURITY",
+    description: "Compare two PDF documents side-by-side and highlight differences.",
+    iconName: "Scissors",
+    href: "/compare-pdf",
+    endpoint: "compare-pdf",
+    accept: ".pdf",
+    multiple: true,
+  },
 
   // OCR TOOLS
   {
@@ -362,6 +406,43 @@ export const TOOLS: ToolItem[] = [
     accept: "image/*,.pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff",
     multiple: false,
     popular: true,
+  },
+
+  // AI TOOLS
+  {
+    id: "ai-pdf-summarizer",
+    name: "AI PDF Summarizer",
+    category: "AI TOOLS",
+    description: "Extract key insights and executive summaries from long PDFs using AI.",
+    iconName: "Sparkles",
+    href: "/ai-pdf-summarizer",
+    endpoint: "ai-pdf-summarizer",
+    accept: ".pdf",
+    multiple: false,
+    popular: true,
+  },
+  {
+    id: "translate-pdf",
+    name: "Translate PDF",
+    category: "AI TOOLS",
+    description: "Translate PDF documents to Spanish, Hindi, French, German, and 50+ languages.",
+    iconName: "Languages",
+    href: "/translate-pdf",
+    endpoint: "translate-pdf",
+    accept: ".pdf",
+    multiple: false,
+    popular: true,
+  },
+  {
+    id: "voice-to-document",
+    name: "Voice to Document",
+    category: "AI TOOLS",
+    description: "Dictate voice notes and generate structured PDF, DOCX, or TXT documents.",
+    iconName: "Mic",
+    href: "/voice-to-document",
+    endpoint: "voice-to-document",
+    accept: "audio/*",
+    multiple: false,
   },
 
   // IMAGE TOOLS

@@ -58,11 +58,15 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
     // Conversions FROM PDF
     case "pdf-to-word":
       return renderConversionPair("PDF", "DOCX", "bg-red-50 text-red-700 border border-red-200/60", "bg-blue-50 text-blue-700 border border-blue-200/60");
+    case "pdf-to-excel":
+      return renderConversionPair("PDF", "XLSX", "bg-red-50 text-red-700 border border-red-200/60", "bg-emerald-50 text-emerald-700 border border-emerald-200/60");
     case "pdf-to-jpg":
       return renderConversionPair("PDF", "JPG", "bg-red-50 text-red-700 border border-red-200/60", "bg-emerald-50 text-emerald-700 border border-emerald-200/60");
     case "pdf-to-powerpoint":
     case "pdf-to-ppt":
       return renderConversionPair("PDF", "PPTX", "bg-red-50 text-red-700 border border-red-200/60", "bg-amber-50 text-amber-700 border border-amber-200/60");
+    case "pdf-to-html":
+      return renderConversionPair("PDF", "HTML", "bg-red-50 text-red-700 border border-red-200/60", "bg-orange-50 text-orange-700 border border-orange-200/60");
     case "pdf-to-markdown":
       return renderConversionPair("PDF", "MD", "bg-red-50 text-red-700 border border-red-200/60", "bg-purple-50 text-purple-700 border border-purple-200/60");
     case "pdf-to-pdfa":
@@ -71,8 +75,11 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
     // Conversions TO PDF
     case "word-to-pdf":
       return renderConversionPair("DOCX", "PDF", "bg-blue-50 text-blue-700 border border-blue-200/60", "bg-red-50 text-red-700 border border-red-200/60");
+    case "excel-to-pdf":
+      return renderConversionPair("XLSX", "PDF", "bg-emerald-50 text-emerald-700 border border-emerald-200/60", "bg-red-50 text-red-700 border border-red-200/60");
     case "jpg-to-pdf":
-      return renderConversionPair("JPG", "PDF", "bg-emerald-50 text-emerald-700 border border-emerald-200/60", "bg-red-50 text-red-700 border border-red-200/60");
+    case "image-to-pdf":
+      return renderConversionPair("IMAGE", "PDF", "bg-emerald-50 text-emerald-700 border border-emerald-200/60", "bg-red-50 text-red-700 border border-red-200/60");
     case "powerpoint-to-pdf":
     case "ppt-to-pdf":
       return renderConversionPair("PPTX", "PDF", "bg-amber-50 text-amber-700 border border-amber-200/60", "bg-red-50 text-red-700 border border-red-200/60");
@@ -86,6 +93,8 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
       return renderSingleIcon(Scissors, "bg-violet-50 border border-violet-100", "text-violet-600");
     case "compress-pdf":
       return renderSingleIcon(Minimize2, "bg-blue-50 border border-blue-100", "text-blue-600");
+    case "repair-pdf":
+      return renderSingleIcon(Sparkles, "bg-amber-50 border border-amber-100", "text-amber-600");
     case "rotate-pdf":
       return renderSingleIcon(RotateCw, "bg-amber-50 border border-amber-100", "text-amber-600");
     case "remove-pages":
@@ -98,7 +107,7 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
     case "add-page-numbers":
       return renderSingleIcon(FileText, "bg-indigo-50 border border-indigo-100", "text-indigo-600");
 
-    // Security
+    // Security & Comparison
     case "protect-pdf":
       return renderSingleIcon(Lock, "bg-amber-50 border border-amber-100", "text-amber-600");
     case "unlock-pdf":
@@ -107,6 +116,8 @@ export default function ToolIcon({ toolId, className = "" }: ToolIconProps) {
       return renderSingleIcon(PenTool, "bg-indigo-50 border border-indigo-100", "text-indigo-600");
     case "redact-pdf":
       return renderSingleIcon(EyeOff, "bg-slate-100 border border-slate-200", "text-slate-700");
+    case "compare-pdf":
+      return renderSingleIcon(Scissors, "bg-indigo-50 border border-indigo-100", "text-indigo-600");
 
     // OCR & AI & Languages
     case "translate-pdf":
