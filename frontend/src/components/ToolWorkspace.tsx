@@ -971,7 +971,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
   // =========================================================================
   // ADVANCED SIGN PDF STUDIO STATE & PLACEMENT ENGINE (iLovePDF Style)
   // =========================================================================
-  const [sigSigningMode, setSigSigningMode] = useState<"simple" | "digital">("simple");
   const [isSigConfigModalOpen, setIsSigConfigModalOpen] = useState<boolean>(false);
   const [sigFullName, setSigFullName] = useState<string>(
     profile?.display_name || user?.displayName || (user?.email ? user.email.split("@")[0] : "Your Name")
@@ -4132,35 +4131,6 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         Type your name to choose from 10 signature styles, or draw/upload, then place anywhere on the document.
                       </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSigSigningMode("simple")}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                          sigSigningMode === "simple"
-                            ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                            : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                        }`}
-                      >
-                        <PenTool className="w-3.5 h-3.5" />
-                        <span>Simple Signature</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSigSigningMode("digital")}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                          sigSigningMode === "digital"
-                            ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/20"
-                            : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                        }`}
-                      >
-                        <Award className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Digital Signature</span>
-                        <Crown className="w-3 h-3 text-amber-400 fill-amber-400" />
-                      </button>
                     </div>
                   </div>
 
