@@ -1,5 +1,6 @@
 import os
 import asyncio
+from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
@@ -99,3 +100,53 @@ def read_root():
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "healthy"}
+
+@app.get("/ready")
+def readiness_check():
+    """Readiness probe checking database, storage, and conversion engine dependencies."""
+    errors = []
+    
+    # 1. Check storage path writability
+    storage_dir = os.path.join(os.path.dirname(__file__), "storage_files")
+    try:
+        os.makedirs(storage_dir, exist_ok=True)
+        test_file = os.path.join(storage_dir, ".readiness_test")
+        with open(test_file, "w") as f:
+            f.write("ok")
+        os.remove(test_file)
+    except Exception as e:
+        errors.append(f"Storage filesystem unwritable: {e}")
+
+    # 2. Check core conversion dependencies
+    deps = ["fitz", "pdf2docx", "docx", "PIL", "pypdf"]
+    for dep in deps:
+        try:
+            __import__(dep)
+        except ImportError:
+            errors.append(f"Missing core engine dependency: {dep}")
+
+    # 3. Check database connectivity
+    try:
+        from .database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        errors.append(f"Database unavailable: {e}")
+
+    if errors:
+        return JSONResponse(status_code=503, content={"status": "not_ready", "errors": errors})
+
+    return {
+        "status": "ready",
+        "timestamp": datetime.now().isoformat(),
+        "storage": "writable",
+        "database": "connected",
+        "engines": {
+            "pdf2docx": "ready",
+            "pymupdf": "ready",
+            "pillow": "ready",
+            "docx": "ready"
+        }
+    }
+

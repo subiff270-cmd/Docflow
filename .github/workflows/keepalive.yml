@@ -1,0 +1,18 @@
+name: Backend Keepalive Monitor
+
+on:
+  schedule:
+    # Runs every 10 minutes to prevent Render free-tier idle sleep
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Health and Ready Endpoints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Health
+        run: |
+          echo "Pinging Nexdoc backend..."
+          curl -f -s -S --max-time 20 "https://docflow-backend-8rwy.onrender.com/health" || echo "Health check ping complete"
+          curl -f -s -S --max-time 20 "https://docflow-backend-8rwy.onrender.com/ready" || echo "Readiness ping complete"

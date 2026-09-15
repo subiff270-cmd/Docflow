@@ -103,7 +103,7 @@ export async function processToolApi(endpoint: string, formData: FormData, fireb
         continue;
       }
       if (String(err.message).includes("Failed to fetch")) {
-        throw new Error("Cloud processing engine is currently warming up. Please click Process once more in a few seconds.");
+        throw new Error("Conversion service is temporarily unavailable. Please try again in a few moments.");
       }
       throw err;
     }
