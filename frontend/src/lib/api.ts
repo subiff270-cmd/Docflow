@@ -60,7 +60,7 @@ export async function fetchPdfThumbnails(file: File) {
   }
 }
 
-export async function processToolApi(endpoint: string, formData: FormData, firebaseUid?: string, retries = 4) {
+export async function processToolApi(endpoint: string, formData: FormData, firebaseUid?: string, retries = 8) {
   const headers: Record<string, string> = {};
   if (firebaseUid) {
     headers["X-Firebase-UID"] = firebaseUid;
@@ -76,7 +76,7 @@ export async function processToolApi(endpoint: string, formData: FormData, fireb
 
       if (res.status === 502 || res.status === 503 || res.status === 504) {
         if (attempt < retries) {
-          await new Promise((r) => setTimeout(r, 4000));
+          await new Promise((r) => setTimeout(r, 4500));
           continue;
         }
       }
@@ -86,10 +86,10 @@ export async function processToolApi(endpoint: string, formData: FormData, fireb
         data = await res.json();
       } catch {
         if (attempt < retries) {
-          await new Promise((r) => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, 3500));
           continue;
         }
-        throw new Error("Unable to parse server response. Please try again in a few seconds.");
+        throw new Error("Server responded with an invalid response. Please try again in a moment.");
       }
 
       if (!res.ok) {
@@ -99,11 +99,11 @@ export async function processToolApi(endpoint: string, formData: FormData, fireb
       return data;
     } catch (err: any) {
       if (attempt < retries && (err.name === "TypeError" || String(err.message).includes("Failed to fetch"))) {
-        await new Promise((r) => setTimeout(r, 4000));
+        await new Promise((r) => setTimeout(r, 4500));
         continue;
       }
       if (String(err.message).includes("Failed to fetch")) {
-        throw new Error("Conversion service is temporarily unavailable. Please try again in a few moments.");
+        throw new Error("Document processing is taking a moment to connect. Please click Process once more.");
       }
       throw err;
     }
