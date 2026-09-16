@@ -619,7 +619,7 @@ def pdf_to_jpg(pdf_bytes: bytes, dpi: int = 150) -> list[tuple[str, bytes]]:
         return (pno, f"page_{pno + 1}.jpg", img_b)
 
     import concurrent.futures
-    workers = min(16, total)
+    workers = min(4, total)
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         results = list(executor.map(render_page, range(total)))
 
@@ -686,10 +686,10 @@ def pdf_to_word(pdf_bytes: bytes) -> bytes:
 def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
     import tempfile
     import os
+    import gc
     from pptx import Presentation
     from pptx.util import Pt
 
-    # Ultra-High-Definition (300 DPI) Vector Slide Engine (Matching iLovePDF / Smallpdf / Adobe standard)
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     prs = Presentation()
     
@@ -698,8 +698,8 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
         prs.slide_width = Pt(first_page.rect.width)
         prs.slide_height = Pt(first_page.rect.height)
     else:
-        prs.slide_width = Inches(10)
-        prs.slide_height = Inches(7.5)
+        prs.slide_width = Pt(720)
+        prs.slide_height = Pt(540)
     
     blank_layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
 
@@ -707,12 +707,18 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
         for page_idx, page in enumerate(doc):
             slide = prs.slides.add_slide(blank_layout)
             
-            # 300 DPI Ultra-Crisp Rendering - 100% pixel-perfect vector typography, graphics, and backgrounds
-            pix = page.get_pixmap(dpi=300)
+            # 150 DPI for high definition with low memory footprint and high conversion speed
+            pix = page.get_pixmap(dpi=150)
             img_path = os.path.join(tmpdir, f"slide_{page_idx}.png")
             pix.save(img_path)
+            pix = None # Release memory immediately
             
             slide.shapes.add_picture(img_path, Pt(0), Pt(0), width=Pt(page.rect.width), height=Pt(page.rect.height))
+            if os.path.exists(img_path):
+                try:
+                    os.remove(img_path)
+                except Exception:
+                    pass
 
         out_pptx = os.path.join(tmpdir, "presentation.pptx")
         prs.save(out_pptx)
@@ -720,6 +726,7 @@ def pdf_to_pptx(pdf_bytes: bytes) -> bytes:
             out_bytes = f.read()
 
     doc.close()
+    gc.collect()
     return out_bytes
 
 def pdf_to_excel(pdf_bytes: bytes) -> bytes:
