@@ -104,6 +104,8 @@ async def api_remove_pages(
         out_name = f"removed_{file.filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove pages: {str(e)}")
 
@@ -125,6 +127,8 @@ async def api_extract_pages(
         out_name = f"extracted_{file.filename}"
         item = save_generated_bytes(db, out_bytes, out_name, "application/pdf", uid)
         return {"success": True, "download_key": item.file_key, "filename": out_name, "size": item.file_size}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to extract pages: {str(e)}")
 

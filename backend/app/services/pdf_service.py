@@ -97,6 +97,10 @@ def remove_pages(file_bytes: bytes, pages_to_remove: list[int]) -> bytes:
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     pages_to_remove_0 = [p - 1 for p in pages_to_remove if 1 <= p <= len(doc)]
     
+    if len(pages_to_remove_0) >= len(doc):
+        doc.close()
+        raise ValueError("Cannot remove all pages from the document. A PDF must have at least one page.")
+    
     new_doc = fitz.open()
     for i in range(len(doc)):
         if i not in pages_to_remove_0:
@@ -111,7 +115,8 @@ def extract_pages(file_bytes: bytes, pages_range_str: str) -> bytes:
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     indices = parse_page_ranges(pages_range_str, len(doc))
     if not indices:
-        indices = list(range(len(doc)))
+        doc.close()
+        raise ValueError("No valid pages specified for extraction.")
     
     new_doc = fitz.open()
     for idx in indices:
