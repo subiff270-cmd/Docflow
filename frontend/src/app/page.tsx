@@ -18,7 +18,6 @@ import {
   FileOutput,
   FileMinus,
   Brain,
-  Globe,
   Lock,
   LayoutGrid,
   FileCheck2,
@@ -97,19 +96,6 @@ const PARTICLES = [
   { size: 2, x: "92%", y: "50%", color: "particle-purple", dur: "13s", delay: "2s" },
 ];
 
-/* ──────────────────────────────────────────
-   Language chips
-   ────────────────────────────────────────── */
-const LANGUAGES = [
-  { label: "हिन्दी", name: "Hindi" },
-  { label: "தமிழ்", name: "Tamil" },
-  { label: "తెలుగు", name: "Telugu" },
-  { label: "ಕನ್ನಡ", name: "Kannada" },
-  { label: "മലയാളം", name: "Malayalam" },
-  { label: "বাংলা", name: "Bengali" },
-  { label: "मराठी", name: "Marathi" },
-  { label: "ગુજરાતી", name: "Gujarati" },
-];
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<string>("ALL");
@@ -393,42 +379,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ============================================
-          INDIAN LANGUAGES SECTION
-          ============================================ */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="space-y-6">
-          <div className="text-center space-y-4 mb-8">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 uppercase tracking-widest">
-              <Globe className="w-3.5 h-3.5" />
-              Multi-Language Support
-            </span>
-            <h2 className="text-xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Documents that speak your language
-            </h2>
-            <p className="text-sm text-slate-500 max-w-lg mx-auto">
-              Extract text from documents in 10+ Indian languages with precision
-              OCR technology.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-            {LANGUAGES.map((lang) => (
-              <span key={lang.name} className="lang-chip" title={lang.name}>
-                {lang.label}
-              </span>
-            ))}
-          </div>
-          <div className="text-center mt-6">
-            <Link
-              href="/ocr-pdf"
-              className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition group"
-            >
-              Explore OCR PDF
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-        </div>
-      </section>
 
       {/* ============================================
           FEATURED CAPABILITIES BANNER
