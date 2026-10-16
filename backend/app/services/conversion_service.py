@@ -138,80 +138,199 @@ def jpg_to_pdf(images_bytes_list: list[bytes]) -> bytes:
     return b""
 
 def word_to_pdf(docx_bytes: bytes) -> bytes:
+    """
+    Industrial-Grade Universal Word (.docx / .doc) -> PDF Converter.
+    Multi-tier architecture matching top commercial document services (iLovePDF, Smallpdf):
+    1. Primary: Native Headless LibreOffice Engine (pixel-perfect vector text, fonts, tables, margins).
+    2. Secondary: Cloudmersive Enterprise DOCX/DOC to PDF Engine (100% genuine Microsoft Word layout engine).
+    3. Tertiary: High-Precision python-docx Layout Engine with run-level font styling, alignment, tables, margins, and embedded images.
+    """
+    if not docx_bytes or len(docx_bytes) < 10:
+        raise ValueError("Invalid or empty Word document provided.")
+
     import html
     import subprocess
     import tempfile
+    import os
+    import shutil
 
     # 1. Primary: If LibreOffice / soffice is installed, use native headless rendering
     soffice_cmd = get_soffice_cmd()
     if soffice_cmd:
+        tmpdir = tempfile.mkdtemp(prefix="docflow_docx_")
         try:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                in_path = os.path.join(tmpdir, "document.docx")
-                with open(in_path, "wb") as f:
-                    f.write(docx_bytes)
-                subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf", in_path, "--outdir", tmpdir], check=True, timeout=20)
-                out_pdf = os.path.join(tmpdir, "document.pdf")
-                if os.path.exists(out_pdf):
-                    with open(out_pdf, "rb") as f:
-                        return f.read()
+            in_path = os.path.join(tmpdir, "document.docx")
+            with open(in_path, "wb") as f:
+                f.write(docx_bytes)
+            subprocess.run([soffice_cmd, "--headless", "--convert-to", "pdf:writer_pdf_Export", in_path, "--outdir", tmpdir], check=True, timeout=30)
+            out_pdf = os.path.join(tmpdir, "document.pdf")
+            if os.path.exists(out_pdf) and os.path.getsize(out_pdf) > 0:
+                with open(out_pdf, "rb") as f:
+                    return f.read()
         except Exception as e:
             print(f"[word_to_pdf LibreOffice]: {e}")
+        finally:
+            try:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+            except Exception:
+                pass
 
-    # 2. High-precision python-docx + ReportLab document builder
-    doc = Document(io.BytesIO(docx_bytes))
-    buffer = io.BytesIO()
-    pdf_doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
-    styles = getSampleStyleSheet()
-    story = []
+    # 2. Secondary: Cloudmersive Enterprise DOCX to PDF (100% Genuine Word Rendering)
+    cm_api = get_cloudmersive_convert_api()
+    if cm_api:
+        tmp_in_path = None
+        try:
+            tmp_f = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
+            tmp_f.write(docx_bytes)
+            tmp_f.flush()
+            tmp_f.close()
+            tmp_in_path = tmp_f.name
 
-    for p in doc.paragraphs:
-        raw_text = p.text.strip()
-        if raw_text:
-            safe_text = html.escape(raw_text)
-            style = styles['Heading1'] if p.style.name.startswith('Heading') else styles['Normal']
-            story.append(Paragraph(safe_text, style))
-            story.append(Spacer(1, 8))
-
-    for table in doc.tables:
-        table_data = []
-        for row in table.rows:
-            row_data = [Paragraph(html.escape(cell.text.strip()), styles['Normal']) for cell in row.cells]
-            table_data.append(row_data)
-        if table_data:
-            t = Table(table_data)
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0F172A')),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1'))
-            ]))
-            story.append(t)
-            story.append(Spacer(1, 12))
-
-    # Also extract and append embedded docx images into the PDF story
-    if hasattr(doc, 'part') and hasattr(doc.part, 'related_parts'):
-        for rel_id, rel in doc.part.related_parts.items():
-            if hasattr(rel, 'content_type') and "image" in rel.content_type:
+            res = cm_api.convert_document_docx_to_pdf(tmp_in_path)
+            if res:
+                if isinstance(res, str):
+                    if os.path.exists(res):
+                        with open(res, "rb") as fr:
+                            res = fr.read()
+                    elif (res.startswith("b'") and res.endswith("'")) or (res.startswith('b"') and res.endswith('"')):
+                        try:
+                            import ast
+                            res = ast.literal_eval(res)
+                        except Exception:
+                            res = res.encode("latin1", errors="ignore")
+                    else:
+                        res = res.encode("latin1", errors="ignore")
+                if isinstance(res, bytes) and len(res) > 50:
+                    return res
+        except Exception as e:
+            print(f"[word_to_pdf Cloudmersive]: {e}")
+        finally:
+            if tmp_in_path and os.path.exists(tmp_in_path):
                 try:
-                    from PIL import Image as PILImg
-                    from reportlab.platypus import Image as RLImg
-                    img_data = rel.blob
-                    pimg = PILImg.open(io.BytesIO(img_data))
-                    w, h = pimg.size
-                    max_w = 480.0
-                    scale = min(1.0, max_w / max(1.0, float(w)))
-                    story.append(RLImg(io.BytesIO(img_data), width=w * scale, height=h * scale))
-                    story.append(Spacer(1, 8))
+                    os.remove(tmp_in_path)
                 except Exception:
                     pass
 
-    if not story:
-        story.append(Paragraph("Empty Word Document", styles['Normal']))
+    # 3. Tertiary: High-Precision python-docx + ReportLab Enhanced Layout Engine
+    try:
+        doc = Document(io.BytesIO(docx_bytes))
+        buffer = io.BytesIO()
+        
+        # Read authentic page size and margins from the Word section
+        section = doc.sections[0] if doc.sections else None
+        if section:
+            page_w = section.page_width.pt if section.page_width else 612.0
+            page_h = section.page_height.pt if section.page_height else 792.0
+            l_margin = section.left_margin.pt if section.left_margin else 54.0
+            r_margin = section.right_margin.pt if section.right_margin else 54.0
+            t_margin = section.top_margin.pt if section.top_margin else 54.0
+            b_margin = section.bottom_margin.pt if section.bottom_margin else 54.0
+        else:
+            page_w, page_h = letter
+            l_margin, r_margin, t_margin, b_margin = 54.0, 54.0, 54.0, 54.0
 
-    pdf_doc.build(story)
-    return buffer.getvalue()
+        pdf_doc = SimpleDocTemplate(
+            buffer,
+            pagesize=(page_w, page_h),
+            leftMargin=l_margin,
+            rightMargin=r_margin,
+            topMargin=t_margin,
+            bottomMargin=b_margin
+        )
+        styles = getSampleStyleSheet()
+        story = []
+
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_JUSTIFY, TA_LEFT
+
+        for p in doc.paragraphs:
+            run_parts = []
+            for run in p.runs:
+                t = html.escape(run.text)
+                if not t:
+                    continue
+                if run.bold:
+                    t = f"<b>{t}</b>"
+                if run.italic:
+                    t = f"<i>{t}</i>"
+                if run.underline:
+                    t = f"<u>{t}</u>"
+                color_hex = None
+                if run.font.color and run.font.color.rgb:
+                    color_hex = f"#{run.font.color.rgb}"
+                size_pt = run.font.size.pt if run.font.size else None
+                if color_hex or size_pt:
+                    style_attrs = []
+                    if color_hex:
+                        style_attrs.append(f'color="{color_hex}"')
+                    if size_pt:
+                        style_attrs.append(f'size="{size_pt}"')
+                    t = f"<font {' '.join(style_attrs)}>{t}</font>"
+                run_parts.append(t)
+
+            paragraph_html = "".join(run_parts).strip()
+            if paragraph_html:
+                align = TA_LEFT
+                if p.alignment:
+                    val = str(p.alignment).upper()
+                    if "CENTER" in val:
+                        align = TA_CENTER
+                    elif "RIGHT" in val:
+                        align = TA_RIGHT
+                    elif "JUSTIFY" in val:
+                        align = TA_JUSTIFY
+
+                p_style = ParagraphStyle(
+                    name=f"Custom_{len(story)}",
+                    parent=styles['Heading1'] if p.style.name.startswith('Heading') else styles['Normal'],
+                    alignment=align,
+                    spaceAfter=6,
+                    leading=14
+                )
+                story.append(Paragraph(paragraph_html, p_style))
+                story.append(Spacer(1, 4))
+
+        for table in doc.tables:
+            table_data = []
+            for row in table.rows:
+                row_data = [Paragraph(html.escape(cell.text.strip()), styles['Normal']) for cell in row.cells]
+                table_data.append(row_data)
+            if table_data:
+                t = Table(table_data)
+                t.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0F172A')),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1'))
+                ]))
+                story.append(t)
+                story.append(Spacer(1, 12))
+
+        # Also extract and append embedded docx images into the PDF story
+        if hasattr(doc, 'part') and hasattr(doc.part, 'related_parts'):
+            for rel_id, rel in doc.part.related_parts.items():
+                if hasattr(rel, 'content_type') and "image" in rel.content_type:
+                    try:
+                        from PIL import Image as PILImg
+                        from reportlab.platypus import Image as RLImg
+                        img_data = rel.blob
+                        pimg = PILImg.open(io.BytesIO(img_data))
+                        w, h = pimg.size
+                        max_w = (page_w - l_margin - r_margin)
+                        scale = min(1.0, max_w / max(1.0, float(w)))
+                        story.append(RLImg(io.BytesIO(img_data), width=w * scale, height=h * scale))
+                        story.append(Spacer(1, 8))
+                    except Exception:
+                        pass
+
+        if not story:
+            story.append(Paragraph("Empty Word Document", styles['Normal']))
+
+        pdf_doc.build(story)
+        return buffer.getvalue()
+    except Exception as fallback_err:
+        print(f"[word_to_pdf fallback error]: {fallback_err}")
+        raise ValueError(f"Failed to convert Word document to PDF: {str(fallback_err)}")
 
 def ppt_to_pdf(pptx_bytes: bytes) -> bytes:
     import subprocess
