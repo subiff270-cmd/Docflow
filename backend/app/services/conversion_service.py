@@ -190,6 +190,23 @@ def word_to_pdf(docx_bytes: bytes) -> bytes:
             story.append(t)
             story.append(Spacer(1, 12))
 
+    # Also extract and append embedded docx images into the PDF story
+    if hasattr(doc, 'part') and hasattr(doc.part, 'related_parts'):
+        for rel_id, rel in doc.part.related_parts.items():
+            if hasattr(rel, 'content_type') and "image" in rel.content_type:
+                try:
+                    from PIL import Image as PILImg
+                    from reportlab.platypus import Image as RLImg
+                    img_data = rel.blob
+                    pimg = PILImg.open(io.BytesIO(img_data))
+                    w, h = pimg.size
+                    max_w = 480.0
+                    scale = min(1.0, max_w / max(1.0, float(w)))
+                    story.append(RLImg(io.BytesIO(img_data), width=w * scale, height=h * scale))
+                    story.append(Spacer(1, 8))
+                except Exception:
+                    pass
+
     if not story:
         story.append(Paragraph("Empty Word Document", styles['Normal']))
 
@@ -670,6 +687,7 @@ def pdf_to_word(pdf_bytes: bytes) -> bytes:
         print(f"[pdf_to_word fallback]: {e}")
 
     # 2. PyMuPDF + python-docx structural fallback
+    from docx.shared import Inches as DocxInches
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     docx_doc = Document()
     for page in doc:
@@ -678,6 +696,14 @@ def pdf_to_word(pdf_bytes: bytes) -> bytes:
             for paragraph in text.split("\n\n"):
                 if paragraph.strip():
                     docx_doc.add_paragraph(paragraph.strip())
+        else:
+            # For scanned / image pages without digital text layer, embed page image so Word document is never empty
+            try:
+                pix = page.get_pixmap(dpi=150)
+                img_bytes = pix.tobytes("png")
+                docx_doc.add_picture(io.BytesIO(img_bytes), width=DocxInches(6.0))
+            except Exception as img_err:
+                print(f"[pdf_to_word image fallback]: {img_err}")
     buffer = io.BytesIO()
     docx_doc.save(buffer)
     doc.close()

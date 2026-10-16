@@ -16,6 +16,9 @@ export async function clientMergePdf(files: File[]): Promise<ClientProcessResult
     const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
     copiedPages.forEach((page) => mergedPdf.addPage(page));
   }
+  if (mergedPdf.getPageCount() === 0) {
+    throw new Error("No pages could be merged client-side. Falling back to server engine.");
+  }
   const mergedBytes = await mergedPdf.save();
   const blob = new Blob([mergedBytes as BlobPart], { type: "application/pdf" });
   return {
@@ -511,6 +514,10 @@ export async function clientImageToPdf(files: File[]): Promise<ClientProcessResu
         height: fitH,
       });
     }
+  }
+
+  if (pdf.getPageCount() === 0) {
+    throw new Error("No images could be processed client-side. Falling back to server engine.");
   }
 
   const outBytes = await pdf.save();

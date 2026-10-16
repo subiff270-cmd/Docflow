@@ -313,17 +313,14 @@ export default function VoiceWorkspace() {
     setDownloading(true);
     try {
       const url = getDownloadUrl(result.download_key);
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = blobUrl;
+      link.href = url;
       link.download = result.filename || "voice_document";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(blobUrl);
 
       if (refreshProfile) {
         await refreshProfile();

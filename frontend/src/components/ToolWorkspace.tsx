@@ -779,7 +779,9 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 60000);
   };
 
   const handleSwitchCropPage = (idx: number) => {
@@ -2113,25 +2115,23 @@ export default function ToolWorkspace({ tool }: ToolWorkspaceProps) {
         return;
       }
 
-      // 2. Server-side generated download key
+      // 2. Server-side generated download key: Direct native browser stream download
       if (result.download_key) {
         const url = getDownloadUrl(result.download_key);
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Download failed");
-        const blob = await res.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.href = blobUrl;
+        link.href = url;
         link.download = result.filename || "converted_document";
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
         document.body.appendChild(link);
         link.click();
         link.remove();
-        window.URL.revokeObjectURL(blobUrl);
 
         incrementClientDailyUsage();
         if (refreshProfile) {
           await refreshProfile();
         }
+        return;
       }
     } catch (err) {
       if (result.download_key) {
